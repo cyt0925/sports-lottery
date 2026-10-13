@@ -56,6 +56,11 @@ ALIASES = {
     "特拉布宗": ["trabzon"], "貝爾格萊德": ["belgrade"], "薩格勒布": ["zagreb", "cibona"],
     "海法": ["haifa"], "阿拉里斯": ["aris"], "特內里費": ["tenerife"], "拉古納": ["tenerife"],
     "貝桑松": ["besancon"], "布魯塞爾": ["brussels"], "安特衛普": ["antwerp"],
+    "塞德維塔": ["cedevita"], "里加": ["riga"], "希奧利艾": ["siauliai"], "烏姆": ["ulm"], "波士納": ["bosna"],
+    "布爾戈斯": ["burgos"], "拿坡里": ["napoli"], "托法什": ["tofas"], "布爾薩": ["tofas", "bursa"], "德托納": ["derthona"],
+    "托爾托納": ["derthona"], "羅馬": ["roma"], "威尼斯雷耶爾": ["venezia"], "薩格勒布": ["zagreb", "cibona"],
+    "哈普爾": ["hapoel"], "阿里斯": ["aris"], "斯洛萬": ["slask"], "布拉格": ["prague"], "馬尼薩": ["manisa"],
+    "巴塞羅納": ["barcelona"], "慕尼黑拜仁": ["bayern"], "維爾紐斯": ["rytas", "wolves"], "狼隊": ["wolves"],
 }
 
 

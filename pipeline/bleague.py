@@ -90,18 +90,24 @@ class BLeague:
         for table in soup.find_all("table"):
             rows = []
             for tr in table.find_all("tr"):
-                tds = [td.get_text(" ", strip=True) for td in tr.find_all("td")]
-                if len(tds) < 13 or not re.match(r"^\d{1,2}$", tds[0]):
+                cells = tr.find_all("td")
+                tds = [td.get_text(" ", strip=True) for td in cells]
+                if len(tds) < 12 or not re.match(r"^\d{1,2}$", tds[0]):
                     continue
-                # 順位 クラブ 略称 勝 負 勝率 差 得点 失点 得失点差 ホーム アウェー 過去5試合 連勝/連敗 試合数 ...
+                # 順位 | クラブ（全名 span + 簡稱 span + logo）| 勝 負 勝率 差 得点 失点 得失点差 ホーム アウェー 過去5試合 連勝/連敗 試合数 ...
+                team_td = cells[1]
+                full = team_td.select_one(".team-name-line")
+                short = team_td.select_one(".pc-tab-dn")
+                name = full.get_text(strip=True) if full else tds[1]
+                abbr = short.get_text(strip=True) if short else (team_td.find("img").get("alt") if team_td.find("img") else tds[1])
+                nums = tds[2:]
                 try:
                     rank = int(tds[0])
-                    name, abbr = tds[1], tds[2]
-                    w, l = int(tds[3]), int(tds[4])
-                    pct = tds[5]
-                    gb = tds[6]
-                    pf, pa, diff = int(tds[7]), int(tds[8]), int(tds[9].replace("−", "-").replace("－", "-"))
-                    home, away, last5, streak = tds[10], tds[11], tds[12], tds[13] if len(tds) > 13 else ""
+                    w, l = int(nums[0]), int(nums[1])
+                    pct = nums[2]
+                    gb = nums[3]
+                    pf, pa, diff = int(nums[4]), int(nums[5]), int(nums[6].replace("−", "-").replace("－", "-"))
+                    home, away, last5, streak = nums[7], nums[8], nums[9], nums[10] if len(nums) > 10 else ""
                 except (ValueError, IndexError):
                     continue
                 logo = None

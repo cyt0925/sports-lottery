@@ -1023,10 +1023,15 @@ def build_suggestion(g, lg):
     # 台灣運彩盤口：用國際盤的公平勝率去算台灣賠率的期望值
     tw = g.get("tw") or {}
     ml = tw.get("ml") or {}
+    ev = None
     if res["pick"] and ml.get(res["pick"]) and o.get(f"prob_{res['pick']}") and psrc != "tw_ml":
         dec_tw = ml[res["pick"]]
         p = o[f"prob_{res['pick']}"]
         ev = p * dec_tw - 1
+        if dec_tw < 1.12:
+            cautions.append(f"台灣運彩不讓分賠率只有 {dec_tw}，贏了也幾乎沒賺頭，想下的話看讓分盤")
+            ev = None
+    if res["pick"] and ml.get(res["pick"]) and o.get(f"prob_{res['pick']}") and psrc != "tw_ml" and ev is not None:
         # 台灣運彩抽水約一成多，期望值 -8% 到 -14% 是「正常」；比這好算划算，比這差才提醒
         res["tw_ev"] = round(ev * 100)
         res["tw_dec"] = dec_tw

@@ -22,6 +22,12 @@ TITLE_KW = {
     "zh": re.compile(r"受傷|傷兵|缺陣|傷退|復出|手術"),
 }
 SPORT_HINT = {"en": " basketball", "ja": "", "zh": ""}
+EXCLUDE = {
+    "en": re.compile(r"\bAC Milan\b|soccer|football|Serie A|La ?Liga|Champions League|Europa League|UEFA|goalkeeper|striker|midfielder|winger|Aston Villa|Galatasaray|Juventus|Premier League|Bundesliga|Ligue 1|Super Lig|NCAA|college|motorcycle|cricket|rugby|hockey", re.I),
+    "ja": re.compile(r"サッカー|Jリーグ|野球|ラグビー"),
+    "zh": re.compile(r"足球|棒球"),
+}
+PROBE = {"done": False}
 INJ_TERMS = {
     "en": '(injury OR injured OR sidelined OR "ruled out" OR "will miss" OR "out for" OR "out indefinitely" OR surgery)',
     "ja": "(怪我 OR 負傷 OR 欠場 OR 離脱 OR 復帰 OR 手術 OR 故障)",
@@ -69,7 +75,8 @@ def injury_news(name, lang, days=10, limit=3, hint=None):
     hint = SPORT_HINT.get(lang, "") if hint is None else hint
     q = f'"{name}"{hint} {INJ_TERMS.get(lang, INJ_TERMS["en"])} when:{days}d'
     kw = TITLE_KW.get(lang, TITLE_KW["en"])
-    items = [x for x in _query(q, lang) if kw.search(x.get("title") or "")]
+    ex = EXCLUDE.get(lang)
+    items = [x for x in _query(q, lang) if kw.search(x.get("title") or "") and not (ex and ex.search(x.get("title") or ""))]
     return items[:limit]
 
 
@@ -77,7 +84,31 @@ def team_news(name, lang, days=4, limit=3, hint=None):
     if not name:
         return []
     hint = SPORT_HINT.get(lang, "") if hint is None else hint
-    return _query(f'"{name}"{hint} when:{days}d', lang)[:limit]
+    ex = EXCLUDE.get(lang)
+    return [x for x in _query(f'"{name}"{hint} when:{days}d', lang) if not (ex and ex.search(x.get("title") or ""))][:limit]
+
+
+def probe_injury_report(items, log):
+    """探路：Google 新聞裡的「EuroLeague Injury Report」連結實際指到哪（下一步想直接解析那一頁）。"""
+    if PROBE["done"]:
+        return
+    for x in items:
+        if "Injury Report" in (x.get("title") or "") and x.get("url"):
+            PROBE["done"] = True
+            try:
+                import requests
+                r = requests.get(x["url"], timeout=20, allow_redirects=True, headers={"User-Agent": "Mozilla/5.0"})
+                log(f"[news] 傷兵報告連結 {x['url'][:80]} -> {r.status_code} {r.url[:120]} len={len(r.text)}")
+                m = re.search(r'<a[^>]+href="(https?://[^"]+basketnews[^"]+)"', r.text)
+                if m:
+                    log(f"[news] 頁內 basketnews 連結：{m.group(1)[:140]}")
+                txt = re.sub(r"<[^>]+>", " ", r.text)
+                txt = re.sub(r"\s+", " ", txt)
+                i = txt.find("Injury")
+                log(f"[news] 內容片段：{txt[max(0, i - 200): i + 1200]}")
+            except Exception as e:  # noqa: BLE001
+                log(f"[news] 傷兵報告探路失敗 {e!r}")
+            break
 
 
 def attach(games, name_fn, log, errors, label, hint=None):
@@ -107,6 +138,7 @@ def attach(games, name_fn, log, errors, label, hint=None):
                 if inj:
                     note = f"沒有官方傷兵名單，近 10 天新聞有提到傷兵相關消息（{len(inj)} 則，點進去看）"
                     n_team += 1
+                    probe_injury_report(inj, log)
                 else:
                     note = "沒有官方傷兵名單；近 10 天新聞沒有提到這隊的傷兵消息，通常代表陣容完整，但賽前仍可能臨時缺陣"
                 t["injury_news"], t["injury_note"] = inj, note

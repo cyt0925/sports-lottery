@@ -78,7 +78,57 @@ def parse_page(text, gender_hint, now):
         if len(lis) < 2:
             continue
         home, away = _team(lis[0], None), _team(lis[1], None)
+        home["sets"], away["sets"] = [], []
         out.append(dict(gender=gender, date=d, status=status, home=home, away=away))
+    return out
+
+
+def parse_match_page(text, gender, now):
+    """/match/sv/men/ 這種頁：<dl><dt>日期</dt><dd>…一場…</dd></dl>。局數在 div.game 的 span 裡。"""
+    soup = BeautifulSoup(text, "html.parser")
+    out = []
+    year0 = _season_year(now)
+    cur = None
+    for dl in soup.find_all("dl"):
+        dt = dl.find("dt")
+        if dt is not None:
+            m = re.search(r"(\d{1,2})\.(\d{1,2})", dt.get_text(" ", strip=True))
+            if m:
+                mon, day = int(m.group(1)), int(m.group(2))
+                cur = (year0 if mon >= 7 else year0 + 1, mon, day)
+        for dd in dl.find_all("dd"):
+            ul = dd.find("ul")
+            if ul is None:
+                continue
+            lis = [li for li in ul.find_all("li", recursive=False) if li.find("img")] or ul.find_all("li")
+            if len(lis) < 2:
+                continue
+            head = dd.find_previous("dt")
+            if head is not None:
+                m = re.search(r"(\d{1,2})\.(\d{1,2})", head.get_text(" ", strip=True))
+                if m:
+                    mon, day = int(m.group(1)), int(m.group(2))
+                    cur = (year0 if mon >= 7 else year0 + 1, mon, day)
+            if not cur:
+                continue
+            teams = []
+            for li in lis[:2]:
+                t = _team(li, None)
+                game = li.find(class_="game")
+                sets_ = [s.get_text(strip=True) for s in game.find_all("span")] if game else []
+                sets_ = [x for x in sets_ if x]
+                t["sets"] = sets_
+                # 第一個 span 通常是局數（贏幾局），後面是各局分數
+                if not t.get("score") and sets_:
+                    t["score"] = sets_[0]
+                teams.append(t)
+            tm = dd.find(class_="time")
+            status = tm.get_text(" ", strip=True) if tm else ""
+            em = tm.find("em") if tm else None
+            if em is not None:
+                status = em.get_text(strip=True)
+            status = status.replace("GAME START", "").strip()
+            out.append(dict(gender=gender, date=cur, status=status, home=teams[0], away=teams[1]))
     return out
 
 
@@ -106,10 +156,13 @@ def fetch_games(lg, log, errors, now=None):
             continue
         try:
             rows = parse_page(text, gender, now)
+            if not rows and gender:
+                rows = parse_match_page(text, gender, now)
         except Exception as e:  # noqa: BLE001
             errors.append(f"日排 SV.LEAGUE {path} 解析失敗: {e!r}")
             rows = []
-        log(f"[jpvolley] {path} 解析到 {len(rows)} 場")
+        log(f"[jpvolley] {path} 解析到 {len(rows)} 場" + (f"，例：{rows[0]['date']} {rows[0]['status']} {rows[0]['home']['name']} {rows[0]['home'].get('score')} vs {rows[0]['away']['name']} {rows[0]['away'].get('score')}；已完成 {sum(1 for r in rows if r['home'].get('score') and r['away'].get('score'))} 場" if rows else "")),
+
         if path != "/" and f"raw{path}" not in DEBUG:
             i = text.find("試合終了")
             if i < 0:
@@ -120,9 +173,11 @@ def fetch_games(lg, log, errors, now=None):
             if i < 0:
                 m = re.search(r"(10|11|12|0?[1-9])月\s*\d{1,2}日|\d{1,2}/\d{1,2}", text)
                 i = m.start() if m else -1
-            classes = sorted(set(re.findall(r'class="([^"]+)"', text)))
-            hot = [c for c in classes if re.search(r"match|game|result|schedule|table|score|list|item|card|day", c, re.I)]
-            DEBUG[f"raw{path}"] = (re.sub(r"\s+", " ", text[max(0, i - 600): i + 1400]) if i >= 0 else f"len={len(text)} 找不到日期") + " ||| classes: " + ", ".join(hot[:60])
+            dls = re.findall(r"<dl.*?</dl>", text, flags=re.S)
+            done = [d for d in dls if "終了" in d or 'class="game"' in d and re.search(r"<span>\s*[0-3]\s*</span>", d)]
+            DEBUG[f"raw{path}"] = "dl 區塊 " + str(len(dls)) + "；第一個：" + re.sub(r"\s+", " ", dls[0])[:1600] if dls else (re.sub(r"\s+", " ", text[max(0, i - 600): i + 1400]) if i >= 0 else f"len={len(text)} 找不到日期")
+            if done:
+                DEBUG[f"raw{path}-done"] = "有比分的 dl：" + re.sub(r"\s+", " ", done[0])[:1600]
         rows_all.extend(rows)
         time.sleep(0.4)
     # 去重：同性別、同日、同兩隊
