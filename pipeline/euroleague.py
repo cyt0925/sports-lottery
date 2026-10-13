@@ -66,12 +66,13 @@ ALIASES = {
 
 # 查新聞用的名字（跟足球隊同名的要講清楚）
 QUERY_NAME = {
+    "jerusalem": "Hapoel Jerusalem basketball", "jlm": "Hapoel Jerusalem basketball",
     "milan": "Olimpia Milano", "roma": "Roma SPQR", "real madrid": "Real Madrid baloncesto", "barcelona": "Barça basket",
     "valencia": "Valencia Basket", "bayern": "Bayern Munich basketball", "monaco": "AS Monaco Basket", "paris": "Paris Basketball",
     "london": "London Lions", "venezia": "Reyer Venezia", "napoli": "Napoli Basket", "balkan": "Balkan Botevgrad", "dubai": "Dubai Basketball",
     "ulm": "ratiopharm Ulm", "bosna": "Bosna Sarajevo", "aris": "Aris Thessaloniki", "paok": "PAOK basketball", "cluj": "U-BT Cluj",
-    "siauliai": "Siauliai basketball", "riga": "Riga Zelli", "cedevita": "Cedevita Olimpija", "hapoel tel": "Hapoel Tel Aviv basketball",
-    "hapoel": "Hapoel Jerusalem basketball", "maccabi": "Maccabi Tel Aviv basketball", "partizan": "Partizan basketball",
+    "siauliai": "Siauliai basketball", "riga": "Riga Zelli", "cedevita": "Cedevita Olimpija",
+    "hapoel": "Hapoel Tel Aviv basketball", "maccabi": "Maccabi Tel Aviv basketball", "partizan": "Partizan basketball",
     "crvena": "Crvena Zvezda basketball", "fenerbahce": "Fenerbahce Beko", "efes": "Anadolu Efes", "besiktas": "Besiktas basketball",
     "turk telekom": "Turk Telekom basketball", "tofas": "Tofas Bursa", "bahcesehir": "Bahcesehir College", "manresa": "Baxi Manresa",
     "trento": "Aquila Trento", "chemnitz": "Niners Chemnitz", "bourg": "JL Bourg", "neptunas": "Neptunas Klaipeda", "lietkabelis": "Lietkabelis",
