@@ -70,16 +70,26 @@
   }, true);
 
   // ---------- 資料 ----------
-  async function load() {
+  // 載入遮罩：開站與手動重新整理時顯示（至少停 700ms，免得一閃而過）；背景自動更新不顯示
+  function showLoader(on) { const el = $("#loader"); if (el) el.classList.toggle("on", on); }
+  async function load(opts = {}) {
+    const visible = opts.silent ? false : true;
+    const t0 = Date.now();
+    if (visible) showLoader(true);
     try {
       const r = await fetch(`${DATA_URL}?t=${Date.now()}`, { cache: "no-store" });
       if (!r.ok) throw new Error("HTTP " + r.status);
       state.data = await r.json();
     } catch (err) {
       $("#games").innerHTML = `<div class="empty">資料載入失敗（${esc(err.message)}）。排程可能還沒跑過，稍後再試。</div>`;
+      showLoader(false);
       return;
     }
     render();
+    if (visible) {
+      const wait = Math.max(0, 700 - (Date.now() - t0));
+      setTimeout(() => showLoader(false), wait);
+    }
   }
 
   function gamesForSport() {
@@ -568,7 +578,7 @@
   document.addEventListener("change", (e) => {
     if (e.target.id === "st-sel") { state.standingsLeague = e.target.value; localStorage.setItem("standingsLeague", e.target.value); renderStandings(); }
   });
-  $("#btn-refresh").addEventListener("click", load);
+  $("#btn-refresh").addEventListener("click", () => load());
   $("#btn-theme").addEventListener("click", () => {
     const cur = document.documentElement.dataset.theme === "light" ? "dark" : "light";
     document.documentElement.dataset.theme = cur;
@@ -581,5 +591,5 @@
   } catch (_) { /* ignore */ }
 
   load();
-  setInterval(load, 5 * 60 * 1000);
+  setInterval(() => load({ silent: true }), 5 * 60 * 1000);
 })();
