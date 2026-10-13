@@ -64,6 +64,31 @@ ALIASES = {
 }
 
 
+# 查新聞用的名字（跟足球隊同名的要講清楚）
+QUERY_NAME = {
+    "milan": "Olimpia Milano", "roma": "Roma SPQR", "real madrid": "Real Madrid baloncesto", "barcelona": "Barça basket",
+    "valencia": "Valencia Basket", "bayern": "Bayern Munich basketball", "monaco": "AS Monaco Basket", "paris": "Paris Basketball",
+    "london": "London Lions", "venezia": "Reyer Venezia", "napoli": "Napoli Basket", "balkan": "Balkan Botevgrad", "dubai": "Dubai Basketball",
+    "ulm": "ratiopharm Ulm", "bosna": "Bosna Sarajevo", "aris": "Aris Thessaloniki", "paok": "PAOK basketball", "cluj": "U-BT Cluj",
+    "siauliai": "Siauliai basketball", "riga": "Riga Zelli", "cedevita": "Cedevita Olimpija", "hapoel tel": "Hapoel Tel Aviv basketball",
+    "hapoel": "Hapoel Jerusalem basketball", "maccabi": "Maccabi Tel Aviv basketball", "partizan": "Partizan basketball",
+    "crvena": "Crvena Zvezda basketball", "fenerbahce": "Fenerbahce Beko", "efes": "Anadolu Efes", "besiktas": "Besiktas basketball",
+    "turk telekom": "Turk Telekom basketball", "tofas": "Tofas Bursa", "bahcesehir": "Bahcesehir College", "manresa": "Baxi Manresa",
+    "trento": "Aquila Trento", "chemnitz": "Niners Chemnitz", "bourg": "JL Bourg", "neptunas": "Neptunas Klaipeda", "lietkabelis": "Lietkabelis",
+    "zalgiris": "Zalgiris Kaunas", "olympiacos": "Olympiacos BC", "panathinaikos": "Panathinaikos BC", "asvel": "ASVEL", "baskonia": "Baskonia",
+    "virtus": "Virtus Bologna", "derthona": "Derthona Basket", "burgos": "San Pablo Burgos", "tenerife": "Lenovo Tenerife", "wolves": "Wolves Vilnius",
+    "slask": "Slask Wroclaw", "buducnost": "Buducnost VOLI", "hamburg": "Hamburg Towers", "joventut": "Joventut Badalona",
+    "gran canaria": "Gran Canaria basketball", "brescia": "Germani Brescia", "jerusalem": "Hapoel Jerusalem basketball",
+}
+
+
+def query_name(norm, fallback):
+    for k, v in QUERY_NAME.items():
+        if k in norm:
+            return v
+    return fallback
+
+
 def _norm_en(s):
     s = unicodedata.normalize("NFKD", s or "")
     s = "".join(ch for ch in s if not unicodedata.combining(ch))
@@ -254,7 +279,7 @@ class EuroLeague:
                 t["name"] = club.get("name") or t["name"]
                 t["short"] = club.get("abbr") or t["short"]
                 t["abbr"] = code
-                t["en_key"] = club.get("abbr") or club.get("editorial")
+                t["en_key"] = query_name(club.get("norm", ""), club.get("abbr") or club.get("editorial"))
                 if club.get("crest"):
                     t["logo"] = club["crest"]
                 self.zh[code] = t.get("name_zh") or t["name"]
@@ -273,7 +298,10 @@ class EuroLeague:
                                 pass
                     rows = sorted(rows + extra, key=lambda r: r.get("ts") or 0)
                     t["record"] = None
+                    keep_ats = t.get("ats")
                     summarize_form(t, rows, note=f"{og['label']}官方賽果" + ("＋玩運彩紀錄" if extra else ""))
+                    if keep_ats and not t.get("ats"):
+                        t["ats"] = keep_ats
                     t["record_note"] = f"{og['label']}戰績"
                 for grp in self.standings.get(og["comp"]) or []:
                     for r in grp["rows"]:

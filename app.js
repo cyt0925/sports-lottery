@@ -361,7 +361,7 @@
       const r = (side) => { const x = a.rest[side]; if (!x) return "無資料"; return `${x.b2b ? "背靠背" : x.days == null ? "本季首戰" : "休 " + x.days + " 天"}${x.last7 != null ? "，近 7 天 " + x.last7 + " 場" : ""}`; };
       kv.push(`<div class="kv"><div class="kl">休息與賽程密度</div><div class="kval small">${esc(A)}：${r("away")}<br>${esc(H)}：${r("home")}</div></div>`);
     }
-    if (a.ats && (a.ats.home || a.ats.away)) kv.push(`<div class="kv"><div class="kl">本季讓分盤戰績（勝-敗-走）</div><div class="kval small">${esc(A)}：${esc(a.ats.away || "–")}<br>${esc(H)}：${esc(a.ats.home || "–")}</div></div>`);
+    if (a.ats && (a.ats.home || a.ats.away)) kv.push(`<div class="kv"><div class="kl">${a.ats.source ? "讓分盤戰績（" + esc(a.ats.source) + "，過盤-未過）" : "本季讓分盤戰績（勝-敗-走）"}</div><div class="kval small">${esc(A)}：${esc(a.ats.away || "–")}<br>${esc(H)}：${esc(a.ats.home || "–")}</div></div>`);
     if (a.h2h && a.h2h.games && a.h2h.games.length) {
       kv.push(`<div class="kv"><div class="kl">近期對戰${a.h2h.summary ? "（" + esc(a.h2h.summary) + "）" : ""}</div><div class="rows">${a.h2h.games.slice(0, 5).map((x) => `<div class="frow"><span class="dot ${x.winner === "home" ? "W" : x.winner === "away" ? "L" : "D"}">${x.winner === "home" ? "主" : x.winner === "away" ? "客" : "和"}</span><span class="d">${esc(x.date)}</span><span>${esc(x.away)} @ ${esc(x.home)}</span><span class="s">${x.as}-${x.hs}</span></div>`).join("")}</div><div class="pc">圓點：主勝、客勝，以這場的主客為準</div></div>`);
     }

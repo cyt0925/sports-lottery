@@ -173,6 +173,9 @@ def fetch_games(lg, log, errors, now=None):
             if i < 0:
                 m = re.search(r"(10|11|12|0?[1-9])月\s*\d{1,2}日|\d{1,2}/\d{1,2}", text)
                 i = m.start() if m else -1
+            m = re.search(r'class="date.*?</div>\s*</div>', text, flags=re.S)
+            if m:
+                DEBUG[f"date{path}"] = "date 區塊：" + re.sub(r"\s+", " ", m.group(0))[:900]
             dls = re.findall(r"<dl.*?</dl>", text, flags=re.S)
             done = [d for d in dls if "終了" in d or 'class="game"' in d and re.search(r"<span>\s*[0-3]\s*</span>", d)]
             DEBUG[f"raw{path}"] = "dl 區塊 " + str(len(dls)) + "；第一個：" + re.sub(r"\s+", " ", dls[0])[:1600] if dls else (re.sub(r"\s+", " ", text[max(0, i - 600): i + 1400]) if i >= 0 else f"len={len(text)} 找不到日期")

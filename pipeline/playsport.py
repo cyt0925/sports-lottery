@@ -268,17 +268,22 @@ def parse_team_history(text, team_name, now_tw):
             # 認不出哪個是自己：以第一個當自己（玩運彩頁面通常把查詢的隊放前面）
             pf, pa, opp, home = s1, s2, n2, None
         bets = {}
+        ats = None
         for td in tr.find_all("td", recursive=False):
             cls = " ".join(td.get("class") or [])
             if "bet" in cls or "scoresum" in cls:
                 bets[cls.split()[-1]] = td.get_text(" ", strip=True)
+            if "td-bank-bet01" in cls:
+                dv = td.find(attrs={"data-win": True})
+                if dv is not None and str(dv.get("data-win")) in ("0", "1"):
+                    ats = str(dv.get("data-win")) == "1"
         if raw_sample is None:
             bank = tr.find("td", class_=re.compile("td-bank-bet01"))
             raw_sample = dict(date=md, names=(n1, n2), scores=(s1, s2), bets=bets, bank_html=re.sub(r"\s+", " ", str(bank))[:500] if bank else None)
         rows.append(dict(
             date=f"{mon:02d}/{day:02d}", date_iso=dt.astimezone(UTC).isoformat(timespec="minutes"), ts=dt.timestamp(),
             opp=opp, opp_zh=opp, opp_logo=None, home=home, pf=int(pf), pa=int(pa),
-            result="W" if pf > pa else ("L" if pf < pa else "D"), comp=None, bets=bets,
+            result="W" if pf > pa else ("L" if pf < pa else "D"), comp=None, bets=bets, ats=ats,
         ))
     rows.sort(key=lambda r: r["ts"])
     return rows, raw_sample
@@ -291,6 +296,10 @@ def summarize_form(team, rows, note=None):
         r.pop("bets", None)
     if not rows:
         return
+    aw = sum(1 for r in rows if r.get("ats") is True)
+    al = sum(1 for r in rows if r.get("ats") is False)
+    if aw + al >= 3:
+        team["ats"] = f"{aw}-{al}"
     last = rows[-10:]
     team["form"] = last
     team["form_note"] = note
@@ -331,7 +340,7 @@ def attach_history(lg, games, log, errors):
                 continue
             if tid in cache:
                 src = cache[tid]
-                for k in ("form", "form_note", "streak", "last10", "last10_w", "avg_for5", "avg_against5", "avg_total5", "avg_margin5", "record", "record_note"):
+                for k in ("form", "form_note", "streak", "last10", "last10_w", "avg_for5", "avg_against5", "avg_total5", "avg_margin5", "record", "record_note", "ats"):
                     t[k] = src.get(k)
                 continue
             text = fetch(f"{BASE}/gamesData/teams?allianceid={aid}&teamid={tid}")
@@ -351,5 +360,13 @@ def attach_history(lg, games, log, errors):
                 n_ok += 1
             cache[tid] = t
             time.sleep(0.25)
-    log(f"[{lg['key']}] 球隊近況：{n_ok}/{len(cache)} 隊有資料")
+    n_ats = 0
+    for g in games:
+        H, A = g["home"], g["away"]
+        if H.get("ats") or A.get("ats"):
+            g.setdefault("analysis", {})
+            if isinstance(g["analysis"], dict):
+                g["analysis"]["ats"] = dict(home=H.get("ats"), away=A.get("ats"), source="玩運彩紀錄的台灣讓分盤")
+                n_ats += 1
+    log(f"[{lg['key']}] 球隊近況：{n_ok}/{len(cache)} 隊有資料，讓分盤戰績 {n_ats} 場")
     return n_ok

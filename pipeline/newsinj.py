@@ -23,7 +23,7 @@ TITLE_KW = {
 }
 SPORT_HINT = {"en": " basketball", "ja": "", "zh": ""}
 EXCLUDE = {
-    "en": re.compile(r"\bAC Milan\b|soccer|football|Serie A|La ?Liga|Champions League|Europa League|UEFA|goalkeeper|striker|midfielder|winger|Aston Villa|Galatasaray|Juventus|Premier League|Bundesliga|Ligue 1|Super Lig|NCAA|college|motorcycle|cricket|rugby|hockey", re.I),
+    "en": re.compile(r"\bAC Milan\b|soccer|football|Serie A|La ?Liga|Champions League|Europa League|UEFA|goalkeeper|striker|midfielder|winger|Aston Villa|Galatasaray|Juventus|Premier League|Bundesliga|Ligue 1|Super Lig|NCAA|college|motorcycle|cricket|rugby|hockey|Empoli|Ascoli|Mourinho|Gasperini|Svilar|Saelemaekers|Illinois|Serie B|Coppa|Copa del Rey|transfer window", re.I),
     "ja": re.compile(r"サッカー|Jリーグ|野球|ラグビー"),
     "zh": re.compile(r"足球|棒球"),
 }
