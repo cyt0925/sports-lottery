@@ -36,6 +36,14 @@ WINDOW_AHEAD_H = 40    # 往後看幾小時
 LEAGUES = [
     dict(key="nba", sport="basketball", path="basketball/nba", injuries=True, gamelog=True,
          stat="PTS", hot_min=10, total_th=6, headshot="nba"),
+    # 以玩運彩為主幹的聯盟（ESPN 沒有）：賽程、台灣盤、國際盤、玩家預測、球隊歷史戰績都從玩運彩來
+    dict(key="eurobasket", label="歐洲籃球", sport="basketball", source="playsport", alliance=8,
+         injuries=False, gamelog=False, total_th=6, headshot=None),
+    dict(key="jpbasket", label="日本籃球", sport="basketball", source="playsport", alliance=97,
+         injuries=False, gamelog=False, total_th=6, headshot=None),
+    # 日本排球：SV.LEAGUE 官網，沒有盤口
+    dict(key="jpvolley", label="日本排球", sport="volleyball", source="svleague",
+         injuries=False, gamelog=False, total_th=99, headshot=None),
     dict(key="nhl", sport="hockey", path="hockey/nhl", injuries=True, gamelog=True,
          stat="PTS", hot_min=0.5, total_th=0.6, headshot="nhl"),
     dict(key="nfl", sport="football", path="football/nfl", injuries=True, gamelog=False,
@@ -47,18 +55,23 @@ LEAGUES = [
     dict(key="fra.1", sport="soccer", path="soccer/fra.1", injuries=True, gamelog=False, total_th=0.5, headshot="soccer"),
     dict(key="uefa.champions", sport="soccer", path="soccer/uefa.champions", injuries=False, gamelog=False, total_th=0.5, headshot="soccer"),
     dict(key="uefa.europa", sport="soccer", path="soccer/uefa.europa", injuries=False, gamelog=False, total_th=0.5, headshot="soccer"),
-    dict(key="atp", sport="tennis", path="tennis/atp", injuries=False, gamelog=False, tennis=True, total_th=99, headshot="tennis"),
-    dict(key="wta", sport="tennis", path="tennis/wta", injuries=False, gamelog=False, tennis=True, total_th=99, headshot="tennis"),
 ]
 LEAGUES_BY_KEY = {lg["key"]: lg for lg in LEAGUES}
+# 首頁的球種按鈕：爸爸要看的放前面，其他收在「更多球種」
 SPORTS = [
     dict(key="all", label="全部"),
-    dict(key="basketball", label="籃球"),
-    dict(key="soccer", label="足球"),
-    dict(key="hockey", label="冰球"),
-    dict(key="tennis", label="網球"),
-    dict(key="football", label="美足"),
+    dict(key="nba", label="NBA", icon="basketball"),
+    dict(key="eurobasket", label="歐洲籃球", icon="basketball"),
+    dict(key="jpbasket", label="日本籃球", icon="basketball"),
+    dict(key="jpvolley", label="日本排球", icon="volleyball"),
+    dict(key="soccer", label="足球", hidden=True),
+    dict(key="hockey", label="冰球", hidden=True),
+    dict(key="football", label="美足", hidden=True),
 ]
+
+
+def chip_of(lg):
+    return "nba" if lg["key"] == "nba" else (lg["key"] if lg.get("source") else lg["sport"])
 
 SESSION = requests.Session()
 SESSION.headers.update(HEADERS)
@@ -454,6 +467,7 @@ def make_game(lg, ev, comp, is_tennis=False, group_name=None):
         league=lg["key"],
         league_zh=LEAGUE_ZH.get(lg["key"], lg["key"]),
         sport=lg["sport"],
+        chip=chip_of(lg),
         tennis=is_tennis,
         tournament=(ev.get("name") if is_tennis else None),
         round=group_name,
@@ -883,8 +897,13 @@ def build_suggestion(g, lg):
     def sig(label, side_, impact, text):
         signals.append(dict(label=label, side=side_, impact=impact, text=text))
     side = "主" if fav == "home" else "客"
-    if o.get("prob_source") == "spread":
+    psrc = o.get("prob_source")
+    if psrc == "spread":
         reasons.append(f"依讓分盤推估{side}隊 {fn} 勝率約 {round(pf * 100)}%（無獨贏賠率）")
+    elif psrc == "tw_ml":
+        reasons.append(f"依台灣運彩賠率換算，{side}隊 {fn} 勝率約 {round(pf * 100)}%")
+    elif psrc == "form":
+        reasons.append(f"沒有盤口，依兩隊近況估{side}隊 {fn} 勝率約 {round(pf * 100)}%，只能當參考")
     else:
         reasons.append(f"國際盤看好{side}隊 {fn}，勝率約 {round(pf * 100)}%")
     if o.get("prob_draw"):
@@ -968,6 +987,8 @@ def build_suggestion(g, lg):
         conf = "中"
     else:
         conf = "低"
+    if psrc == "form" and conf == "高":
+        conf = "中"   # 沒盤口、只靠近況估的，不給高信心
     if conf == "低":
         res.update(pick=None, pick_label=None, play="觀望", confidence="低",
                    summary="兩隊實力接近或訊號互相矛盾，建議觀望")
@@ -1002,7 +1023,7 @@ def build_suggestion(g, lg):
     # 台灣運彩盤口：用國際盤的公平勝率去算台灣賠率的期望值
     tw = g.get("tw") or {}
     ml = tw.get("ml") or {}
-    if res["pick"] and ml.get(res["pick"]) and o.get(f"prob_{res['pick']}"):
+    if res["pick"] and ml.get(res["pick"]) and o.get(f"prob_{res['pick']}") and psrc != "tw_ml":
         dec_tw = ml[res["pick"]]
         p = o[f"prob_{res['pick']}"]
         ev = p * dec_tw - 1
@@ -1057,7 +1078,7 @@ def aggregate(games):
                 if x["severity"] in ("out", "maybe", "ir") and key not in seen_inj:
                     seen_inj.add(key)
                     feed.append(dict(
-                        game_id=g["id"], league=g["league"], league_zh=g["league_zh"], sport=g["sport"],
+                        game_id=g["id"], league=g["league"], league_zh=g["league_zh"], sport=g["sport"], chip=g.get("chip") or g["sport"],
                         team_id=t["id"], team=team_label(t), team_logo=t.get("logo"),
                         player=x["player"], headshot=x.get("headshot"), position=x.get("position"),
                         status=x["status"], status_zh=x["status_zh"], severity=x["severity"],
@@ -1066,14 +1087,28 @@ def aggregate(games):
                         official=bool(x.get("official")),
                         time_tw=g["time_tw"], day_tw=g["day_tw"],
                     ))
+            # 沒有官方傷兵名單的聯盟：新聞裡的傷兵消息也放進快報，讓爸爸不用自己翻
+            for a in (t.get("injury_news") or [])[:2]:
+                key = (t.get("id"), a.get("url") or a.get("title"))
+                if key in seen_inj:
+                    continue
+                seen_inj.add(key)
+                feed.append(dict(
+                    game_id=g["id"], league=g["league"], league_zh=g["league_zh"], sport=g["sport"], chip=g.get("chip") or g["sport"],
+                    team_id=t["id"], team=team_label(t), team_logo=t.get("logo"),
+                    player=(a.get("title") or "")[:60], headshot=None, position=None,
+                    status="news", status_zh="新聞", severity="news",
+                    detail=f"{a.get('source') or '新聞'} · {str(a.get('published') or '')[:10]}", return_date=None,
+                    url=a.get("url"), key=False, official=False, time_tw=g["time_tw"], day_tw=g["day_tw"],
+                ))
             for p in t.get("hot") or []:
                 key = (t.get("id"), p.get("id") or p.get("player"))
                 if p["label"] != "平穩" and key not in seen_hot:
                     seen_hot.add(key)
                     hot.append(dict(game_id=g["id"], league=g["league"], league_zh=g["league_zh"], sport=g["sport"],
-                                    team=team_label(t), team_logo=t.get("logo"), **p))
+                                    chip=g.get("chip") or g["sport"], team=team_label(t), team_logo=t.get("logo"), **p))
     # 排序：主力優先；再來是「今天到底上不上」最有用的存疑/逐日觀察，然後缺陣，長期傷兵名單放最後
-    sev_order = {"maybe": 0, "out": 1, "ir": 2}
+    sev_order = {"maybe": 0, "out": 1, "ir": 2, "news": 3}
     feed.sort(key=lambda x: (0 if x["key"] else 1, sev_order.get(x["severity"], 3), x["day_tw"], x["time_tw"]))
     # 每個聯盟最多 30 筆，避免 NFL 那種一隊二十幾個傷兵把版面塞滿
     per = {}
@@ -1126,6 +1161,14 @@ def main():
     enrich_games(all_games)
     for g in all_games:
         lg = LEAGUES_BY_KEY[g["league"]]
+        if not g.get("odds") or g["odds"].get("prob_home") is None:
+            est = estimate_from_form(g)
+            if est:
+                g["odds"] = est
+        try:
+            fill_notes(g, lg)
+        except Exception as e:  # noqa: BLE001
+            ERRORS.append(f"{lg['key']} notes {g['id']} 失敗: {e!r}")
         try:
             g["suggestion"] = build_suggestion(g, lg)
         except Exception as e:  # noqa: BLE001
@@ -1149,7 +1192,7 @@ def main():
         injury_feed=feed[:80],
         hot_players=hot[:40],
         standings=standings,
-        source="賽事、傷兵、近況來自 ESPN；國際盤為美國莊家參考值；台灣盤來自玩運彩",
+        source="NBA 來自 ESPN；歐洲籃球、日本籃球的賽程與盤口來自玩運彩，隊徽與排名來自 EuroLeague 官方與 B.LEAGUE 官網；日本排球來自 SV.LEAGUE 官網；沒有官方傷兵名單的聯盟用 Google 新聞",
         errors=ERRORS[:50],
         calls=CALLS["n"],
     )
@@ -1189,15 +1232,16 @@ def enrich_games(all_games):
     for g in targets:
         lg = LEAGUES_BY_KEY[g["league"]]
         a = None
-        try:
-            a = fetch_summary(lg, g, get, keep_raw, SITE, _ml_from_block)
-        except Exception as e:  # noqa: BLE001
-            ERRORS.append(f"{lg['key']} summary {g['id']} 失敗: {e!r}")
-        a = a or {}
+        if not lg.get("source"):
+            try:
+                a = fetch_summary(lg, g, get, keep_raw, SITE, _ml_from_block)
+            except Exception as e:  # noqa: BLE001
+                ERRORS.append(f"{lg['key']} summary {g['id']} 失敗: {e!r}")
+        a = {**(g.get("analysis") or {}), **(a or {})}
         raw_inj = a.pop("raw_injuries", None)
         for err in a.pop("errors", None) or []:
             ERRORS.append(f"{lg['key']} summary {g['id']} {err}")
-        if a:
+        if a and not lg.get("source"):
             n_sum += 1
             if lg["key"] not in logged:
                 logged.add(lg["key"])
@@ -1230,7 +1274,131 @@ def enrich_games(all_games):
     log(f"進階分析：summary {n_sum}/{len(targets)} 場，官方傷報 {n_off} 筆，累計呼叫 {CALLS['n']}")
 
 
+def _window(games, lo, hi):
+    keep = []
+    for g in games:
+        st = parse_dt(g["start"])
+        if g["status"]["state"] == "in" or (st and lo <= st <= hi):
+            keep.append(g)
+    keep.sort(key=lambda g: g["start"])
+    return keep
+
+
+def process_playsport(lg, lo, hi, all_games, standings):
+    """歐籃、日籃：玩運彩為主幹，再用官方來源補隊徽、排名、英日文隊名，最後用新聞補傷兵。"""
+    import playsport
+    import newsinj
+    t0 = time.time()
+    games = playsport.fetch_games(lg, log, ERRORS)
+    keep = _window(games, lo, hi)
+    log(f"[{lg['key']}] 賽事 {len(games)} 場，窗口內 {len(keep)} 場")
+    if keep:
+        playsport.attach_history(lg, keep, log, ERRORS)
+    st = None
+    try:
+        if lg["key"] == "eurobasket":
+            from euroleague import EuroLeague
+            el = EuroLeague(log, ERRORS)
+            el.load()
+            if keep:
+                el.enrich(keep)
+            st = el.standings_payload()
+            name_fn = lambda t: (t["en_key"], "en") if t.get("en_key") else None  # noqa: E731
+        else:
+            from bleague import BLeague
+            bl = BLeague(log, ERRORS)
+            bl.load()
+            if keep:
+                bl.enrich(keep)
+            st = bl.standings_payload()
+            name_fn = lambda t: (t["jp_name"], "ja") if t.get("jp_name") else None  # noqa: E731
+    except Exception as e:  # noqa: BLE001
+        import traceback
+        ERRORS.append(f"{lg['key']} 官方資料失敗: {e!r}")
+        traceback.print_exc()
+        name_fn = lambda t: None  # noqa: E731
+    for g in keep:
+        for side in ("home", "away"):
+            finalize_team(g[side], lg)
+    if keep:
+        try:
+            newsinj.attach(keep, name_fn, log, ERRORS, lg["key"])
+        except Exception as e:  # noqa: BLE001
+            ERRORS.append(f"{lg['key']} 新聞失敗: {e!r}")
+    all_games.extend(keep)
+    if st:
+        standings[lg["key"]] = dict(label=lg["label"], sport=lg["sport"], chip=lg["key"], **st)
+    for k, v in list(playsport.DEBUG.items()):
+        log(f"[{lg['key']}] 玩運彩樣本 {k}: {json.dumps(v, ensure_ascii=False)[:700]}")
+    playsport.DEBUG.clear()
+    log(f"[{lg['key']}] 完成，{time.time() - t0:.1f}s，累計呼叫 {CALLS['n']}")
+
+
+def process_svleague(lg, lo, hi, all_games, standings):
+    import svleague
+    import newsinj
+    t0 = time.time()
+    games, st = svleague.fetch_games(lg, log, ERRORS)
+    keep = _window(games, lo, hi)
+    log(f"[{lg['key']}] 賽事 {len(games)} 場，窗口內 {len(keep)} 場")
+    for g in keep:
+        for side in ("home", "away"):
+            finalize_team(g[side], lg)
+    if keep:
+        try:
+            newsinj.attach(keep, lambda t: (t["jp_name"] + " バレー", "ja") if t.get("jp_name") else None, log, ERRORS, lg["key"])
+        except Exception as e:  # noqa: BLE001
+            ERRORS.append(f"{lg['key']} 新聞失敗: {e!r}")
+    all_games.extend(keep)
+    if st:
+        standings[lg["key"]] = dict(label=lg["label"], sport=lg["sport"], chip=lg["key"], **st)
+    log(f"[{lg['key']}] 完成，{time.time() - t0:.1f}s")
+
+
+def estimate_from_form(g):
+    """沒有任何盤口時，用兩隊近況粗估勝率（主場 +4 個百分點），只當參考。"""
+    H, A = g["home"], g["away"]
+    fh, fa = H.get("form") or [], A.get("form") or []
+    if len(fh) < 3 or len(fa) < 3:
+        return None
+    wh = sum(1 for r in fh if r["result"] == "W") / len(fh)
+    wa = sum(1 for r in fa if r["result"] == "W") / len(fa)
+    ph = min(0.85, max(0.15, 0.5 + (wh - wa) * 0.45 + 0.04))
+    return dict(provider=None, dec_home=None, dec_away=None, dec_draw=None,
+                prob_home=round(ph, 3), prob_away=round(1 - ph, 3), prob_draw=None, prob_source="form",
+                spread=None, details=None, total=None)
+
+
+def fill_notes(g, lg):
+    """每場都補一句「為什麼這裡沒資料」，前端就不會出現空白。"""
+    n = {}
+    src = lg.get("source")
+    o = g.get("odds") or {}
+    if o.get("prob_home") is None:
+        n["odds"] = {
+            "svleague": "台灣運彩和玩運彩都沒有日本排球的盤口，這場只看近況和新聞",
+            "playsport": "玩運彩還沒開這場的盤，通常比賽前一天才會出現；有盤後勝率和建議會自動補上",
+        }.get(src, "還沒開盤，通常比賽前一天才會出現；有盤後勝率和建議會自動補上")
+    elif o.get("prob_source") == "form":
+        n["odds"] = "沒有盤口，勝率是用兩隊近況估的，只能當參考"
+    if lg.get("injuries"):
+        n["injuries"] = "ESPN 傷兵名單裡沒有這隊的人，表示目前沒有傷兵回報"
+    else:
+        n["injuries"] = "這個聯盟沒有官方傷兵名單，改看新聞；賽前再確認一次"
+    n["hot"] = "這個聯盟沒有球員逐場數據，手感看球隊近況為主" if not lg.get("gamelog") else "主力球員本季場次還不夠，暫時看不出手感冷熱"
+    n["news"] = "近 4 天沒有找到這兩隊的新聞" if src else "24 小時內沒有相關新聞"
+    if not g.get("tw"):
+        n["tw"] = "台灣運彩沒有開日本排球" if src == "svleague" else "台灣運彩還沒開這場，通常比賽前一天才會出現"
+    if not (g["home"].get("form") or g["away"].get("form")):
+        n["form"] = "兩隊本季都還沒有打完的比賽紀錄，近況暫時看不出來"
+    g["notes"] = n
+
+
 def process_league(lg, dates, lo, hi, all_games, standings):
+    if lg.get("source") == "playsport":
+        return process_playsport(lg, lo, hi, all_games, standings)
+    if lg.get("source") == "svleague":
+        return process_svleague(lg, lo, hi, all_games, standings)
     if True:
         t0 = time.time()
         games = fetch_games(lg, dates)
@@ -1293,7 +1461,7 @@ def process_league(lg, dates, lo, hi, all_games, standings):
                 ERRORS.append(f"{lg['key']} 排名失敗: {e!r}")
                 s = None
             if s:
-                standings[lg["key"]] = dict(label=LEAGUE_ZH.get(lg["key"]), sport=lg["sport"], **s)
+                standings[lg["key"]] = dict(label=LEAGUE_ZH.get(lg["key"]), sport=lg["sport"], chip=chip_of(lg), **s)
         log(f"[{lg['key']}] 完成，{time.time() - t0:.1f}s，累計呼叫 {CALLS['n']}")
 
 

@@ -19,6 +19,7 @@ def build_story(g, sport):
     tw = g.get("tw") or {}
     notes = g.get("notes") or {}
     tennis = bool(g.get("tennis"))
+    sets = bool(g.get("sets"))
     paras = []
 
     # 1. 盤口與勝率
@@ -27,8 +28,11 @@ def build_story(g, sport):
         fav = "home" if ph >= pa else "away"
         fn = hn if fav == "home" else an
         p = max(ph, pa)
-        src = "依讓分盤推估" if o.get("prob_source") == "spread" else "國際盤"
-        t = f"這場{'是 ' + an + ' 作客 ' + hn if not tennis else an + ' 對上 ' + hn}。{src}比較看好{fn}，換算勝率大約 {_pct(p)}，差不多是十場贏 {round(p * 10)} 場的意思"
+        psrc = o.get("prob_source")
+        src = {"spread": "依國際盤讓分推估，", "tw_ml": "依台灣運彩賠率換算，", "form": "這場沒有盤口，光看兩隊近況粗估，"}.get(psrc, "國際盤")
+        t = f"這場{'是 ' + an + ' 作客 ' + hn if not tennis else an + ' 對上 ' + hn}。{src}比較看好{fn}，{'勝率' if psrc == 'form' else '換算勝率'}大約 {_pct(p)}，差不多是十場贏 {round(p * 10)} 場的意思"
+        if psrc == "form":
+            t += "，這種估法很粗，只能當參考"
         if o.get("prob_draw"):
             t += f"，和局機率約 {_pct(o['prob_draw'])}"
         pred = a.get("predictor")
@@ -48,7 +52,10 @@ def build_story(g, sport):
         elif tw.get("spread") or tw.get("total"):
             t += " 台灣運彩這場有開讓分和大小，不讓分還沒開。"
         elif notes.get("tw"):
-            t += " " + notes["tw"]
+            t += " " + notes["tw"] + "。"
+        if o.get("spread") is not None and psrc != "form":
+            t += f" 讓分盤是{o.get('details') or ('主隊 ' + format(o['spread'], '+g'))}"
+            t += f"，大小分 {o['total']}。" if o.get("total") else "。"
         paras.append(t)
     else:
         paras.append(notes.get("odds") or f"這場目前還沒有盤口。通常開賽前一天盤口才會出現，先看下面的近況和傷兵。")
@@ -77,8 +84,14 @@ def build_story(g, sport):
         elif maybes:
             inj_parts.append(f"{name}另有 {len(maybes)} 人狀態存疑")
         if not inj and not outs and not maybes:
-            if notes.get("injuries"):
-                inj_parts.append(f"{name}{notes['injuries']}")
+            news = t.get("injury_news") or []
+            if news:
+                first = (news[0].get("title") or "")[:48]
+                inj_parts.append(f"{name}沒有官方傷兵名單，但近 10 天新聞有提到傷兵相關消息，例如「{first}」，建議點開看一下再決定")
+            elif t.get("injury_note"):
+                inj_parts.append(f"{name}{t['injury_note']}")
+            elif notes.get("injuries"):
+                inj_parts.append(f"{name}：{notes['injuries']}")
             else:
                 inj_parts.append(f"{name}目前沒有傷兵回報")
     if inj_parts:
@@ -91,7 +104,11 @@ def build_story(g, sport):
             f = f"{name}近 {len(t.get('form') or [])} 場 {t['last10']}"
             if t.get("streak"):
                 f += f"，目前{t['streak']}"
+            if t.get("rank_note"):
+                f += f"，{t['rank_note']}"
             form_parts.append(f)
+        elif t.get("rank_note"):
+            form_parts.append(f"{name}{t['rank_note']}")
         rest = (a.get("rest") or {}).get(side)
         if rest:
             if rest.get("b2b"):
@@ -121,7 +138,9 @@ def build_story(g, sport):
     if form_parts:
         paras.append("近況方面，" + "；".join(form_parts) + "。")
     elif notes.get("form"):
-        paras.append(notes["form"])
+        paras.append(notes["form"] + "。")
+    if sets:
+        paras.append("排球是五局三勝制，比分看的是局數；台灣運彩沒有開日本排球，這裡的內容是給你看球用的。")
 
     # 4. 結論
     if s.get("pick"):
@@ -135,6 +154,6 @@ def build_story(g, sport):
     else:
         t = "綜合起來這場訊號互相矛盾或資料不夠，我會先觀望，等開賽前再看一次傷兵名單和盤口有沒有變動。"
         if s.get("summary") and "沒有盤口" in s["summary"]:
-            t = "盤口還沒開，先不下結論。等盤口出來，上面的勝率和建議會自動更新。"
+            t = "盤口還沒開，先不下結論。等盤口出來，上面的勝率和建議會自動更新。" if not sets else "這場沒有盤口也看不出明顯強弱，先當作五五波。"
         paras.append(t)
     return paras

@@ -1,0 +1,110 @@
+# -*- coding: utf-8 -*-
+"""沒有官方傷兵名單的聯盟（歐籃、日籃、日排）改用新聞：Google News RSS 免費、不用金鑰。
+每隊查一次「傷兵關鍵字」，每場再查一次一般新聞。查不到也會留一句說明，不留空白。"""
+import re
+import time
+import html as htmlmod
+import xml.etree.ElementTree as ET
+from email.utils import parsedate_to_datetime
+from urllib.parse import quote
+
+from taiwan_odds import fetch
+
+GN = "https://news.google.com/rss/search"
+LANG = {
+    "en": "hl=en-US&gl=US&ceid=US:en",
+    "ja": "hl=ja&gl=JP&ceid=JP:ja",
+    "zh": "hl=zh-TW&gl=TW&ceid=TW:zh-Hant",
+}
+INJ_TERMS = {
+    "en": '(injury OR injured OR sidelined OR "ruled out" OR "will miss" OR "out for" OR "out indefinitely" OR surgery)',
+    "ja": "(怪我 OR 負傷 OR 欠場 OR 離脱 OR 復帰 OR 手術 OR 故障)",
+    "zh": "(受傷 OR 傷兵 OR 缺陣 OR 傷退 OR 復出)",
+}
+_cache = {}
+STATS = {"calls": 0, "fail": 0}
+
+
+def _query(q, lang):
+    key = (q, lang)
+    if key in _cache:
+        return _cache[key]
+    url = f"{GN}?q={quote(q)}&{LANG.get(lang, LANG['en'])}"
+    STATS["calls"] += 1
+    text = fetch(url, tries=1)
+    items = []
+    if text:
+        try:
+            root = ET.fromstring(text.encode("utf-8") if isinstance(text, str) else text)
+            for it in root.iter("item"):
+                title = (it.findtext("title") or "").strip()
+                link = (it.findtext("link") or "").strip()
+                pub = it.findtext("pubDate") or ""
+                src = it.find("source")
+                try:
+                    published = parsedate_to_datetime(pub).isoformat(timespec="minutes") if pub else None
+                except (TypeError, ValueError):
+                    published = None
+                items.append(dict(title=htmlmod.unescape(title), url=link, published=published,
+                                  source=(src.text or "").strip() if src is not None else None, desc=None, image=None))
+        except ET.ParseError:
+            STATS["fail"] += 1
+    else:
+        STATS["fail"] += 1
+    items.sort(key=lambda x: x.get("published") or "", reverse=True)
+    _cache[key] = items
+    time.sleep(0.35)
+    return items
+
+
+def injury_news(name, lang, days=10, limit=3):
+    if not name:
+        return []
+    q = f'"{name}" {INJ_TERMS.get(lang, INJ_TERMS["en"])} when:{days}d'
+    return _query(q, lang)[:limit]
+
+
+def team_news(name, lang, days=4, limit=3):
+    if not name:
+        return []
+    return _query(f'"{name}" when:{days}d', lang)[:limit]
+
+
+def attach(games, name_fn, log, errors, label):
+    """name_fn(team) -> (查詢用隊名, 語言) 或 None。掛上 t["injury_news"]、t["injury_note"]、g["news"]。"""
+    n_team = n_news = 0
+    done = {}
+    for g in games:
+        if g["status"]["state"] == "post":
+            continue
+        picked = []
+        for side in ("home", "away"):
+            t = g[side]
+            nl = name_fn(t)
+            if not nl:
+                t["injury_note"] = "這隊沒有可查的新聞隊名，傷兵狀況請賽前再確認"
+                continue
+            name, lang = nl
+            if name in done:
+                t["injury_news"], t["injury_note"], tn = done[name]
+            else:
+                try:
+                    inj = injury_news(name, lang)
+                    tn = team_news(name, lang)
+                except Exception as e:  # noqa: BLE001
+                    errors.append(f"{label} 新聞 {name} 失敗: {e!r}")
+                    inj, tn = [], []
+                if inj:
+                    note = f"沒有官方傷兵名單，近 10 天新聞有提到傷兵相關消息（{len(inj)} 則，點進去看）"
+                    n_team += 1
+                else:
+                    note = "沒有官方傷兵名單；近 10 天新聞沒有提到這隊的傷兵消息，通常代表陣容完整，但賽前仍可能臨時缺陣"
+                t["injury_news"], t["injury_note"] = inj, note
+                done[name] = (inj, note, tn)
+            for a in tn[:2]:
+                picked.append(dict(a, team=side))
+        if picked:
+            picked.sort(key=lambda x: x.get("published") or "", reverse=True)
+            g["news"] = picked[:4]
+            n_news += 1
+    log(f"[{label}] 新聞：{n_team} 隊有傷兵相關新聞，{n_news} 場有一般新聞，呼叫 {STATS['calls']} 次、失敗 {STATS['fail']} 次")

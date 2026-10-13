@@ -347,3 +347,14 @@ body.lock{overflow:hidden}
 .story p{margin:0 0 10px;font-size:1rem;line-height:1.7}
 .story p:last-child{margin-bottom:0}
 .chip.more-chip{background:transparent;border-style:dashed;color:var(--muted)}
+
+/* ---------- 歐籃/日籃/日排：估算勝率、傷兵新聞、玩家預測 ---------- */
+.obtn.est .ov{font-size:1.05rem}
+.obtn.est .op{color:var(--muted)}
+.pc.long{display:block;-webkit-line-clamp:unset;overflow:visible;font-size:.8rem;color:var(--ink-2)}
+.news.compact a{padding:8px 10px}
+.news.compact .nt{font-size:.84rem}
+.aitem.is-news .avatar{color:var(--violet-2)}
+.aitem.is-news .avatar svg{width:20px;height:20px}
+.aitem .pn{overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;white-space:normal}
+.kv .kl + .kbar{margin-bottom:6px}

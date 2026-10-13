@@ -12,7 +12,12 @@
 ├── data/sample.json                  本機測試用的範例資料
 └── pipeline/
     ├── fetch.py                      抓資料 + 規則式建議
-    ├── taiwan_odds.py                玩運彩台灣盤口抓取與配對
+    ├── taiwan_odds.py                玩運彩盤口頁解析與配對
+    ├── playsport.py                  歐籃、日籃：以玩運彩為主幹的賽事與球隊歷史戰績
+    ├── euroleague.py / bleague.py    EuroLeague 官方 API、B.LEAGUE 排名頁
+    ├── svleague.py                   SV.LEAGUE 日本排球
+    ├── newsinj.py                    Google 新聞傷兵
+    ├── story.py                      白話分析段落
     ├── names_zh.py                   球隊中文名、狀態中文
     ├── probe_playsport.py            探路用（印網頁結構到 log，平常不跑）
     └── make_sample.py                產生範例資料
@@ -21,23 +26,24 @@
 
 ## 資料來源（全部免費、不用 key）
 
-| 資料 | 來源 |
-|---|---|
-| 賽程、比分、盤口、新聞、排名 | ESPN 公開接口 |
-| 傷兵與出賽狀態 | ESPN 各聯盟傷兵名單 |
-| 球員近 5 場 vs 季平均（火燙／冰冷） | ESPN 球員比賽紀錄 |
-| 球隊近 10 場 | ESPN 球隊賽程；足球會合併國內聯賽與歐戰 |
-| 台灣運彩盤口（讓分、不讓分、大小） | 玩運彩 playsport.cc 的盤口頁，用比分 JSON 的英文縮寫與中文隊名配對 |
+| 球種 | 賽程、比分、盤口 | 隊徽、排名、近況 | 傷兵 |
+|---|---|---|---|
+| NBA | ESPN 公開接口＋玩運彩台灣盤 | ESPN（含球員近 5 場火燙／冰冷） | ESPN 傷兵名單 |
+| 歐洲籃球（歐冠、歐盃、其他歐洲賽事） | 玩運彩 allianceid 8（台灣盤、國際盤、玩家預測比例） | EuroLeague 官方 API（隊徽、排名、主客分明的賽果）；對不上的球隊用玩運彩的歷史戰績 | Google 新聞（英文） |
+| 日本籃球（B.LEAGUE） | 玩運彩 allianceid 97 | B.LEAGUE 官網排名頁（東西區、主客戰績、近 5 場） | Google 新聞（日文） |
+| 日本排球（SV.LEAGUE） | SV.LEAGUE 官網（沒有盤口，勝率依近況粗估） | 官網賽果自己算的排名 | Google 新聞（日文） |
+| 足球、冰球、美足（收在「更多球種」） | ESPN＋玩運彩 | ESPN | ESPN |
 
-國際盤是美國莊家（ESPN BET）的參考值；台灣盤來自玩運彩，抓不到時卡片就不顯示那一塊，不影響其他功能。
-「划算度」是用國際盤去水後的勝率乘上台灣賠率算出的期望值：台灣運彩抽水約一成多，-8% 到 -14% 算正常，比這好叫划算，比這差才提醒。
+沒有官方傷兵名單的聯盟，傷兵區會寫清楚「新聞裡有沒有提到」，不會留白；傷兵快報也會把這些新聞列進去。
+國際盤是美國莊家的參考值；台灣盤來自玩運彩，抓不到時卡片就不顯示那一塊，不影響其他功能。
 
 ## 本機測試
 
 ```bash
 python3 pipeline/make_sample.py          # 產生 data/sample.json
 cd sports && python3 -m http.server 8080        # 開 http://localhost:8080/?data=sample
-python3 pipeline/fetch.py                # 真實抓一次（需要能連 ESPN）
+python3 pipeline/fetch.py                # 真實抓一次（需要能連 ESPN、玩運彩等）
+python3 pipeline/fetch.py --leagues eurobasket,jpvolley   # 只抓某幾個聯盟
 ```
 
 ## 建議怎麼算（規則式，不是 AI 預測）

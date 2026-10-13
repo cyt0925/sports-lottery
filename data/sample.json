@@ -1,6 +1,6 @@
 {
- "generated_at": "2026-10-13T21:21+08:00",
- "generated_ts": 1791897689,
+ "generated_at": "2026-10-13T22:12+08:00",
+ "generated_ts": 1791900765,
  "today_tw": "2026-10-13",
  "sports": [
   {
@@ -8,28 +8,46 @@
    "label": "全部"
   },
   {
-   "key": "basketball",
-   "label": "籃球"
+   "key": "nba",
+   "label": "NBA",
+   "icon": "basketball"
+  },
+  {
+   "key": "eurobasket",
+   "label": "歐洲籃球",
+   "icon": "basketball"
+  },
+  {
+   "key": "jpbasket",
+   "label": "日本籃球",
+   "icon": "basketball"
+  },
+  {
+   "key": "jpvolley",
+   "label": "日本排球",
+   "icon": "volleyball"
   },
   {
    "key": "soccer",
-   "label": "足球"
+   "label": "足球",
+   "hidden": true
   },
   {
    "key": "hockey",
-   "label": "冰球"
-  },
-  {
-   "key": "tennis",
-   "label": "網球"
+   "label": "冰球",
+   "hidden": true
   },
   {
    "key": "football",
-   "label": "美足"
+   "label": "美足",
+   "hidden": true
   }
  ],
  "leagues": {
   "nba": "NBA",
+  "eurobasket": "歐洲籃球",
+  "jpbasket": "日本籃球",
+  "jpvolley": "日本排球",
   "nhl": "NHL 冰球",
   "nfl": "NFL 美式足球",
   "eng.1": "英超",
@@ -38,9 +56,7 @@
   "ger.1": "德甲",
   "fra.1": "法甲",
   "uefa.champions": "歐冠",
-  "uefa.europa": "歐聯",
-  "atp": "ATP 男網",
-  "wta": "WTA 女網"
+  "uefa.europa": "歐聯"
  },
  "games": [
   {
@@ -48,14 +64,15 @@
    "league": "nba",
    "league_zh": "NBA",
    "sport": "basketball",
+   "chip": "nba",
    "tennis": false,
    "tournament": null,
    "round": null,
    "name": "LAL @ GS",
-   "start": "2026-10-13T06:21+00:00",
-   "start_tw": "2026-10-13T14:21+08:00",
+   "start": "2026-10-13T07:12+00:00",
+   "start_tw": "2026-10-13T15:12+08:00",
    "day_tw": "2026-10-13",
-   "time_tw": "14:21",
+   "time_tw": "15:12",
    "status": {
     "state": "post",
     "completed": true,
@@ -461,7 +478,19 @@
     "summary": "比賽已結束",
     "reasons": [],
     "cautions": [],
-    "totals": null
+    "totals": null,
+    "story": [
+     "這場是 湖人 作客 勇士。國際盤比較看好湖人，換算勝率大約 62%，差不多是十場贏 6 場的意思。 台灣運彩還沒開這場，通常比賽前一天才會出現。",
+     "傷兵方面，勇士的主力 Stephen Curry 確定缺陣（腳踝），這個影響最大；湖人有 1 名球員缺陣，但都不是主要得分來源；湖人另有 1 人狀態存疑。",
+     "近況方面，勇士近 6 場 2勝4敗；勇士的 Stephen Curry 最近手感偏冷，近 5 場場均 21.0 PTS，比季平均低不少；湖人近 6 場 5勝1敗，目前連勝3；湖人的 LeBron James 最近手感很燙，近 5 場場均 28.6 PTS，季平均才 24.1；湖人的 Austin Reaves 最近手感偏冷，近 5 場場均 15.2 PTS，比季平均低不少。",
+     "綜合起來這場訊號互相矛盾或資料不夠，我會先觀望，等開賽前再看一次傷兵名單和盤口有沒有變動。"
+    ]
+   },
+   "notes": {
+    "injuries": "ESPN 傷兵名單裡沒有這隊的人，表示目前沒有傷兵回報",
+    "hot": "主力球員本季場次還不夠，暫時看不出手感冷熱",
+    "news": "24 小時內沒有相關新聞",
+    "tw": "台灣運彩還沒開這場，通常比賽前一天才會出現"
    }
   },
   {
@@ -469,14 +498,15 @@
    "league": "nba",
    "league_zh": "NBA",
    "sport": "basketball",
+   "chip": "nba",
    "tennis": false,
    "tournament": null,
    "round": null,
    "name": "OKC @ BOS",
-   "start": "2026-10-13T12:09+00:00",
-   "start_tw": "2026-10-13T20:09+08:00",
+   "start": "2026-10-13T13:00+00:00",
+   "start_tw": "2026-10-13T21:00+08:00",
    "day_tw": "2026-10-13",
-   "time_tw": "20:09",
+   "time_tw": "21:00",
    "status": {
     "state": "in",
     "completed": false,
@@ -574,7 +604,7 @@
       "pf": 115,
       "pa": 108,
       "result": "W",
-      "date_iso": "2026-10-12T17:21+00:00"
+      "date_iso": "2026-10-12T18:12+00:00"
      },
      {
       "date": "10/03",
@@ -585,7 +615,7 @@
       "pf": 99,
       "pa": 105,
       "result": "L",
-      "date_iso": "2026-10-12T17:21+00:00"
+      "date_iso": "2026-10-12T18:12+00:00"
      },
      {
       "date": "10/05",
@@ -596,7 +626,7 @@
       "pf": 120,
       "pa": 110,
       "result": "W",
-      "date_iso": "2026-10-12T17:21+00:00"
+      "date_iso": "2026-10-12T18:12+00:00"
      },
      {
       "date": "10/07",
@@ -607,7 +637,7 @@
       "pf": 104,
       "pa": 112,
       "result": "L",
-      "date_iso": "2026-10-12T17:21+00:00"
+      "date_iso": "2026-10-12T18:12+00:00"
      },
      {
       "date": "10/09",
@@ -618,7 +648,7 @@
       "pf": 118,
       "pa": 101,
       "result": "W",
-      "date_iso": "2026-10-12T17:21+00:00"
+      "date_iso": "2026-10-12T18:12+00:00"
      },
      {
       "date": "10/11",
@@ -629,7 +659,7 @@
       "pf": 108,
       "pa": 116,
       "result": "L",
-      "date_iso": "2026-10-12T17:21+00:00"
+      "date_iso": "2026-10-12T18:12+00:00"
      }
     ],
     "form_note": null,
@@ -811,7 +841,13 @@
      "lean": "小",
      "line": 228.5,
      "expected": 222.2
-    }
+    },
+    "story": [
+     "這場是 雷霆 作客 塞爾提克。國際盤比較看好雷霆，換算勝率大約 56%，差不多是十場贏 6 場的意思。 台灣運彩還沒開這場，通常比賽前一天才會出現。 讓分盤是OKC -2.5，大小分 228.5。",
+     "傷兵方面，塞爾提克另有 1 人狀態存疑；雷霆：ESPN 傷兵名單裡沒有這隊的人，表示目前沒有傷兵回報。",
+     "近況方面，塞爾提克近 6 場 3勝3敗；塞爾提克的 Jayson Tatum 最近手感很燙，近 5 場場均 33.4 PTS，季平均才 27.2；雷霆近 6 場 6勝0敗，目前連勝6；雷霆的 Shai Gilgeous-Alexander 最近手感很燙，近 5 場場均 34.8 PTS，季平均才 30.1。",
+     "綜合起來，我會偏向雷霆，玩法建議「不讓分」，信心中。要注意的是：對手 Jayson Tatum 手感火燙，近 5 場場均 33.4 PTS。 大小分方面，兩隊近五場平均總分 222.2，盤口開 228.5，偏向「小」。"
+    ]
    },
    "analysis": {
     "signals": [
@@ -834,6 +870,320 @@
       "text": "Jayson Tatum 火燙，近 5 場場均 33.4 PTS"
      }
     ]
+   },
+   "notes": {
+    "injuries": "ESPN 傷兵名單裡沒有這隊的人，表示目前沒有傷兵回報",
+    "hot": "主力球員本季場次還不夠，暫時看不出手感冷熱",
+    "news": "24 小時內沒有相關新聞",
+    "tw": "台灣運彩還沒開這場，通常比賽前一天才會出現"
+   }
+  },
+  {
+   "id": "e1",
+   "league": "eurobasket",
+   "league_zh": "歐洲籃球",
+   "sport": "basketball",
+   "chip": "eurobasket",
+   "tennis": false,
+   "tournament": null,
+   "round": "歐冠 Round 5",
+   "name": "ZAL @ FEN",
+   "start": "2026-10-13T19:42+00:00",
+   "start_tw": "2026-10-14T03:42+08:00",
+   "day_tw": "2026-10-14",
+   "time_tw": "03:42",
+   "status": {
+    "state": "pre",
+    "completed": false,
+    "detail": "未開賽",
+    "clock": null,
+    "period": null
+   },
+   "venue": null,
+   "broadcast": null,
+   "home": {
+    "id": "ps8-1",
+    "abbr": "FEN",
+    "name": "Fenerbahce Beko Istanbul",
+    "short": "Fenerbahce Beko Istanbul",
+    "name_zh": "費內巴切",
+    "logo": "https://media-cdn.incrowdsports.com/371b0d9b-9250-4c09-bda7-0686cf024657.png",
+    "color": null,
+    "record": "3-1",
+    "record_home": null,
+    "record_away": null,
+    "score": null,
+    "winner": false,
+    "form_str": null,
+    "leaders": [],
+    "injuries": [],
+    "key_out": [],
+    "key_maybe": [],
+    "out_count": 0,
+    "maybe_count": 0,
+    "hot": [],
+    "form": [
+     {
+      "date": "10/01",
+      "date_iso": "2026-10-01T14:12+00:00",
+      "opp": "皇家馬德里",
+      "opp_zh": "皇家馬德里",
+      "opp_logo": null,
+      "home": true,
+      "pf": 88,
+      "pa": 80,
+      "result": "W",
+      "comp": null
+     },
+     {
+      "date": "10/04",
+      "date_iso": "2026-10-04T14:12+00:00",
+      "opp": "摩納哥",
+      "opp_zh": "摩納哥",
+      "opp_logo": null,
+      "home": false,
+      "pf": 95,
+      "pa": 83,
+      "result": "W",
+      "comp": null
+     },
+     {
+      "date": "10/07",
+      "date_iso": "2026-10-07T14:12+00:00",
+      "opp": "奧林匹亞科斯",
+      "opp_zh": "奧林匹亞科斯",
+      "opp_logo": null,
+      "home": false,
+      "pf": 77,
+      "pa": 84,
+      "result": "L",
+      "comp": null
+     },
+     {
+      "date": "10/10",
+      "date_iso": "2026-10-10T14:12+00:00",
+      "opp": "巴塞隆納",
+      "opp_zh": "巴塞隆納",
+      "opp_logo": null,
+      "home": true,
+      "pf": 90,
+      "pa": 86,
+      "result": "W",
+      "comp": null
+     }
+    ],
+    "form_note": "官方賽程",
+    "streak": null,
+    "last10": "3勝1敗",
+    "last10_w": 3,
+    "avg_for5": 87.5,
+    "avg_against5": 83.2,
+    "avg_total5": 170.7,
+    "avg_margin5": 4.3,
+    "rank_note": "歐冠第 4 名",
+    "injury_news": [
+     {
+      "title": "Fenerbahce star Wade Baldwin ruled out two weeks with ankle sprain",
+      "url": "https://news.google.com/",
+      "published": "2026-10-11T08:00",
+      "source": "Eurohoops"
+     }
+    ],
+    "injury_note": "沒有官方傷兵名單，近 10 天新聞有提到傷兵相關消息（1 則，點進去看）",
+    "en_key": "Fenerbahce",
+    "jp_name": null
+   },
+   "away": {
+    "id": "ps8-2",
+    "abbr": "ZAL",
+    "name": "Zalgiris Kaunas",
+    "short": "Zalgiris Kaunas",
+    "name_zh": "考納斯綠林",
+    "logo": "https://media-cdn.incrowdsports.com/1efae090-16e2-4963-ae47-4b94f249c244.png",
+    "color": null,
+    "record": "3-1",
+    "record_home": null,
+    "record_away": null,
+    "score": null,
+    "winner": false,
+    "form_str": null,
+    "leaders": [],
+    "injuries": [],
+    "key_out": [],
+    "key_maybe": [],
+    "out_count": 0,
+    "maybe_count": 0,
+    "hot": [],
+    "form": [
+     {
+      "date": "10/01",
+      "date_iso": "2026-10-01T14:12+00:00",
+      "opp": "巴黎",
+      "opp_zh": "巴黎",
+      "opp_logo": null,
+      "home": true,
+      "pf": 92,
+      "pa": 85,
+      "result": "W",
+      "comp": null
+     },
+     {
+      "date": "10/04",
+      "date_iso": "2026-10-04T14:12+00:00",
+      "opp": "米蘭",
+      "opp_zh": "米蘭",
+      "opp_logo": null,
+      "home": true,
+      "pf": 81,
+      "pa": 79,
+      "result": "W",
+      "comp": null
+     },
+     {
+      "date": "10/07",
+      "date_iso": "2026-10-07T14:12+00:00",
+      "opp": "拜仁",
+      "opp_zh": "拜仁",
+      "opp_logo": null,
+      "home": false,
+      "pf": 99,
+      "pa": 90,
+      "result": "W",
+      "comp": null
+     },
+     {
+      "date": "10/10",
+      "date_iso": "2026-10-10T14:12+00:00",
+      "opp": "帕納辛奈科斯",
+      "opp_zh": "帕納辛奈科斯",
+      "opp_logo": null,
+      "home": false,
+      "pf": 70,
+      "pa": 88,
+      "result": "L",
+      "comp": null
+     }
+    ],
+    "form_note": "官方賽程",
+    "streak": null,
+    "last10": "3勝1敗",
+    "last10_w": 3,
+    "avg_for5": 85.5,
+    "avg_against5": 85.5,
+    "avg_total5": 171.0,
+    "avg_margin5": 0.0,
+    "rank_note": "歐冠第 6 名",
+    "injury_news": [],
+    "injury_note": "沒有官方傷兵名單；近 10 天新聞沒有提到這隊的傷兵消息，通常代表陣容完整，但賽前仍可能臨時缺陣",
+    "en_key": "Zalgiris",
+    "jp_name": null
+   },
+   "odds": {
+    "provider": "台灣運彩",
+    "dec_home": 1.23,
+    "dec_away": 2.8,
+    "dec_draw": null,
+    "prob_home": 0.67,
+    "prob_away": 0.33,
+    "prob_draw": null,
+    "prob_source": "spread",
+    "spread": -6.5,
+    "details": "費內巴切 6分贏",
+    "total": 164.0
+   },
+   "headline": null,
+   "news": [
+    {
+     "title": "Fenerbahce edge Barcelona in EuroLeague thriller",
+     "desc": null,
+     "url": "https://news.google.com/",
+     "image": null,
+     "published": "2026-10-12T21:00",
+     "source": "Eurohoops",
+     "team": "home"
+    }
+   ],
+   "suggestion": {
+    "pick": "home",
+    "pick_label": "費內巴切",
+    "play": "不讓分",
+    "confidence": "高",
+    "summary": "傾向 費內巴切，建議玩法「不讓分」，信心高",
+    "reasons": [
+     "依讓分盤推估主隊 費內巴切 勝率約 67%（無獨贏賠率）",
+     "兩隊近 5 場平均總分 170.8，高於盤口 164.0，可考慮大分"
+    ],
+    "cautions": [
+     "台灣運彩不讓分賠率 1.23 偏低，期望值 -18%，比平常差，考慮改玩讓分或縮小注碼"
+    ],
+    "totals": {
+     "lean": "大",
+     "line": 164.0,
+     "expected": 170.8
+    },
+    "tw_ev": -18,
+    "tw_dec": 1.23,
+    "tw_value": "偏差",
+    "story": [
+     "這場是 考納斯綠林 作客 費內巴切。依國際盤讓分推估，比較看好費內巴切，換算勝率大約 67%，差不多是十場贏 7 場的意思。 台灣運彩不讓分賠率費內巴切 1.23，比平常差，想下的話注碼小一點。 讓分盤是費內巴切 6分贏，大小分 164.0。",
+     "傷兵方面，費內巴切沒有官方傷兵名單，但近 10 天新聞有提到傷兵相關消息，例如「Fenerbahce star Wade Baldwin ruled out two weeks」，建議點開看一下再決定；考納斯綠林沒有官方傷兵名單；近 10 天新聞沒有提到這隊的傷兵消息，通常代表陣容完整，但賽前仍可能臨時缺陣。",
+     "近況方面，費內巴切近 4 場 3勝1敗，歐冠第 4 名；考納斯綠林近 4 場 3勝1敗，歐冠第 6 名；玩運彩上有 82% 的玩家押費內巴切，一面倒的時候反而要小心。",
+     "綜合起來，我會偏向費內巴切，玩法建議「不讓分」，信心高。要注意的是：台灣運彩不讓分賠率 1.23 偏低，期望值 -18%，比平常差，考慮改玩讓分或縮小注碼。 大小分方面，兩隊近五場平均總分 170.8，盤口開 164.0，偏向「大」。"
+    ]
+   },
+   "comp": "歐冠 Round 5",
+   "tw": {
+    "source": "玩運彩",
+    "url": "https://www.playsport.cc/predict/scale?allianceid=8",
+    "updated": "2026-10-13T22:12+08:00",
+    "no": "306",
+    "spread": {
+     "line": "費內巴切 -6.5",
+     "line_home": -6.5,
+     "home": 1.68,
+     "away": 1.75
+    },
+    "ml": {
+     "home": 1.23,
+     "away": 2.8,
+     "draw": null
+    },
+    "total": {
+     "line": 163.5,
+     "over": 1.73,
+     "under": 1.7
+    },
+    "intl": {
+     "spread_home": -6.0,
+     "total": 164.0,
+     "spread_text": "費內巴切 6分贏"
+    },
+    "crowd": {
+     "ml_home": 82,
+     "ml_away": 18,
+     "spread_home": 48,
+     "spread_away": 52,
+     "over": 53,
+     "under": 47,
+     "n": 57
+    }
+   },
+   "analysis": {
+    "crowd": {
+     "ml_home": 82,
+     "ml_away": 18,
+     "spread_home": 48,
+     "spread_away": 52,
+     "over": 53,
+     "under": 47,
+     "n": 57
+    },
+    "signals": []
+   },
+   "notes": {
+    "injuries": "這個聯盟沒有官方傷兵名單，改看新聞；賽前再確認一次",
+    "hot": "這個聯盟沒有球員逐場數據，手感看球隊近況為主",
+    "news": "近 4 天沒有找到這兩隊的新聞"
    }
   },
   {
@@ -841,14 +1191,15 @@
    "league": "nba",
    "league_zh": "NBA",
    "sport": "basketball",
+   "chip": "nba",
    "tennis": false,
    "tournament": null,
    "round": null,
    "name": "BOS @ LAL",
-   "start": "2026-10-13T19:51+00:00",
-   "start_tw": "2026-10-14T03:51+08:00",
+   "start": "2026-10-13T20:42+00:00",
+   "start_tw": "2026-10-14T04:42+08:00",
    "day_tw": "2026-10-14",
-   "time_tw": "03:51",
+   "time_tw": "04:42",
    "status": {
     "state": "pre",
     "completed": false,
@@ -1150,7 +1501,7 @@
       "pf": 115,
       "pa": 108,
       "result": "W",
-      "date_iso": "2026-10-12T17:21+00:00"
+      "date_iso": "2026-10-12T18:12+00:00"
      },
      {
       "date": "10/03",
@@ -1161,7 +1512,7 @@
       "pf": 99,
       "pa": 105,
       "result": "L",
-      "date_iso": "2026-10-12T17:21+00:00"
+      "date_iso": "2026-10-12T18:12+00:00"
      },
      {
       "date": "10/05",
@@ -1172,7 +1523,7 @@
       "pf": 120,
       "pa": 110,
       "result": "W",
-      "date_iso": "2026-10-12T17:21+00:00"
+      "date_iso": "2026-10-12T18:12+00:00"
      },
      {
       "date": "10/07",
@@ -1183,7 +1534,7 @@
       "pf": 104,
       "pa": 112,
       "result": "L",
-      "date_iso": "2026-10-12T17:21+00:00"
+      "date_iso": "2026-10-12T18:12+00:00"
      },
      {
       "date": "10/09",
@@ -1194,7 +1545,7 @@
       "pf": 118,
       "pa": 101,
       "result": "W",
-      "date_iso": "2026-10-12T17:21+00:00"
+      "date_iso": "2026-10-12T18:12+00:00"
      },
      {
       "date": "10/11",
@@ -1205,7 +1556,7 @@
       "pf": 108,
       "pa": 116,
       "result": "L",
-      "date_iso": "2026-10-12T17:21+00:00"
+      "date_iso": "2026-10-12T18:12+00:00"
      }
     ],
     "form_note": null,
@@ -1284,7 +1635,13 @@
     },
     "tw_ev": -10,
     "tw_dec": 1.5,
-    "tw_value": "正常"
+    "tw_value": "正常",
+    "story": [
+     "這場是 塞爾提克 作客 湖人。國際盤比較看好湖人，換算勝率大約 60%，差不多是十場贏 6 場的意思；ESPN 的模型給湖人 66%，比盤口更看好。 台灣運彩不讓分賠率湖人 1.50，算正常水準。 讓分盤是LAL -3.5，大小分 224.5。",
+     "傷兵方面，湖人有 1 名球員缺陣，但都不是主要得分來源；湖人另有 1 人狀態存疑；塞爾提克另有 1 人狀態存疑。",
+     "近況方面，湖人近 6 場 5勝1敗，目前連勝3；湖人的 LeBron James 最近手感很燙，近 5 場場均 28.6 PTS，季平均才 24.1；湖人的 Austin Reaves 最近手感偏冷，近 5 場場均 15.2 PTS，比季平均低不少；塞爾提克近 6 場 3勝3敗；塞爾提克昨天才打完，今天是背靠背第二天，體力和命中率通常會掉一點；塞爾提克的 Jayson Tatum 最近手感很燙，近 5 場場均 33.4 PTS，季平均才 27.2；兩隊最近 2 次交手湖人 1 勝 1 敗；盤口從開盤的 -2.5 變成 -3.5，代表錢往湖人那邊流。",
+     "綜合起來，我會偏向湖人，玩法建議「不讓分」，信心中。要注意的是：Austin Reaves 近 5 場場均 15.2 PTS，比季平均低 23%。"
+    ]
    },
    "analysis": {
     "predictor": {
@@ -1403,7 +1760,7 @@
    "tw": {
     "source": "玩運彩",
     "url": "https://www.playsport.cc/predict/scale?allianceid=3",
-    "updated": "2026-10-13T21:21+08:00",
+    "updated": "2026-10-13T22:12+08:00",
     "no": "327",
     "spread": {
      "line": "湖人 -3.5",
@@ -1422,6 +1779,11 @@
      "under": 1.73
     },
     "intl": null
+   },
+   "notes": {
+    "injuries": "ESPN 傷兵名單裡沒有這隊的人，表示目前沒有傷兵回報",
+    "hot": "主力球員本季場次還不夠，暫時看不出手感冷熱",
+    "news": "24 小時內沒有相關新聞"
    }
   },
   {
@@ -1429,14 +1791,15 @@
    "league": "nba",
    "league_zh": "NBA",
    "sport": "basketball",
+   "chip": "nba",
    "tennis": false,
    "tournament": null,
    "round": null,
    "name": "GS @ OKC",
-   "start": "2026-10-13T22:21+00:00",
-   "start_tw": "2026-10-14T06:21+08:00",
+   "start": "2026-10-13T23:12+00:00",
+   "start_tw": "2026-10-14T07:12+08:00",
    "day_tw": "2026-10-14",
-   "time_tw": "06:21",
+   "time_tw": "07:12",
    "status": {
     "state": "pre",
     "completed": false,
@@ -1781,7 +2144,13 @@
      "lean": "無明顯方向",
      "line": 226.0,
      "expected": 223.4
-    }
+    },
+    "story": [
+     "這場是 勇士 作客 雷霆。國際盤比較看好雷霆，換算勝率大約 78%，差不多是十場贏 8 場的意思。 台灣運彩還沒開這場，通常比賽前一天才會出現。 讓分盤是OKC -9.5，大小分 226.0。",
+     "傷兵方面，雷霆：ESPN 傷兵名單裡沒有這隊的人，表示目前沒有傷兵回報；勇士的主力 Stephen Curry 確定缺陣（腳踝），這個影響最大。",
+     "近況方面，雷霆近 6 場 6勝0敗，目前連勝6；雷霆的 Shai Gilgeous-Alexander 最近手感很燙，近 5 場場均 34.8 PTS，季平均才 30.1；勇士近 6 場 2勝4敗；勇士的 Stephen Curry 最近手感偏冷，近 5 場場均 21.0 PTS，比季平均低不少。",
+     "綜合起來，我會偏向雷霆，玩法建議「讓分」，信心高。"
+    ]
    },
    "analysis": {
     "signals": [
@@ -1804,6 +2173,12 @@
       "text": "Shai Gilgeous-Alexander 火燙，近 5 場場均 34.8 PTS"
      }
     ]
+   },
+   "notes": {
+    "injuries": "ESPN 傷兵名單裡沒有這隊的人，表示目前沒有傷兵回報",
+    "hot": "主力球員本季場次還不夠，暫時看不出手感冷熱",
+    "news": "24 小時內沒有相關新聞",
+    "tw": "台灣運彩還沒開這場，通常比賽前一天才會出現"
    }
   },
   {
@@ -1811,14 +2186,15 @@
    "league": "nhl",
    "league_zh": "NHL 冰球",
    "sport": "hockey",
+   "chip": "hockey",
    "tennis": false,
    "tournament": null,
    "round": null,
    "name": "TOR @ EDM",
-   "start": "2026-10-14T00:21+00:00",
-   "start_tw": "2026-10-14T08:21+08:00",
+   "start": "2026-10-14T01:12+00:00",
+   "start_tw": "2026-10-14T09:12+08:00",
    "day_tw": "2026-10-14",
-   "time_tw": "08:21",
+   "time_tw": "09:12",
    "status": {
     "state": "pre",
     "completed": false,
@@ -2084,7 +2460,13 @@
      "lean": "小",
      "line": 6.5,
      "expected": 5.8
-    }
+    },
+    "story": [
+     "這場是 楓葉 作客 油人。國際盤比較看好油人，換算勝率大約 57%，差不多是十場贏 6 場的意思。 台灣運彩還沒開這場，通常比賽前一天才會出現。 讓分盤是EDM -1.5，大小分 6.5。",
+     "傷兵方面，油人：ESPN 傷兵名單裡沒有這隊的人，表示目前沒有傷兵回報；楓葉另有 1 人狀態存疑。",
+     "近況方面，油人近 5 場 4勝1敗，目前連勝2；油人的 Connor McDavid 最近手感很燙，近 5 場場均 2.4 PTS，季平均才 1.6；楓葉近 5 場 2勝3敗。",
+     "綜合起來，我會偏向油人，玩法建議「不讓分」，信心中。 大小分方面，兩隊近五場平均總分 5.8，盤口開 6.5，偏向「小」。"
+    ]
    },
    "analysis": {
     "signals": [
@@ -2101,6 +2483,543 @@
       "text": "Connor McDavid 火燙，近 5 場場均 2.4 PTS"
      }
     ]
+   },
+   "notes": {
+    "injuries": "ESPN 傷兵名單裡沒有這隊的人，表示目前沒有傷兵回報",
+    "hot": "主力球員本季場次還不夠，暫時看不出手感冷熱",
+    "news": "24 小時內沒有相關新聞",
+    "tw": "台灣運彩還沒開這場，通常比賽前一天才會出現"
+   }
+  },
+  {
+   "id": "v1",
+   "league": "jpvolley",
+   "league_zh": "日本排球",
+   "sport": "volleyball",
+   "chip": "jpvolley",
+   "tennis": false,
+   "tournament": null,
+   "round": "女子",
+   "name": "NEC @ SAG",
+   "start": "2026-10-14T04:12+00:00",
+   "start_tw": "2026-10-14T12:12+08:00",
+   "day_tw": "2026-10-14",
+   "time_tw": "12:12",
+   "status": {
+    "state": "pre",
+    "completed": false,
+    "detail": "未開賽",
+    "clock": null,
+    "period": null
+   },
+   "venue": null,
+   "broadcast": null,
+   "home": {
+    "id": "sv-sagahm",
+    "abbr": "SAG",
+    "name": "SAGA久光",
+    "short": "SAGA久光",
+    "name_zh": "佐賀久光泉水",
+    "logo": "https://www.svleague.jp/files/2026-27/team/sagahm/emblem.png",
+    "color": null,
+    "record": "3-1",
+    "record_home": null,
+    "record_away": null,
+    "score": null,
+    "winner": false,
+    "form_str": null,
+    "leaders": [],
+    "injuries": [],
+    "key_out": [],
+    "key_maybe": [],
+    "out_count": 0,
+    "maybe_count": 0,
+    "hot": [],
+    "form": [
+     {
+      "date": "10/01",
+      "date_iso": "2026-10-01T14:12+00:00",
+      "opp": "A愛知",
+      "opp_zh": "A愛知",
+      "opp_logo": null,
+      "home": true,
+      "pf": 3,
+      "pa": 1,
+      "result": "W",
+      "comp": null
+     },
+     {
+      "date": "10/04",
+      "date_iso": "2026-10-04T14:12+00:00",
+      "opp": "A愛知",
+      "opp_zh": "A愛知",
+      "opp_logo": null,
+      "home": true,
+      "pf": 3,
+      "pa": 2,
+      "result": "W",
+      "comp": null
+     },
+     {
+      "date": "10/07",
+      "date_iso": "2026-10-07T14:12+00:00",
+      "opp": "岡山",
+      "opp_zh": "岡山",
+      "opp_logo": null,
+      "home": false,
+      "pf": 3,
+      "pa": 0,
+      "result": "W",
+      "comp": null
+     },
+     {
+      "date": "10/10",
+      "date_iso": "2026-10-10T14:12+00:00",
+      "opp": "NEC川崎",
+      "opp_zh": "NEC川崎",
+      "opp_logo": null,
+      "home": false,
+      "pf": 1,
+      "pa": 3,
+      "result": "L",
+      "comp": null
+     }
+    ],
+    "form_note": "SV.LEAGUE 官網賽果（局數）",
+    "streak": null,
+    "last10": "3勝1敗",
+    "last10_w": 3,
+    "avg_for5": null,
+    "avg_against5": null,
+    "avg_total5": null,
+    "avg_margin5": null,
+    "rank_note": null,
+    "injury_news": [],
+    "injury_note": null,
+    "en_key": null,
+    "jp_name": "SAGA久光",
+    "record_note": "玩運彩有紀錄的比賽"
+   },
+   "away": {
+    "id": "sv-nec",
+    "abbr": "NEC",
+    "name": "NEC川崎",
+    "short": "NEC川崎",
+    "name_zh": "NEC紅火箭川崎",
+    "logo": "https://www.svleague.jp/files/2026-27/team/nec/emblem.png",
+    "color": null,
+    "record": "3-1",
+    "record_home": null,
+    "record_away": null,
+    "score": null,
+    "winner": false,
+    "form_str": null,
+    "leaders": [],
+    "injuries": [],
+    "key_out": [],
+    "key_maybe": [],
+    "out_count": 0,
+    "maybe_count": 0,
+    "hot": [],
+    "form": [
+     {
+      "date": "10/01",
+      "date_iso": "2026-10-01T14:12+00:00",
+      "opp": "佐賀久光",
+      "opp_zh": "佐賀久光",
+      "opp_logo": null,
+      "home": true,
+      "pf": 3,
+      "pa": 1,
+      "result": "W",
+      "comp": null
+     },
+     {
+      "date": "10/04",
+      "date_iso": "2026-10-04T14:12+00:00",
+      "opp": "デンソー",
+      "opp_zh": "デンソー",
+      "opp_logo": null,
+      "home": true,
+      "pf": 3,
+      "pa": 0,
+      "result": "W",
+      "comp": null
+     },
+     {
+      "date": "10/07",
+      "date_iso": "2026-10-07T14:12+00:00",
+      "opp": "大阪MV",
+      "opp_zh": "大阪MV",
+      "opp_logo": null,
+      "home": false,
+      "pf": 2,
+      "pa": 3,
+      "result": "L",
+      "comp": null
+     },
+     {
+      "date": "10/10",
+      "date_iso": "2026-10-10T14:12+00:00",
+      "opp": "PFU",
+      "opp_zh": "PFU",
+      "opp_logo": null,
+      "home": false,
+      "pf": 3,
+      "pa": 1,
+      "result": "W",
+      "comp": null
+     }
+    ],
+    "form_note": "SV.LEAGUE 官網賽果（局數）",
+    "streak": null,
+    "last10": "3勝1敗",
+    "last10_w": 3,
+    "avg_for5": null,
+    "avg_against5": null,
+    "avg_total5": null,
+    "avg_margin5": null,
+    "rank_note": null,
+    "injury_news": [],
+    "injury_note": "沒有官方傷兵名單；近 10 天新聞沒有提到這隊的傷兵消息，通常代表陣容完整，但賽前仍可能臨時缺陣",
+    "en_key": null,
+    "jp_name": "NEC川崎",
+    "record_note": "玩運彩有紀錄的比賽"
+   },
+   "odds": {
+    "provider": null,
+    "dec_home": null,
+    "dec_away": null,
+    "dec_draw": null,
+    "prob_home": 0.54,
+    "prob_away": 0.46,
+    "prob_draw": null,
+    "prob_source": "form",
+    "spread": null,
+    "details": null,
+    "total": null
+   },
+   "headline": null,
+   "news": [],
+   "suggestion": {
+    "pick": null,
+    "pick_label": null,
+    "play": "觀望",
+    "confidence": "低",
+    "summary": "兩隊實力接近或訊號互相矛盾，建議觀望",
+    "reasons": [
+     "沒有盤口，依兩隊近況估主隊 佐賀久光泉水 勝率約 54%，只能當參考"
+    ],
+    "cautions": [],
+    "totals": null,
+    "story": [
+     "這場是 NEC紅火箭川崎 作客 佐賀久光泉水。這場沒有盤口，光看兩隊近況粗估，比較看好佐賀久光泉水，勝率大約 54%，差不多是十場贏 5 場的意思，這種估法很粗，只能當參考。 台灣運彩沒有開日本排球。",
+     "傷兵方面，佐賀久光泉水：這個聯盟沒有官方傷兵名單，改看新聞；賽前再確認一次；NEC紅火箭川崎沒有官方傷兵名單；近 10 天新聞沒有提到這隊的傷兵消息，通常代表陣容完整，但賽前仍可能臨時缺陣。",
+     "近況方面，佐賀久光泉水近 4 場 3勝1敗；NEC紅火箭川崎近 4 場 3勝1敗。",
+     "排球是五局三勝制，比分看的是局數；台灣運彩沒有開日本排球，這裡的內容是給你看球用的。",
+     "綜合起來這場訊號互相矛盾或資料不夠，我會先觀望，等開賽前再看一次傷兵名單和盤口有沒有變動。"
+    ]
+   },
+   "comp": "SV.LEAGUE 女子",
+   "sets": true,
+   "gender": "女",
+   "notes": {
+    "odds": "沒有盤口，勝率是用兩隊近況估的，只能當參考",
+    "injuries": "這個聯盟沒有官方傷兵名單，改看新聞；賽前再確認一次",
+    "hot": "這個聯盟沒有球員逐場數據，手感看球隊近況為主",
+    "news": "近 4 天沒有找到這兩隊的新聞",
+    "tw": "台灣運彩沒有開日本排球"
+   },
+   "analysis": {
+    "signals": []
+   }
+  },
+  {
+   "id": "j1",
+   "league": "jpbasket",
+   "league_zh": "日本籃球",
+   "sport": "basketball",
+   "chip": "jpbasket",
+   "tennis": false,
+   "tournament": null,
+   "round": "B.LEAGUE",
+   "name": "千葉ジ @ 富山グ",
+   "start": "2026-10-14T06:12+00:00",
+   "start_tw": "2026-10-14T14:12+08:00",
+   "day_tw": "2026-10-14",
+   "time_tw": "14:12",
+   "status": {
+    "state": "pre",
+    "completed": false,
+    "detail": "未開賽",
+    "clock": null,
+    "period": null
+   },
+   "venue": null,
+   "broadcast": null,
+   "home": {
+    "id": "ps97-1",
+    "abbr": "富山グ",
+    "name": "富山グラウジーズ",
+    "short": "富山グラウジーズ",
+    "name_zh": "富山松雞",
+    "logo": null,
+    "color": null,
+    "record": "4-3",
+    "record_home": null,
+    "record_away": null,
+    "score": null,
+    "winner": false,
+    "form_str": null,
+    "leaders": [],
+    "injuries": [],
+    "key_out": [],
+    "key_maybe": [],
+    "out_count": 0,
+    "maybe_count": 0,
+    "hot": [],
+    "form": [
+     {
+      "date": "10/01",
+      "date_iso": "2026-10-01T14:12+00:00",
+      "opp": "千葉阿爾提里",
+      "opp_zh": "千葉阿爾提里",
+      "opp_logo": null,
+      "home": false,
+      "pf": 94,
+      "pa": 74,
+      "result": "W",
+      "comp": null
+     },
+     {
+      "date": "10/04",
+      "date_iso": "2026-10-04T14:12+00:00",
+      "opp": "京都創榮",
+      "opp_zh": "京都創榮",
+      "opp_logo": null,
+      "home": true,
+      "pf": 77,
+      "pa": 81,
+      "result": "L",
+      "comp": null
+     },
+     {
+      "date": "10/07",
+      "date_iso": "2026-10-07T14:12+00:00",
+      "opp": "信州勇士",
+      "opp_zh": "信州勇士",
+      "opp_logo": null,
+      "home": true,
+      "pf": 88,
+      "pa": 80,
+      "result": "W",
+      "comp": null
+     },
+     {
+      "date": "10/10",
+      "date_iso": "2026-10-10T14:12+00:00",
+      "opp": "茨城機器人",
+      "opp_zh": "茨城機器人",
+      "opp_logo": null,
+      "home": false,
+      "pf": 90,
+      "pa": 85,
+      "result": "W",
+      "comp": null
+     }
+    ],
+    "form_note": "官方賽程",
+    "streak": "連勝2",
+    "last10": "3勝1敗",
+    "last10_w": 3,
+    "avg_for5": 87.2,
+    "avg_against5": 80,
+    "avg_total5": 167.2,
+    "avg_margin5": 7.2,
+    "rank_note": "B.LEAGUE 東區第 4 名",
+    "injury_news": [],
+    "injury_note": "沒有官方傷兵名單；近 10 天新聞沒有提到這隊的傷兵消息，通常代表陣容完整，但賽前仍可能臨時缺陣",
+    "en_key": null,
+    "jp_name": "富山グラウジーズ"
+   },
+   "away": {
+    "id": "ps97-2",
+    "abbr": "千葉ジ",
+    "name": "千葉ジェッツ",
+    "short": "千葉ジェッツ",
+    "name_zh": "千葉噴射機",
+    "logo": null,
+    "color": null,
+    "record": "2-5",
+    "record_home": null,
+    "record_away": null,
+    "score": null,
+    "winner": false,
+    "form_str": null,
+    "leaders": [],
+    "injuries": [],
+    "key_out": [],
+    "key_maybe": [],
+    "out_count": 0,
+    "maybe_count": 0,
+    "hot": [],
+    "form": [
+     {
+      "date": "10/01",
+      "date_iso": "2026-10-01T14:12+00:00",
+      "opp": "廣島飛龍",
+      "opp_zh": "廣島飛龍",
+      "opp_logo": null,
+      "home": false,
+      "pf": 70,
+      "pa": 88,
+      "result": "L",
+      "comp": null
+     },
+     {
+      "date": "10/04",
+      "date_iso": "2026-10-04T14:12+00:00",
+      "opp": "仙台89ers",
+      "opp_zh": "仙台89ers",
+      "opp_logo": null,
+      "home": true,
+      "pf": 95,
+      "pa": 90,
+      "result": "W",
+      "comp": null
+     },
+     {
+      "date": "10/07",
+      "date_iso": "2026-10-07T14:12+00:00",
+      "opp": "群馬雷霆",
+      "opp_zh": "群馬雷霆",
+      "opp_logo": null,
+      "home": true,
+      "pf": 80,
+      "pa": 92,
+      "result": "L",
+      "comp": null
+     },
+     {
+      "date": "10/10",
+      "date_iso": "2026-10-10T14:12+00:00",
+      "opp": "琉球黃金國王",
+      "opp_zh": "琉球黃金國王",
+      "opp_logo": null,
+      "home": false,
+      "pf": 78,
+      "pa": 85,
+      "result": "L",
+      "comp": null
+     }
+    ],
+    "form_note": "官方賽程",
+    "streak": "連敗2",
+    "last10": "1勝3敗",
+    "last10_w": 1,
+    "avg_for5": 80.8,
+    "avg_against5": 88.8,
+    "avg_total5": 169.6,
+    "avg_margin5": -8.0,
+    "rank_note": "B.LEAGUE 東區第 11 名",
+    "injury_news": [
+     {
+      "title": "千葉ジェッツ 富樫勇樹が左足首の負傷で欠場へ",
+      "url": "https://news.google.com/",
+      "published": "2026-10-12T03:00",
+      "source": "バスケットボールキング"
+     }
+    ],
+    "injury_note": "沒有官方傷兵名單，近 10 天新聞有提到傷兵相關消息（1 則，點進去看）",
+    "en_key": null,
+    "jp_name": "千葉ジェッツ"
+   },
+   "odds": {
+    "provider": "台灣運彩",
+    "dec_home": 1.45,
+    "dec_away": 2.1,
+    "dec_draw": null,
+    "prob_home": 0.6,
+    "prob_away": 0.4,
+    "prob_source": "tw_ml",
+    "prob_draw": null,
+    "spread": -3.5,
+    "details": "富山松雞 -3.5",
+    "total": 168.5
+   },
+   "headline": null,
+   "news": [],
+   "suggestion": {
+    "pick": "home",
+    "pick_label": "富山松雞",
+    "play": "不讓分",
+    "confidence": "中",
+    "summary": "傾向 富山松雞，建議玩法「不讓分」，信心中",
+    "reasons": [
+     "依台灣運彩賠率換算，主隊 富山松雞 勝率約 60%"
+    ],
+    "cautions": [],
+    "totals": {
+     "lean": "無明顯方向",
+     "line": 168.5,
+     "expected": 168.4
+    },
+    "story": [
+     "這場是 千葉噴射機 作客 富山松雞。依台灣運彩賠率換算，比較看好富山松雞，換算勝率大約 60%，差不多是十場贏 6 場的意思。 台灣運彩不讓分賠率富山松雞 1.45。 讓分盤是富山松雞 -3.5，大小分 168.5。",
+     "傷兵方面，富山松雞沒有官方傷兵名單；近 10 天新聞沒有提到這隊的傷兵消息，通常代表陣容完整，但賽前仍可能臨時缺陣；千葉噴射機沒有官方傷兵名單，但近 10 天新聞有提到傷兵相關消息，例如「千葉ジェッツ 富樫勇樹が左足首の負傷で欠場へ」，建議點開看一下再決定。",
+     "近況方面，富山松雞近 4 場 3勝1敗，目前連勝2，B.LEAGUE 東區第 4 名；千葉噴射機近 4 場 1勝3敗，目前連敗2，B.LEAGUE 東區第 11 名；玩運彩上有 64% 的玩家押富山松雞。",
+     "綜合起來，我會偏向富山松雞，玩法建議「不讓分」，信心中。"
+    ]
+   },
+   "comp": "B.LEAGUE",
+   "tw": {
+    "source": "玩運彩",
+    "url": "https://www.playsport.cc/predict/scale?allianceid=97",
+    "updated": "2026-10-13T22:12+08:00",
+    "no": "401",
+    "spread": {
+     "line": "富山松雞 -3.5",
+     "line_home": -3.5,
+     "home": 1.72,
+     "away": 1.72
+    },
+    "ml": {
+     "home": 1.45,
+     "away": 2.1,
+     "draw": null
+    },
+    "total": {
+     "line": 168.5,
+     "over": 1.7,
+     "under": 1.73
+    },
+    "intl": null,
+    "crowd": {
+     "ml_home": 64,
+     "ml_away": 36,
+     "spread_home": 55,
+     "spread_away": 45,
+     "over": 40,
+     "under": 60,
+     "n": 31
+    }
+   },
+   "analysis": {
+    "crowd": {
+     "ml_home": 64,
+     "ml_away": 36,
+     "spread_home": 55,
+     "spread_away": 45,
+     "over": 40,
+     "under": 60,
+     "n": 31
+    },
+    "signals": []
+   },
+   "notes": {
+    "injuries": "這個聯盟沒有官方傷兵名單，改看新聞；賽前再確認一次",
+    "hot": "這個聯盟沒有球員逐場數據，手感看球隊近況為主",
+    "news": "近 4 天沒有找到這兩隊的新聞"
    }
   },
   {
@@ -2108,14 +3027,15 @@
    "league": "eng.1",
    "league_zh": "英超",
    "sport": "soccer",
+   "chip": "soccer",
    "tennis": false,
    "tournament": null,
    "round": null,
    "name": "ARS @ MCI",
-   "start": "2026-10-14T16:21+00:00",
-   "start_tw": "2026-10-15T00:21+08:00",
+   "start": "2026-10-14T17:12+00:00",
+   "start_tw": "2026-10-15T01:12+08:00",
    "day_tw": "2026-10-15",
-   "time_tw": "00:21",
+   "time_tw": "01:12",
    "status": {
     "state": "pre",
     "completed": false,
@@ -2377,7 +3297,13 @@
      "lean": "無明顯方向",
      "line": 2.5,
      "expected": 2.8
-    }
+    },
+    "story": [
+     "這場是 兵工廠 作客 曼城。國際盤比較看好曼城，換算勝率大約 46%，差不多是十場贏 5 場的意思，和局機率約 27%。 台灣運彩還沒開這場，通常比賽前一天才會出現。 讓分盤是MCI -0.5，大小分 2.5。",
+     "傷兵方面，曼城有 1 名球員缺陣，但都不是主要得分來源；兵工廠有 1 名球員缺陣，但都不是主要得分來源。",
+     "近況方面，曼城近 6 場 5勝0敗1和，目前連勝3；兵工廠近 6 場 5勝1敗。",
+     "綜合起來這場訊號互相矛盾或資料不夠，我會先觀望，等開賽前再看一次傷兵名單和盤口有沒有變動。"
+    ]
    },
    "analysis": {
     "signals": [
@@ -2388,6 +3314,12 @@
       "text": "曼城 近 6 場 5 勝"
      }
     ]
+   },
+   "notes": {
+    "injuries": "ESPN 傷兵名單裡沒有這隊的人，表示目前沒有傷兵回報",
+    "hot": "這個聯盟沒有球員逐場數據，手感看球隊近況為主",
+    "news": "24 小時內沒有相關新聞",
+    "tw": "台灣運彩還沒開這場，通常比賽前一天才會出現"
    }
   },
   {
@@ -2395,14 +3327,15 @@
    "league": "eng.1",
    "league_zh": "英超",
    "sport": "soccer",
+   "chip": "soccer",
    "tennis": false,
    "tournament": null,
    "round": null,
    "name": "TOT @ LIV",
-   "start": "2026-10-14T18:51+00:00",
-   "start_tw": "2026-10-15T02:51+08:00",
+   "start": "2026-10-14T19:42+00:00",
+   "start_tw": "2026-10-15T03:42+08:00",
    "day_tw": "2026-10-15",
-   "time_tw": "02:51",
+   "time_tw": "03:42",
    "status": {
     "state": "pre",
     "completed": false,
@@ -2629,10 +3562,22 @@
      "lean": "無明顯方向",
      "line": 3.0,
      "expected": 2.8
-    }
+    },
+    "story": [
+     "這場是 熱刺 作客 利物浦。國際盤比較看好利物浦，換算勝率大約 58%，差不多是十場贏 6 場的意思，和局機率約 24%。 台灣運彩還沒開這場，通常比賽前一天才會出現。",
+     "傷兵方面，利物浦：ESPN 傷兵名單裡沒有這隊的人，表示目前沒有傷兵回報；熱刺：ESPN 傷兵名單裡沒有這隊的人，表示目前沒有傷兵回報。",
+     "近況方面，利物浦近 6 場 3勝2敗1和；熱刺近 6 場 2勝2敗2和。",
+     "綜合起來，我會偏向利物浦，玩法建議「不讓分」，信心中。"
+    ]
    },
    "analysis": {
     "signals": []
+   },
+   "notes": {
+    "injuries": "ESPN 傷兵名單裡沒有這隊的人，表示目前沒有傷兵回報",
+    "hot": "這個聯盟沒有球員逐場數據，手感看球隊近況為主",
+    "news": "24 小時內沒有相關新聞",
+    "tw": "台灣運彩還沒開這場，通常比賽前一天才會出現"
    }
   }
  ],
@@ -2642,6 +3587,7 @@
    "league": "nba",
    "league_zh": "NBA",
    "sport": "basketball",
+   "chip": "nba",
    "team_id": "9",
    "team": "勇士",
    "team_logo": "https://a.espncdn.com/i/teamlogos/nba/500/gs.png",
@@ -2655,7 +3601,7 @@
    "return_date": null,
    "key": true,
    "official": false,
-   "time_tw": "06:21",
+   "time_tw": "07:12",
    "day_tw": "2026-10-14"
   },
   {
@@ -2663,6 +3609,7 @@
    "league": "nba",
    "league_zh": "NBA",
    "sport": "basketball",
+   "chip": "nba",
    "team_id": "2",
    "team": "塞爾提克",
    "team_logo": "https://a.espncdn.com/i/teamlogos/nba/500/bos.png",
@@ -2676,7 +3623,7 @@
    "return_date": null,
    "key": false,
    "official": false,
-   "time_tw": "20:09",
+   "time_tw": "21:00",
    "day_tw": "2026-10-13"
   },
   {
@@ -2684,6 +3631,7 @@
    "league": "nba",
    "league_zh": "NBA",
    "sport": "basketball",
+   "chip": "nba",
    "team_id": "13",
    "team": "湖人",
    "team_logo": "https://a.espncdn.com/i/teamlogos/nba/500/lal.png",
@@ -2697,7 +3645,7 @@
    "return_date": null,
    "key": false,
    "official": false,
-   "time_tw": "03:51",
+   "time_tw": "04:42",
    "day_tw": "2026-10-14"
   },
   {
@@ -2705,6 +3653,7 @@
    "league": "nhl",
    "league_zh": "NHL 冰球",
    "sport": "hockey",
+   "chip": "hockey",
    "team_id": "21",
    "team": "楓葉",
    "team_logo": "https://a.espncdn.com/i/teamlogos/nhl/500/tor.png",
@@ -2718,7 +3667,7 @@
    "return_date": null,
    "key": false,
    "official": false,
-   "time_tw": "08:21",
+   "time_tw": "09:12",
    "day_tw": "2026-10-14"
   },
   {
@@ -2726,6 +3675,7 @@
    "league": "nba",
    "league_zh": "NBA",
    "sport": "basketball",
+   "chip": "nba",
    "team_id": "13",
    "team": "湖人",
    "team_logo": "https://a.espncdn.com/i/teamlogos/nba/500/lal.png",
@@ -2739,7 +3689,7 @@
    "return_date": "2026-10-20",
    "key": false,
    "official": false,
-   "time_tw": "03:51",
+   "time_tw": "04:42",
    "day_tw": "2026-10-14"
   },
   {
@@ -2747,6 +3697,7 @@
    "league": "nba",
    "league_zh": "NBA",
    "sport": "basketball",
+   "chip": "nba",
    "team_id": "9",
    "team": "勇士",
    "team_logo": "https://a.espncdn.com/i/teamlogos/nba/500/gs.png",
@@ -2760,7 +3711,7 @@
    "return_date": null,
    "key": false,
    "official": false,
-   "time_tw": "06:21",
+   "time_tw": "07:12",
    "day_tw": "2026-10-14"
   },
   {
@@ -2768,6 +3719,7 @@
    "league": "eng.1",
    "league_zh": "英超",
    "sport": "soccer",
+   "chip": "soccer",
    "team_id": "382",
    "team": "曼城",
    "team_logo": "https://a.espncdn.com/i/teamlogos/soccer/500/382.png",
@@ -2781,7 +3733,7 @@
    "return_date": null,
    "key": false,
    "official": false,
-   "time_tw": "00:21",
+   "time_tw": "01:12",
    "day_tw": "2026-10-15"
   },
   {
@@ -2789,6 +3741,7 @@
    "league": "eng.1",
    "league_zh": "英超",
    "sport": "soccer",
+   "chip": "soccer",
    "team_id": "359",
    "team": "兵工廠",
    "team_logo": "https://a.espncdn.com/i/teamlogos/soccer/500/359.png",
@@ -2802,8 +3755,54 @@
    "return_date": null,
    "key": false,
    "official": false,
-   "time_tw": "00:21",
+   "time_tw": "01:12",
    "day_tw": "2026-10-15"
+  },
+  {
+   "game_id": "e1",
+   "league": "eurobasket",
+   "league_zh": "歐洲籃球",
+   "sport": "basketball",
+   "chip": "eurobasket",
+   "team_id": "ps8-1",
+   "team": "費內巴切",
+   "team_logo": "https://media-cdn.incrowdsports.com/371b0d9b-9250-4c09-bda7-0686cf024657.png",
+   "player": "Fenerbahce star Wade Baldwin ruled out two weeks with ankle ",
+   "headshot": null,
+   "position": null,
+   "status": "news",
+   "status_zh": "新聞",
+   "severity": "news",
+   "detail": "Eurohoops · 2026-10-11",
+   "return_date": null,
+   "url": "https://news.google.com/",
+   "key": false,
+   "official": false,
+   "time_tw": "03:42",
+   "day_tw": "2026-10-14"
+  },
+  {
+   "game_id": "j1",
+   "league": "jpbasket",
+   "league_zh": "日本籃球",
+   "sport": "basketball",
+   "chip": "jpbasket",
+   "team_id": "ps97-2",
+   "team": "千葉噴射機",
+   "team_logo": null,
+   "player": "千葉ジェッツ 富樫勇樹が左足首の負傷で欠場へ",
+   "headshot": null,
+   "position": null,
+   "status": "news",
+   "status_zh": "新聞",
+   "severity": "news",
+   "detail": "バスケットボールキング · 2026-10-12",
+   "return_date": null,
+   "url": "https://news.google.com/",
+   "key": false,
+   "official": false,
+   "time_tw": "14:12",
+   "day_tw": "2026-10-14"
   }
  ],
  "hot_players": [
@@ -2812,6 +3811,7 @@
    "league": "nhl",
    "league_zh": "NHL 冰球",
    "sport": "hockey",
+   "chip": "hockey",
    "team": "油人",
    "team_logo": "https://a.espncdn.com/i/teamlogos/nhl/500/edm.png",
    "id": "3114778",
@@ -2858,6 +3858,7 @@
    "league": "nba",
    "league_zh": "NBA",
    "sport": "basketball",
+   "chip": "nba",
    "team": "塞爾提克",
    "team_logo": "https://a.espncdn.com/i/teamlogos/nba/500/bos.png",
    "id": "4065648",
@@ -2904,6 +3905,7 @@
    "league": "nba",
    "league_zh": "NBA",
    "sport": "basketball",
+   "chip": "nba",
    "team": "湖人",
    "team_logo": "https://a.espncdn.com/i/teamlogos/nba/500/lal.png",
    "id": "3136195",
@@ -2950,6 +3952,7 @@
    "league": "nba",
    "league_zh": "NBA",
    "sport": "basketball",
+   "chip": "nba",
    "team": "勇士",
    "team_logo": "https://a.espncdn.com/i/teamlogos/nba/500/gs.png",
    "id": "3975",
@@ -2996,6 +3999,7 @@
    "league": "nba",
    "league_zh": "NBA",
    "sport": "basketball",
+   "chip": "nba",
    "team": "湖人",
    "team_logo": "https://a.espncdn.com/i/teamlogos/nba/500/lal.png",
    "id": "1966",
@@ -3042,6 +4046,7 @@
    "league": "nba",
    "league_zh": "NBA",
    "sport": "basketball",
+   "chip": "nba",
    "team": "雷霆",
    "team_logo": "https://a.espncdn.com/i/teamlogos/nba/500/okc.png",
    "id": "4278073",
@@ -3085,9 +4090,150 @@
   }
  ],
  "standings": {
+  "eurobasket": {
+   "label": "歐洲籃球",
+   "sport": "basketball",
+   "chip": "eurobasket",
+   "groups": [
+    {
+     "name": "歐冠 Regular Season",
+     "rows": [
+      {
+       "pos": 1,
+       "team_id": "PAN",
+       "team": "Panathinaikos AKTOR Athens",
+       "abbr": "PAN",
+       "name_zh": "Panathinaikos",
+       "logo": null,
+       "w": 4,
+       "l": 0,
+       "pct": ".1000",
+       "streak": null,
+       "diff": 83
+      },
+      {
+       "pos": 2,
+       "team_id": "PAM",
+       "team": "Valencia Basket",
+       "abbr": "PAM",
+       "name_zh": "Valencia",
+       "logo": null,
+       "w": 4,
+       "l": 0,
+       "pct": ".1000",
+       "streak": null,
+       "diff": 49
+      },
+      {
+       "pos": 3,
+       "team_id": "OLY",
+       "team": "Olympiacos Piraeus",
+       "abbr": "OLY",
+       "name_zh": "Olympiacos",
+       "logo": null,
+       "w": 3,
+       "l": 1,
+       "pct": ".750",
+       "streak": null,
+       "diff": 40
+      }
+     ]
+    }
+   ]
+  },
+  "jpbasket": {
+   "label": "日本籃球",
+   "sport": "basketball",
+   "chip": "jpbasket",
+   "groups": [
+    {
+     "name": "東地区",
+     "rows": [
+      {
+       "pos": 1,
+       "team_id": "群馬",
+       "team": "群馬クレインサンダーズ",
+       "abbr": "群馬",
+       "name_zh": "群馬雷霆",
+       "logo": null,
+       "w": 6,
+       "l": 1,
+       "pct": ".857",
+       "streak": "W1",
+       "last5": "4-1"
+      },
+      {
+       "pos": 2,
+       "team_id": "仙台",
+       "team": "仙台89ERS",
+       "abbr": "仙台",
+       "name_zh": "仙台89ers",
+       "logo": null,
+       "w": 4,
+       "l": 3,
+       "pct": ".571",
+       "streak": "W3",
+       "last5": "3-2"
+      },
+      {
+       "pos": 3,
+       "team_id": "富山",
+       "team": "富山グラウジーズ",
+       "abbr": "富山",
+       "name_zh": "富山松雞",
+       "logo": null,
+       "w": 4,
+       "l": 3,
+       "pct": ".571",
+       "streak": "W2",
+       "last5": "3-2"
+      }
+     ]
+    }
+   ]
+  },
+  "jpvolley": {
+   "label": "日本排球",
+   "sport": "volleyball",
+   "chip": "jpvolley",
+   "groups": [
+    {
+     "name": "女子（依本站抓到的賽果計算，可能不完整）",
+     "rows": [
+      {
+       "pos": 1,
+       "team_id": "sagahm",
+       "team": "SAGA久光",
+       "abbr": "SAGA久光",
+       "name_zh": "佐賀久光泉水",
+       "logo": "https://www.svleague.jp/files/2026-27/team/sagahm/emblem.png",
+       "w": 3,
+       "l": 1,
+       "pct": ".750",
+       "streak": null,
+       "sets": "10-6"
+      },
+      {
+       "pos": 2,
+       "team_id": "nec",
+       "team": "NEC川崎",
+       "abbr": "NEC川崎",
+       "name_zh": "NEC紅火箭川崎",
+       "logo": "https://www.svleague.jp/files/2026-27/team/nec/emblem.png",
+       "w": 3,
+       "l": 1,
+       "pct": ".750",
+       "streak": null,
+       "sets": "11-5"
+      }
+     ]
+    }
+   ]
+  },
   "nba": {
    "label": "NBA",
    "sport": "basketball",
+   "chip": "nba",
    "groups": [
     {
      "name": "西區",
@@ -3152,6 +4298,7 @@
   "eng.1": {
    "label": "英超",
    "sport": "soccer",
+   "chip": "soccer",
    "groups": [
     {
      "name": "",

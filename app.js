@@ -5,7 +5,8 @@
   const $ = (s, el = document) => el.querySelector(s);
   const params = new URLSearchParams(location.search);
   const DATA_URL = params.get("data") === "sample" ? "data/sample.json" : "data/today.json";
-  const SPORT_ICON = { all: "i-grid", basketball: "i-basketball", eurobasket: "i-basketball", jpbasket: "i-basketball", volleyball: "i-volleyball", soccer: "i-soccer", hockey: "i-hockey", tennis: "i-tennis", football: "i-football" };
+  const SPORT_ICON = { all: "i-grid", nba: "i-basketball", basketball: "i-basketball", eurobasket: "i-basketball", jpbasket: "i-basketball", jpvolley: "i-volleyball", volleyball: "i-volleyball", soccer: "i-soccer", hockey: "i-hockey", tennis: "i-tennis", football: "i-football" };
+  const chipOf = (x) => x.chip || x.sport;
 
   const state = {
     data: null,
@@ -55,7 +56,7 @@
     if (p.headshot) return `<img class="avatar" src="${esc(p.headshot)}" alt="" loading="lazy" data-fb="${fb}">`;
     return `<span class="avatar fallback">${fb}</span>`;
   }
-  const sevClass = (s) => (s === "out" ? "out" : s === "maybe" ? "maybe" : s === "ir" ? "ir" : s === "ok" ? "ok" : "muted");
+  const sevClass = (s) => (s === "out" ? "out" : s === "maybe" ? "maybe" : s === "ir" ? "ir" : s === "ok" ? "ok" : s === "news" ? "vio" : "muted");
 
   // 圖片載入失敗就換成縮寫，沒有縮寫的就拿掉
   document.addEventListener("error", (e) => {
@@ -83,8 +84,8 @@
 
   function gamesForSport() {
     const g = state.data.games || [];
-    if (state.sport === "all") { const hid = hiddenSportKeys(); return g.filter((x) => !hid.has(x.sport)); }
-    return g.filter((x) => x.sport === state.sport);
+    if (state.sport === "all") { const hid = hiddenSportKeys(); return g.filter((x) => !hid.has(chipOf(x))); }
+    return g.filter((x) => chipOf(x) === state.sport);
   }
   const findGame = (id) => (state.data.games || []).find((x) => x.id === id);
 
@@ -110,9 +111,9 @@
     const sports = state.data.sports || [];
     const hiddenKeys = new Set(sports.filter((s) => s.hidden).map((s) => s.key));
     const counts = {};
-    all.forEach((g) => { counts[g.sport] = (counts[g.sport] || 0) + 1; });
+    all.forEach((g) => { counts[chipOf(g)] = (counts[chipOf(g)] || 0) + 1; });
     const visible = sports.filter((s) => !s.hidden || state.showMore || state.sport === s.key);
-    const mainCount = all.filter((g) => !hiddenKeys.has(g.sport)).length;
+    const mainCount = all.filter((g) => !hiddenKeys.has(chipOf(g))).length;
     $("#chips").innerHTML = visible.map((s) => {
       const n = s.key === "all" ? mainCount : counts[s.key] || 0;
       return `<button class="chip ${state.sport === s.key ? "on" : ""}" data-sport="${s.key}">${icon(SPORT_ICON[s.key] || "i-grid")}${esc(s.label)}<span class="n">${n}</span></button>`;
@@ -191,6 +192,7 @@
     const b = [];
     if (t.key_out && t.key_out.length) b.push(`<span class="badge out">${icon("i-med")}主力缺陣 ${t.key_out.length}</span>`);
     else if (t.out_count) b.push(`<span class="badge out">${icon("i-med")}缺陣 ${t.out_count}</span>`);
+    else if (t.injury_news && t.injury_news.length) b.push(`<span class="badge maybe">${icon("i-news")}傷兵新聞 ${t.injury_news.length}</span>`);
     if (t.maybe_count) b.push(`<span class="badge maybe">${icon("i-warn")}存疑 ${t.maybe_count}</span>`);
     (t.hot || []).forEach((p) => {
       if (p.label === "火燙") b.push(`<span class="badge hot">${icon("i-fire")}${esc(p.player.split(" ").pop())} 火燙</span>`);
@@ -207,21 +209,26 @@
 
   function teamBlock(t, g, side) {
     const en = t.name_zh && t.name && t.name !== t.name_zh ? `<span class="ten">${esc(t.name)}</span>` : "";
-    const rec = g.tennis ? (t.rank ? `<span class="rec">排名 <b>${esc(t.rank)}</b></span>` : "") : (t.record ? `<span class="rec">戰績 <b>${esc(t.record)}</b>${t.last10 ? `　近10 <b>${esc(t.last10)}</b>` : ""}</span>` : "");
+    const recN = (t.form || []).length || 10;
+    const rec = g.tennis ? (t.rank ? `<span class="rec">排名 <b>${esc(t.rank)}</b></span>` : "")
+      : [t.record ? `<span class="rec">戰績 <b>${esc(t.record)}</b></span>` : "", t.last10 ? `<span class="rec">近 ${recN} 場 <b>${esc(t.last10)}</b></span>` : ""].join("");
+    const rank = !g.tennis && t.rank_note ? `<span class="rec">${esc(t.rank_note)}</span>` : "";
     return `<div class="team">
       ${g.tennis ? (t.headshot ? `<img class="logo" src="${esc(t.headshot)}" alt="" loading="lazy" data-fb="${esc(initials(t))}">` : logoImg(t)) : logoImg(t)}
-      <span class="tname">${esc(tname(t))}</span>${en}${rec}
+      <span class="tname">${esc(tname(t))}</span>${en}${rec}${rank}
       ${g.tennis ? "" : formDots(t)}
       <div class="side-badges">${sideBadges(t, g, side)}</div>
     </div>`;
   }
 
+  const SRC_LABEL = { spread: "依國際盤讓分推估勝率", tw_ml: "依台灣運彩賠率換算勝率", form: "沒有盤口，勝率依兩隊近況粗估，只當參考", moneyline: "國際盤獨贏賠率換算勝率" };
   function oddsRow(g) {
     const o = g.odds;
-    if (!o || (o.dec_home == null && o.dec_away == null)) return `<div class="oline">${esc((g.notes && g.notes.odds) || "還沒開盤，通常比賽前一天才會出現")}</div>` + twRow(g);
-    const cell = (label, dec, prob, fav) => `<div class="obtn ${fav ? "fav" : ""}">
-      <div class="ol">${label}</div><div class="ov">${dec != null ? dec.toFixed(2) : "–"}</div>
-      <div class="op">${prob != null ? "勝率 " + pct(prob) : ""}</div>
+    const noDec = !o || (o.dec_home == null && o.dec_away == null);
+    if (noDec && !(o && o.prob_home != null)) return `<div class="oline">${esc((g.notes && g.notes.odds) || "還沒開盤，通常比賽前一天才會出現")}</div>` + twRow(g);
+    const cell = (label, dec, prob, fav) => `<div class="obtn ${fav ? "fav" : ""} ${dec == null ? "est" : ""}">
+      <div class="ol">${label}</div><div class="ov">${dec != null ? dec.toFixed(2) : prob != null ? pct(prob) : "–"}</div>
+      <div class="op">${dec != null && prob != null ? "勝率 " + pct(prob) : dec == null ? "估算勝率" : ""}</div>
       <div class="bar"><span style="width:${prob ? Math.round(prob * 100) : 0}%"></span></div></div>`;
     const favHome = o.prob_home != null && o.prob_away != null && o.prob_home >= o.prob_away;
     const hasDraw = o.dec_draw != null;
@@ -235,7 +242,8 @@
     const line = [];
     if (o.spread != null) line.push(`讓分 ${esc(o.details || (o.spread > 0 ? "+" : "") + o.spread)}`);
     if (o.total != null) line.push(`大小分 ${o.total}`);
-    if (o.provider) line.push(`國際盤 ${esc(o.provider)}`);
+    if (o.provider && o.provider !== "台灣運彩") line.push(`國際盤 ${esc(o.provider)}`);
+    if (SRC_LABEL[o.prob_source]) line.push(esc(SRC_LABEL[o.prob_source]));
     if (line.length) html += `<div class="oline">${line.join("　·　")}</div>`;
     return html + twRow(g);
   }
@@ -270,11 +278,17 @@
     return `<div class="prow">${avatarImg(p)}<div class="grow"><div class="pn">${esc(p.player)} ${src}</div><div class="ps">${esc(p.position_zh || p.position || "")}${p.detail ? " · " + esc(p.detail) : ""}${p.return_date ? " · 預計回歸 " + esc(String(p.return_date).slice(0, 10)) : ""}</div>${comment}</div>${extra}</div>`;
   }
 
+  function injuryNews(t) {
+    const list = t.injury_news || [];
+    if (!list.length) return "";
+    return `<div class="news compact">${list.map((n) => `<a href="${esc(n.url || "#")}" target="_blank" rel="noopener"><div><div class="nt">${esc(n.title)}</div><div class="nd">${esc(n.source || "新聞")} · ${esc(String(n.published || "").slice(0, 10))}</div></div></a>`).join("")}</div>`;
+  }
   function injuryCol(t, side, g) {
     const list = (t.injuries || []).slice(0, 14);
     if (!list.length) {
-      const note = g && g.notes && g.notes.injuries;
-      return `<div class="plist">${note ? `<div class="pc">${esc(note)}</div>` : `<span class="badge ok">${icon("i-check")}沒有傷兵回報</span>`}</div>`;
+      const note = t.injury_note || (g && g.notes && g.notes.injuries);
+      const ok = !note && !(t.injury_news || []).length;
+      return `<div class="plist">${ok ? `<span class="badge ok">${icon("i-check")}沒有傷兵回報</span>` : `<div class="pc long">${esc(note || "")}</div>`}${injuryNews(t)}</div>`;
     }
     return `<div class="plist">${list.map((x) => playerRow(x, `<span class="badge ${sevClass(x.severity)}">${esc(x.status_zh)}</span>`)).join("")}${(t.injuries || []).length > 14 ? `<div class="pc">還有 ${(t.injuries || []).length - 14} 人未列出</div>` : ""}</div>`;
   }
@@ -295,11 +309,12 @@
     return `<div class="plist">${list.map(hotRow).join("")}</div>`;
   }
 
-  function formCol(t) {
+  function formCol(t, side, g) {
     const f = (t.form || []).slice(-10).reverse();
-    if (!f.length) return `<div class="rows"><span class="badge muted">${t.form_str ? "近況：" + esc(t.form_str) : "本季還沒有打完的比賽"}</span></div>`;
-    return `<div class="rows">${f.map((r) => `<div class="frow"><span class="dot ${r.result}">${r.result === "W" ? "勝" : r.result === "L" ? "敗" : "和"}</span><span class="d">${esc(r.date)}</span><span>${esc(r.opp_zh || r.opp || "")}<span class="ha">${r.home ? "主" : "客"}${r.comp ? " · " + esc(r.comp) : ""}</span></span><span class="s">${r.pf}-${r.pa}</span></div>`).join("")}</div>
-      ${t.avg_for5 != null ? `<div class="meta"><span>近 5 場平均得 ${t.avg_for5}</span><span>失 ${t.avg_against5}</span><span>總分 ${t.avg_total5}</span>${t.form_note ? `<span>${esc(t.form_note)}</span>` : ""}</div>` : ""}`;
+    if (!f.length) return `<div class="rows"><span class="badge muted">${t.form_str ? "近況：" + esc(t.form_str) : esc((g && g.notes && g.notes.form) || "本季還沒有打完的比賽")}</span></div>`;
+    const ha = (r) => (r.home == null ? "" : r.home ? "主" : "客");
+    return `<div class="rows">${f.map((r) => `<div class="frow"><span class="dot ${r.result}">${r.result === "W" ? "勝" : r.result === "L" ? "敗" : "和"}</span><span class="d">${esc(r.date)}</span><span>${esc(r.opp_zh || r.opp || "")}<span class="ha">${ha(r)}${r.comp ? " · " + esc(r.comp) : ""}</span></span><span class="s">${r.pf}-${r.pa}${g && g.sets ? "<small> 局</small>" : ""}</span></div>`).join("")}</div>
+      ${t.avg_for5 != null ? `<div class="meta"><span>近 5 場平均得 ${t.avg_for5}</span><span>失 ${t.avg_against5}</span><span>總分 ${t.avg_total5}</span>${t.form_note ? `<span>${esc(t.form_note)}</span>` : ""}</div>` : t.form_note ? `<div class="meta"><span>${esc(t.form_note)}</span></div>` : ""}`;
   }
 
   function lineupCol(g, side) {
@@ -310,7 +325,7 @@
 
   function newsList(g) {
     if (!g.news || !g.news.length) return `<div class="pc">${esc((g.notes && g.notes.news) || "24 小時內沒有相關新聞")}</div>`;
-    return `<div class="news">${g.news.map((n) => `<a href="${esc(n.url || "#")}" target="_blank" rel="noopener">${n.image ? `<img src="${esc(n.image)}" alt="" loading="lazy">` : ""}<div><div class="nt">${esc(n.title)}</div><div class="nd">${esc(n.team === "home" ? tname(g.home) : tname(g.away))} · ${esc(String(n.published || "").slice(0, 10))}</div></div></a>`).join("")}</div>`;
+    return `<div class="news">${g.news.map((n) => `<a href="${esc(n.url || "#")}" target="_blank" rel="noopener">${n.image ? `<img src="${esc(n.image)}" alt="" loading="lazy">` : ""}<div><div class="nt">${esc(n.title)}</div><div class="nd">${esc(n.team === "home" ? tname(g.home) : tname(g.away))}${n.source ? " · " + esc(n.source) : ""} · ${esc(String(n.published || "").slice(0, 10))}</div></div></a>`).join("")}</div>`;
   }
 
   // 進階分析：訊號列表 + 關鍵指標
@@ -329,6 +344,11 @@
       const ph = a.predictor.home, pa = a.predictor.away;
       const oh = g.odds && g.odds.prob_home;
       kv.push(`<div class="kv"><div class="kl">ESPN 模型勝率</div><div class="kbar"><span class="ka" style="width:${Math.round(pa * 100)}%">${esc(A)} ${pct(pa)}</span><span class="kh" style="width:${Math.round(ph * 100)}%">${esc(H)} ${pct(ph)}</span></div>${oh != null ? `<div class="pc">盤口換算主隊 ${pct(oh)}，模型 ${pct(ph)}，差 ${Math.round((ph - oh) * 100)} 個百分點</div>` : ""}</div>`);
+    }
+    if (a.crowd && (a.crowd.ml_home != null || a.crowd.spread_home != null)) {
+      const c = a.crowd;
+      const row = (label, aw, hm) => (aw == null && hm == null) ? "" : `<div class="kl">${label}</div><div class="kbar"><span class="ka" style="width:${aw || 0}%">${esc(A)} ${aw != null ? aw + "%" : ""}</span><span class="kh" style="width:${hm || 0}%">${esc(H)} ${hm != null ? hm + "%" : ""}</span></div>`;
+      kv.push(`<div class="kv">${row("玩運彩玩家預測：不讓分", c.ml_away, c.ml_home)}${row("玩運彩玩家預測：讓分", c.spread_away, c.spread_home)}${c.over != null || c.under != null ? `<div class="pc">大小分：大 ${c.over != null ? c.over + "%" : "–"} / 小 ${c.under != null ? c.under + "%" : "–"}${c.n ? `　·　最多 ${c.n} 人預測` : ""}</div>` : c.n ? `<div class="pc">最多 ${c.n} 人預測</div>` : ""}<div class="pc">一面倒（七成五以上）的時候反而要小心，玩家多數押的那邊不一定贏。</div></div>`);
     }
     if (a.live_prob && a.live_prob.home != null) kv.push(`<div class="kv"><div class="kl">即時勝率（主隊）</div><div class="kval">${pct(a.live_prob.home)}</div></div>`);
     if (a.line_move && (a.line_move.spread_open != null || a.line_move.total_open != null)) {
@@ -384,7 +404,7 @@
     const edge = s && s.pick && s.confidence === "高";
     const hasScore = (live || post) && (g.home.score != null || g.away.score != null);
     const mid = hasScore
-      ? `<div class="score ${g.tennis ? "sets" : ""}">${g.tennis ? esc(g.home.score || "") + "<br>" + esc(g.away.score || "") : esc(g.away.score ?? "") + " : " + esc(g.home.score ?? "")}</div><div class="sub">${esc(g.status.detail)}</div>`
+      ? `<div class="score ${g.tennis ? "sets" : ""}">${g.tennis ? esc(g.home.score || "") + "<br>" + esc(g.away.score || "") : esc(g.away.score ?? "") + " : " + esc(g.home.score ?? "")}</div><div class="sub">${g.sets ? "局數 · " : ""}${esc(g.status.detail)}</div>`
       : `<div class="time">${esc(g.time_tw)}</div><div class="vs">VS</div><div class="sub">${esc(dayLabel(g.day_tw).name)}</div>`;
     const idAttr = opts.modal ? "" : `id="g-${esc(g.id)}"`;
     const expandBtn = opts.modal ? "" : `<button class="expand" data-toggle="${esc(g.id)}">${open ? "收起" : "展開傷兵、手感、近況、新聞"}${icon("i-chev")}</button>`;
@@ -450,19 +470,19 @@
 
   function renderInjuries() {
     const hid = hiddenSportKeys();
-    const feed = (state.data.injury_feed || []).filter((x) => state.sport === "all" ? !hid.has(x.sport) : x.sport === state.sport);
+    const feed = (state.data.injury_feed || []).filter((x) => state.sport === "all" ? !hid.has(chipOf(x)) : chipOf(x) === state.sport);
     const el = $("#injuries");
     if (!feed.length) { el.innerHTML = `<div class="empty">今明兩天的比賽沒有傷兵回報，或該球種沒有傷兵資料來源。</div>`; return; }
     const list = state.showAllInj ? feed : feed.slice(0, 10);
-    el.innerHTML = list.map((x) => `<button class="aitem" data-goto="${esc(x.game_id)}">${avatarImg(x)}<div class="grow"><div class="pn">${esc(x.player)} ${x.key ? `<span class="badge vio">主力</span>` : ""}${x.official ? `<span class="badge vio">官方</span>` : ""}</div>
-      <div class="ps">${x.team_logo ? `<img class="tl" src="${esc(x.team_logo)}" alt="">` : ""}${esc(x.team)} · ${esc(x.position || "")}${x.detail ? " · " + esc(x.detail) : ""} · ${esc(x.time_tw)}</div></div>
+    el.innerHTML = list.map((x) => `<button class="aitem ${x.severity === "news" ? "is-news" : ""}" data-goto="${esc(x.game_id)}">${x.severity === "news" ? `<span class="avatar fallback">${icon("i-news")}</span>` : avatarImg(x)}<div class="grow"><div class="pn">${esc(x.player)} ${x.key ? `<span class="badge vio">主力</span>` : ""}${x.official ? `<span class="badge vio">官方</span>` : ""}</div>
+      <div class="ps">${x.team_logo ? `<img class="tl" src="${esc(x.team_logo)}" alt="">` : ""}${esc(x.team)}${x.position ? " · " + esc(x.position) : ""}${x.detail ? " · " + esc(x.detail) : ""} · ${esc(dayLabel(x.day_tw).name)} ${esc(x.time_tw)}</div></div>
       <span class="badge ${sevClass(x.severity)}">${esc(x.status_zh)}</span></button>`).join("") +
       (feed.length > 10 ? `<button class="more" data-more="inj">${state.showAllInj ? "收起" : `還有 ${feed.length - 10} 筆，展開全部`}</button>` : "");
   }
 
   function renderHot() {
     const hid2 = hiddenSportKeys();
-    const hot = (state.data.hot_players || []).filter((x) => state.sport === "all" ? !hid2.has(x.sport) : x.sport === state.sport);
+    const hot = (state.data.hot_players || []).filter((x) => state.sport === "all" ? !hid2.has(chipOf(x)) : chipOf(x) === state.sport);
     const el = $("#hot");
     if (!hot.length) { el.innerHTML = `<div class="empty">目前沒有明顯火燙或冰冷的球員（需要本季至少 3 場資料）。</div>`; return; }
     const list = state.showAllHot ? hot : hot.slice(0, 8);
@@ -474,10 +494,11 @@
     }).join("") + (hot.length > 8 ? `<button class="more" data-more="hot">${state.showAllHot ? "收起" : `還有 ${hot.length - 8} 人，展開全部`}</button>` : "");
   }
 
+  const streakZh = (s) => { const m = /^([WL])(\d+)$/.exec(s || ""); return m ? (m[1] === "W" ? "連勝" : "連敗") + m[2] : s || ""; };
   function renderStandings() {
     const st = state.data.standings || {};
     const hid3 = hiddenSportKeys();
-    const keys = Object.keys(st).filter((k) => state.sport === "all" ? !hid3.has(st[k].sport) : st[k].sport === state.sport);
+    const keys = Object.keys(st).filter((k) => state.sport === "all" ? !hid3.has(chipOf(st[k])) : chipOf(st[k]) === state.sport);
     const el = $("#standings");
     if (!keys.length) { el.innerHTML = `<div class="empty">沒有排名資料。</div>`; return; }
     if (!state.standingsLeague || !keys.includes(state.standingsLeague)) state.standingsLeague = keys[0];
@@ -485,11 +506,11 @@
     const sel = `<select class="sel" id="st-sel">${keys.map((k) => `<option value="${esc(k)}" ${k === state.standingsLeague ? "selected" : ""}>${esc(st[k].label || k)}</option>`).join("")}</select>`;
     const soccer = cur.sport === "soccer";
     const hockey = cur.sport === "hockey";
-    const tables = (cur.groups || []).map((grp) => `${grp.name ? `<div class="grp">${esc(grp.name)}</div>` : ""}<table class="table"><thead><tr><th class="pos">#</th><th>球隊</th>${soccer ? `<th class="n">場</th><th class="n">勝-和-敗</th><th class="n">積分</th>` : hockey ? `<th class="n">勝-敗-延敗</th><th class="n">積分</th>` : `<th class="n">勝-敗</th><th class="n">勝率</th><th class="n">近況</th>`}</tr></thead><tbody>
+    const tables = (cur.groups || []).map((grp) => `${grp.name ? `<div class="grp">${esc(grp.name)}</div>` : ""}<table class="table"><thead><tr><th class="pos">#</th><th>球隊</th>${soccer ? `<th class="n">場</th><th class="n">勝-和-敗</th><th class="n">積分</th>` : hockey ? `<th class="n">勝-敗-延敗</th><th class="n">積分</th>` : `<th class="n">勝-敗</th><th class="n">勝率</th><th class="n">近況 / 差</th>`}</tr></thead><tbody>
       ${grp.rows.slice(0, 24).map((r) => `<tr><td class="pos">${r.pos}</td><td><span class="tm">${r.logo ? `<img src="${esc(r.logo)}" alt="">` : ""}${esc(r.name_zh || r.team || "")}</span></td>
         ${soccer ? `<td class="n">${r.gp ?? ""}</td><td class="n">${r.w ?? 0}-${r.d ?? 0}-${r.l ?? 0}</td><td class="n"><b>${r.points ?? ""}</b></td>`
           : hockey ? `<td class="n">${r.w ?? 0}-${r.l ?? 0}-${r.otl ?? 0}</td><td class="n"><b>${r.points ?? ""}</b></td>`
-          : `<td class="n">${r.w ?? 0}-${r.l ?? 0}</td><td class="n">${esc(r.pct || "")}</td><td class="n">${esc(r.streak || "")}</td>`}</tr>`).join("")}
+          : `<td class="n">${r.w ?? 0}-${r.l ?? 0}</td><td class="n">${esc(r.pct || "")}</td><td class="n">${esc(streakZh(r.streak) || (r.last5 ? "近5 " + r.last5 : "") || (r.sets ? "局 " + r.sets : "") || (r.diff != null ? (r.diff > 0 ? "+" : "") + r.diff : ""))}</td>`}</tr>`).join("")}
     </tbody></table>`).join("");
     el.innerHTML = sel + tables;
   }

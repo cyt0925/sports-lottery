@@ -78,7 +78,7 @@ def game(gid, lg, sport, hours_from_now, home, away, o, state="pre", scores=None
     st = dict(state=state, completed=(state == "post"), detail=detail or ("未開賽" if state == "pre" else "已結束"), clock=None, period=None)
     if scores:
         home["score"], away["score"] = scores
-    g = dict(id=gid, league=lg, league_zh=F.LEAGUE_ZH[lg], sport=sport, tennis=False, tournament=None, round=None,
+    g = dict(id=gid, league=lg, league_zh=F.LEAGUE_ZH[lg], sport=sport, chip=F.chip_of(F.LEAGUES_BY_KEY[lg]), tennis=False, tournament=None, round=None,
              name=f"{away['abbr']} @ {home['abbr']}", start=F.iso(start), start_tw=F.iso(stw), day_tw=stw.strftime("%Y-%m-%d"),
              time_tw=stw.strftime("%H:%M"), status=st, venue=venue, broadcast=bc, home=home, away=away, odds=o,
              headline=headline, news=news or [], suggestion=None)
@@ -89,6 +89,80 @@ def game(gid, lg, sport, hours_from_now, home, away, o, state="pre", scores=None
         t["key_maybe"] = [x["player"] for x in t["injuries"] if x["severity"] == "maybe" and x["player"] in leaders]
     g["suggestion"] = F.build_suggestion(g, F.LEAGUES_BY_KEY[lg])
     return g
+
+
+def plain_team(lg, name, name_zh, tid, form, logo=None, rank_note=None, record=None, injury_news=None, injury_note=None, en_key=None, jp_name=None):
+    """沒有 ESPN 的聯盟：隊名、隊徽、近況、排名說明、傷兵新聞。"""
+    t = dict(id=tid, abbr=name[:3].upper(), name=name, short=name, name_zh=name_zh, logo=logo, color=None, record=record,
+             record_home=None, record_away=None, score=None, winner=False, form_str=None, leaders=[], injuries=[], key_out=[], key_maybe=[],
+             out_count=0, maybe_count=0, hot=[], form=[], form_note=None, streak=None, last10=None, last10_w=0,
+             avg_for5=None, avg_against5=None, avg_total5=None, avg_margin5=None, rank_note=rank_note,
+             injury_news=injury_news or [], injury_note=injury_note, en_key=en_key, jp_name=jp_name)
+    rows = []
+    base = now - timedelta(days=len(form) * 3)
+    for i, (res, pf, pa, opp, home) in enumerate(form):
+        d = base + timedelta(days=i * 3)
+        rows.append(dict(date=d.astimezone(TW).strftime("%m/%d"), date_iso=d.isoformat(timespec="minutes"), opp=opp, opp_zh=opp, opp_logo=None, home=home, pf=pf, pa=pa, result=res, comp=None))
+    from playsport import summarize_form
+    summarize_form(t, rows, note="官方賽程")
+    if record:
+        t["record"] = record
+    return t
+
+
+def new_league_games():
+    el = "https://media-cdn.incrowdsports.com/"
+    fen = plain_team("eurobasket", "Fenerbahce Beko Istanbul", "費內巴切", "ps8-1", [("W", 88, 80, "皇家馬德里", True), ("W", 95, 83, "摩納哥", False), ("L", 77, 84, "奧林匹亞科斯", False), ("W", 90, 86, "巴塞隆納", True)],
+                     logo=el + "371b0d9b-9250-4c09-bda7-0686cf024657.png", rank_note="歐冠第 4 名", record="3-1", en_key="Fenerbahce",
+                     injury_news=[dict(title="Fenerbahce star Wade Baldwin ruled out two weeks with ankle sprain", url="https://news.google.com/", published="2026-10-11T08:00", source="Eurohoops")],
+                     injury_note="沒有官方傷兵名單，近 10 天新聞有提到傷兵相關消息（1 則，點進去看）")
+    zal = plain_team("eurobasket", "Zalgiris Kaunas", "考納斯綠林", "ps8-2", [("W", 92, 85, "巴黎", True), ("W", 81, 79, "米蘭", True), ("W", 99, 90, "拜仁", False), ("L", 70, 88, "帕納辛奈科斯", False)],
+                     logo=el + "1efae090-16e2-4963-ae47-4b94f249c244.png", rank_note="歐冠第 6 名", record="3-1", en_key="Zalgiris",
+                     injury_note="沒有官方傷兵名單；近 10 天新聞沒有提到這隊的傷兵消息，通常代表陣容完整，但賽前仍可能臨時缺陣")
+    g_el = game("e1", "eurobasket", "basketball", 5.5, fen, zal, None, venue=None)
+    g_el["round"] = g_el["comp"] = "歐冠 Round 5"
+    g_el["odds"] = dict(provider="台灣運彩", dec_home=1.23, dec_away=2.8, dec_draw=None, prob_home=0.67, prob_away=0.33, prob_draw=None, prob_source="spread", spread=-6.5, details="費內巴切 6分贏", total=164.0)
+    g_el["tw"] = dict(source="玩運彩", url="https://www.playsport.cc/predict/scale?allianceid=8", updated=now.astimezone(TW).isoformat(timespec="minutes"), no="306",
+                      spread=dict(line="費內巴切 -6.5", line_home=-6.5, home=1.68, away=1.75), ml=dict(home=1.23, away=2.8, draw=None), total=dict(line=163.5, over=1.73, under=1.7),
+                      intl=dict(spread_home=-6.0, total=164.0, spread_text="費內巴切 6分贏"), crowd=dict(ml_home=82, ml_away=18, spread_home=48, spread_away=52, over=53, under=47, n=57))
+    g_el["analysis"] = dict(crowd=g_el["tw"]["crowd"])
+    g_el["news"] = [dict(title="Fenerbahce edge Barcelona in EuroLeague thriller", desc=None, url="https://news.google.com/", image=None, published="2026-10-12T21:00", source="Eurohoops", team="home")]
+
+    toy = plain_team("jpbasket", "富山グラウジーズ", "富山松雞", "ps97-1", [("W", 94, 74, "千葉阿爾提里", False), ("L", 77, 81, "京都創榮", True), ("W", 88, 80, "信州勇士", True), ("W", 90, 85, "茨城機器人", False)],
+                     rank_note="B.LEAGUE 東區第 4 名", record="4-3", jp_name="富山グラウジーズ", injury_note="沒有官方傷兵名單；近 10 天新聞沒有提到這隊的傷兵消息，通常代表陣容完整，但賽前仍可能臨時缺陣")
+    chb = plain_team("jpbasket", "千葉ジェッツ", "千葉噴射機", "ps97-2", [("L", 70, 88, "廣島飛龍", False), ("W", 95, 90, "仙台89ers", True), ("L", 80, 92, "群馬雷霆", True), ("L", 78, 85, "琉球黃金國王", False)],
+                     rank_note="B.LEAGUE 東區第 11 名", record="2-5", jp_name="千葉ジェッツ",
+                     injury_news=[dict(title="千葉ジェッツ 富樫勇樹が左足首の負傷で欠場へ", url="https://news.google.com/", published="2026-10-12T03:00", source="バスケットボールキング")],
+                     injury_note="沒有官方傷兵名單，近 10 天新聞有提到傷兵相關消息（1 則，點進去看）")
+    g_jp = game("j1", "jpbasket", "basketball", 16, toy, chb, None)
+    g_jp["round"] = g_jp["comp"] = "B.LEAGUE"
+    g_jp["odds"] = dict(provider="台灣運彩", dec_home=1.45, dec_away=2.1, dec_draw=None, prob_home=0.6, prob_away=0.4, prob_source="tw_ml", prob_draw=None, spread=-3.5, details="富山松雞 -3.5", total=168.5)
+    g_jp["tw"] = dict(source="玩運彩", url="https://www.playsport.cc/predict/scale?allianceid=97", updated=now.astimezone(TW).isoformat(timespec="minutes"), no="401",
+                      spread=dict(line="富山松雞 -3.5", line_home=-3.5, home=1.72, away=1.72), ml=dict(home=1.45, away=2.1, draw=None), total=dict(line=168.5, over=1.7, under=1.73), intl=None,
+                      crowd=dict(ml_home=64, ml_away=36, spread_home=55, spread_away=45, over=40, under=60, n=31))
+    g_jp["analysis"] = dict(crowd=g_jp["tw"]["crowd"])
+
+    sv = "https://www.svleague.jp/files/2026-27/team/"
+    saga = plain_team("jpvolley", "SAGA久光", "佐賀久光泉水", "sv-sagahm", [("W", 3, 1, "A愛知", True), ("W", 3, 2, "A愛知", True), ("W", 3, 0, "岡山", False), ("L", 1, 3, "NEC川崎", False)], logo=sv + "sagahm/emblem.png", jp_name="SAGA久光")
+    nec = plain_team("jpvolley", "NEC川崎", "NEC紅火箭川崎", "sv-nec", [("W", 3, 1, "佐賀久光", True), ("W", 3, 0, "デンソー", True), ("L", 2, 3, "大阪MV", False), ("W", 3, 1, "PFU", False)], logo=sv + "nec/emblem.png", jp_name="NEC川崎",
+                     injury_note="沒有官方傷兵名單；近 10 天新聞沒有提到這隊的傷兵消息，通常代表陣容完整，但賽前仍可能臨時缺陣")
+    for t in (saga, nec):
+        t["avg_for5"] = t["avg_against5"] = t["avg_total5"] = t["avg_margin5"] = None
+        t["form_note"] = "SV.LEAGUE 官網賽果（局數）"
+    g_sv = game("v1", "jpvolley", "volleyball", 14, saga, nec, None)
+    g_sv["round"] = "女子"; g_sv["comp"] = "SV.LEAGUE 女子"; g_sv["sets"] = True; g_sv["gender"] = "女"
+    for g in (g_el, g_jp, g_sv):
+        if not g.get("odds") or g["odds"].get("prob_home") is None:
+            est = F.estimate_from_form(g)
+            if est:
+                g["odds"] = est
+        F.fill_notes(g, F.LEAGUES_BY_KEY[g["league"]])
+        g["suggestion"] = F.build_suggestion(g, F.LEAGUES_BY_KEY[g["league"]])
+    return [g_el, g_jp, g_sv]
+
+
+def sv_logo(code):
+    return f"https://www.svleague.jp/files/2026-27/team/{code}/emblem.png"
 
 
 def main():
@@ -141,6 +215,7 @@ def main():
         game("g6", "nhl", "hockey", 11, edm, tor, odds(-150, 125, spread=-1.5, total=6.5, details="EDM -1.5"), venue="Rogers Place"),
         game("g7", "nba", "basketball", -7, gsw, lal, odds(150, -180), state="post", scores=("104", "118"), detail="已結束"),
     ]
+    games += new_league_games()
     games.sort(key=lambda g: g["start"])
     # 範例：第一場掛上台灣運彩盤口，看介面
     g1 = next(g for g in games if g["id"] == "g1")
@@ -159,16 +234,35 @@ def main():
     for r in bos["form"]:
         r["date_iso"] = (now - timedelta(hours=20)).isoformat(timespec="minutes")
     g1["suggestion"] = F.build_suggestion(g1, F.LEAGUES_BY_KEY["nba"])
+    from story import build_story
+    for g in games:
+        if "notes" not in g:
+            F.fill_notes(g, F.LEAGUES_BY_KEY[g["league"]])
+        g["suggestion"]["story"] = build_story(g, g["sport"])
     feed, hotp = F.aggregate(games)
     standings = {
-        "nba": dict(label="NBA", sport="basketball", groups=[dict(name="西區", rows=[
+        "eurobasket": dict(label="歐洲籃球", sport="basketball", chip="eurobasket", groups=[dict(name="歐冠 Regular Season", rows=[
+            dict(pos=1, team_id="PAN", team="Panathinaikos AKTOR Athens", abbr="PAN", name_zh="Panathinaikos", logo=None, w=4, l=0, pct=".1000", streak=None, diff=83),
+            dict(pos=2, team_id="PAM", team="Valencia Basket", abbr="PAM", name_zh="Valencia", logo=None, w=4, l=0, pct=".1000", streak=None, diff=49),
+            dict(pos=3, team_id="OLY", team="Olympiacos Piraeus", abbr="OLY", name_zh="Olympiacos", logo=None, w=3, l=1, pct=".750", streak=None, diff=40),
+        ])]),
+        "jpbasket": dict(label="日本籃球", sport="basketball", chip="jpbasket", groups=[dict(name="東地区", rows=[
+            dict(pos=1, team_id="群馬", team="群馬クレインサンダーズ", abbr="群馬", name_zh="群馬雷霆", logo=None, w=6, l=1, pct=".857", streak="W1", last5="4-1"),
+            dict(pos=2, team_id="仙台", team="仙台89ERS", abbr="仙台", name_zh="仙台89ers", logo=None, w=4, l=3, pct=".571", streak="W3", last5="3-2"),
+            dict(pos=3, team_id="富山", team="富山グラウジーズ", abbr="富山", name_zh="富山松雞", logo=None, w=4, l=3, pct=".571", streak="W2", last5="3-2"),
+        ])]),
+        "jpvolley": dict(label="日本排球", sport="volleyball", chip="jpvolley", groups=[dict(name="女子（依本站抓到的賽果計算，可能不完整）", rows=[
+            dict(pos=1, team_id="sagahm", team="SAGA久光", abbr="SAGA久光", name_zh="佐賀久光泉水", logo=sv_logo("sagahm"), w=3, l=1, pct=".750", streak=None, sets="10-6"),
+            dict(pos=2, team_id="nec", team="NEC川崎", abbr="NEC川崎", name_zh="NEC紅火箭川崎", logo=sv_logo("nec"), w=3, l=1, pct=".750", streak=None, sets="11-5"),
+        ])]),
+        "nba": dict(label="NBA", sport="basketball", chip="nba", groups=[dict(name="西區", rows=[
             dict(pos=1, team_id="25", team="Oklahoma City Thunder", abbr="OKC", name_zh="雷霆", logo="https://a.espncdn.com/i/teamlogos/nba/500/okc.png", w=5, l=0, pct=".1000", streak="W5"),
             dict(pos=2, team_id="13", team="Los Angeles Lakers", abbr="LAL", name_zh="湖人", logo="https://a.espncdn.com/i/teamlogos/nba/500/lal.png", w=4, l=1, pct=".800", streak="W4"),
             dict(pos=3, team_id="9", team="Golden State Warriors", abbr="GS", name_zh="勇士", logo="https://a.espncdn.com/i/teamlogos/nba/500/gs.png", w=2, l=3, pct=".400", streak="L1"),
         ]), dict(name="東區", rows=[
             dict(pos=1, team_id="2", team="Boston Celtics", abbr="BOS", name_zh="塞爾提克", logo="https://a.espncdn.com/i/teamlogos/nba/500/bos.png", w=3, l=2, pct=".600", streak="L1"),
         ])]),
-        "eng.1": dict(label="英超", sport="soccer", groups=[dict(name="", rows=[
+        "eng.1": dict(label="英超", sport="soccer", chip="soccer", groups=[dict(name="", rows=[
             dict(pos=1, team_id="359", team="Arsenal", abbr="ARS", name_zh="兵工廠", logo="https://a.espncdn.com/i/teamlogos/soccer/500/359.png", gp=8, w=6, d=1, l=1, points=19),
             dict(pos=2, team_id="382", team="Manchester City", abbr="MCI", name_zh="曼城", logo="https://a.espncdn.com/i/teamlogos/soccer/500/382.png", gp=8, w=5, d=2, l=1, points=17),
             dict(pos=3, team_id="364", team="Liverpool", abbr="LIV", name_zh="利物浦", logo="https://a.espncdn.com/i/teamlogos/soccer/500/364.png", gp=8, w=5, d=1, l=2, points=16),
