@@ -164,6 +164,39 @@ def fetch_games(lg, log, errors, now=None):
                 official=ls.get("official"),
             )
             games.append(g)
+        # 盤口頁沒列、但即時比分有的（通常是已開打或已結束的）：做成沒盤口的賽事，比分照顯示
+        for gid, ls in ids.items():
+            if gid in seen or not ls.get("dateon"):
+                continue
+            try:
+                start_tw = datetime.strptime(ls["dateon"], "%Y-%m-%d %H:%M:%S").replace(tzinfo=TW)
+            except ValueError:
+                continue
+            seen.add(gid)
+            start_utc = start_tw.astimezone(UTC)
+            state, detail, completed = _state_for(start_utc, now, ls)
+            home = _blank_team(ls.get("hname") or ls.get("h") or "主隊", None, aid)
+            away = _blank_team(ls.get("aname") or ls.get("a") or "客隊", None, aid)
+            if ls.get("hscore") not in (None, "", 0) or ls.get("ascore") not in (None, "", 0):
+                home["score"], away["score"] = str(ls.get("hscore")), str(ls.get("ascore"))
+                if state == "post":
+                    try:
+                        home["winner"] = float(ls["hscore"]) > float(ls["ascore"])
+                        away["winner"] = float(ls["ascore"]) > float(ls["hscore"])
+                    except (TypeError, ValueError):
+                        pass
+            src = (ls.get("source") or "").strip()
+            comp = SOURCE_ZH.get(src)
+            games.append(dict(
+                id=f"ps{gid}", league=lg["key"], league_zh=lg["label"], sport=lg["sport"], chip=lg["key"],
+                tennis=False, tournament=None, round=comp, comp=comp, comp_source=src or None,
+                name=f"{away['name']} @ {home['name']}",
+                start=start_utc.isoformat(timespec="minutes"), start_tw=start_tw.isoformat(timespec="minutes"),
+                day_tw=start_tw.strftime("%Y-%m-%d"), time_tw=start_tw.strftime("%H:%M"),
+                status=dict(state=state, completed=completed, detail=detail, clock=ls.get("remaining"), period=ls.get("period")),
+                venue=None, broadcast=None, home=home, away=away, odds=None, headline=None, news=[], suggestion=None,
+                tw=None, analysis={}, official=ls.get("official"),
+            ))
         time.sleep(0.3)
     log(f"[{lg['key']}] 玩運彩 {len(games)} 場（{'、'.join(days)}）")
     return games
@@ -240,7 +273,8 @@ def parse_team_history(text, team_name, now_tw):
             if "bet" in cls or "scoresum" in cls:
                 bets[cls.split()[-1]] = td.get_text(" ", strip=True)
         if raw_sample is None:
-            raw_sample = dict(date=md, names=(n1, n2), scores=(s1, s2), bets=bets)
+            bank = tr.find("td", class_=re.compile("td-bank-bet01"))
+            raw_sample = dict(date=md, names=(n1, n2), scores=(s1, s2), bets=bets, bank_html=re.sub(r"\s+", " ", str(bank))[:500] if bank else None)
         rows.append(dict(
             date=f"{mon:02d}/{day:02d}", date_iso=dt.astimezone(UTC).isoformat(timespec="minutes"), ts=dt.timestamp(),
             opp=opp, opp_zh=opp, opp_logo=None, home=home, pf=int(pf), pa=int(pa),

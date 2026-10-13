@@ -16,6 +16,12 @@ LANG = {
     "ja": "hl=ja&gl=JP&ceid=JP:ja",
     "zh": "hl=zh-TW&gl=TW&ceid=TW:zh-Hant",
 }
+TITLE_KW = {
+    "en": re.compile(r"injur|sidelin|ruled out|out for|out indefinitely|will miss|misses|absen|surgery|doubtful|questionable|return|hurt|sprain|strain|fracture|torn|knee|ankle|hamstring", re.I),
+    "ja": re.compile(r"怪我|負傷|欠場|離脱|復帰|手術|故障|骨折|捻挫|肉離れ|不在"),
+    "zh": re.compile(r"受傷|傷兵|缺陣|傷退|復出|手術"),
+}
+SPORT_HINT = {"en": " basketball", "ja": "", "zh": ""}
 INJ_TERMS = {
     "en": '(injury OR injured OR sidelined OR "ruled out" OR "will miss" OR "out for" OR "out indefinitely" OR surgery)',
     "ja": "(怪我 OR 負傷 OR 欠場 OR 離脱 OR 復帰 OR 手術 OR 故障)",
@@ -57,20 +63,24 @@ def _query(q, lang):
     return items
 
 
-def injury_news(name, lang, days=10, limit=3):
+def injury_news(name, lang, days=10, limit=3, hint=None):
     if not name:
         return []
-    q = f'"{name}" {INJ_TERMS.get(lang, INJ_TERMS["en"])} when:{days}d'
-    return _query(q, lang)[:limit]
+    hint = SPORT_HINT.get(lang, "") if hint is None else hint
+    q = f'"{name}"{hint} {INJ_TERMS.get(lang, INJ_TERMS["en"])} when:{days}d'
+    kw = TITLE_KW.get(lang, TITLE_KW["en"])
+    items = [x for x in _query(q, lang) if kw.search(x.get("title") or "")]
+    return items[:limit]
 
 
-def team_news(name, lang, days=4, limit=3):
+def team_news(name, lang, days=4, limit=3, hint=None):
     if not name:
         return []
-    return _query(f'"{name}" when:{days}d', lang)[:limit]
+    hint = SPORT_HINT.get(lang, "") if hint is None else hint
+    return _query(f'"{name}"{hint} when:{days}d', lang)[:limit]
 
 
-def attach(games, name_fn, log, errors, label):
+def attach(games, name_fn, log, errors, label, hint=None):
     """name_fn(team) -> (查詢用隊名, 語言) 或 None。掛上 t["injury_news"]、t["injury_note"]、g["news"]。"""
     n_team = n_news = 0
     done = {}
@@ -89,8 +99,8 @@ def attach(games, name_fn, log, errors, label):
                 t["injury_news"], t["injury_note"], tn = done[name]
             else:
                 try:
-                    inj = injury_news(name, lang)
-                    tn = team_news(name, lang)
+                    inj = injury_news(name, lang, hint=hint)
+                    tn = team_news(name, lang, hint=hint)
                 except Exception as e:  # noqa: BLE001
                     errors.append(f"{label} 新聞 {name} 失敗: {e!r}")
                     inj, tn = [], []

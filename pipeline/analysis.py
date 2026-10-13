@@ -409,6 +409,13 @@ def extra_signals(g, lg):
             side = "home" if hw > aw else "away"
             sigs.append(dict(label="近期對戰", side=side, weight=0.15, text=f"近 {len(h2h['games'])} 次交手 {hn} {hw} 勝 {aw} 敗"))
 
+    crowd = a.get("crowd") or {}
+    if crowd.get("ml_home") is not None and crowd.get("ml_away") is not None:
+        side = "home" if crowd["ml_home"] >= crowd["ml_away"] else "away"
+        v = max(crowd["ml_home"], crowd["ml_away"])
+        sigs.append(dict(label="玩家預測", side=None, weight=0,
+                         text=f"玩運彩 {v}% 的玩家押{hn if side == 'home' else an}" + ("，太一面倒的時候反而要小心" if v >= 80 else "")))
+
     lu = a.get("lineup") or {}
     for side, t in (("home", H), ("away", A)):
         x = lu.get(side)

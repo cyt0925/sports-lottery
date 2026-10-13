@@ -1,7 +1,7 @@
 {
- "generated_at": "2026-10-13T22:12+08:00",
- "generated_ts": 1791900765,
- "today_tw": "2026-10-13",
+ "generated_at": "2026-10-14T01:05+08:00",
+ "generated_ts": 1791911122,
+ "today_tw": "2026-10-14",
  "sports": [
   {
    "key": "all",
@@ -69,10 +69,10 @@
    "tournament": null,
    "round": null,
    "name": "LAL @ GS",
-   "start": "2026-10-13T07:12+00:00",
-   "start_tw": "2026-10-13T15:12+08:00",
+   "start": "2026-10-13T10:05+00:00",
+   "start_tw": "2026-10-13T18:05+08:00",
    "day_tw": "2026-10-13",
-   "time_tw": "15:12",
+   "time_tw": "18:05",
    "status": {
     "state": "post",
     "completed": true,
@@ -179,7 +179,7 @@
     ],
     "form": [
      {
-      "date": "10/01",
+      "date": "10/02",
       "opp": "LAL",
       "opp_zh": "湖人",
       "opp_logo": null,
@@ -189,7 +189,7 @@
       "result": "L"
      },
      {
-      "date": "10/03",
+      "date": "10/04",
       "opp": "UTAH",
       "opp_zh": "爵士",
       "opp_logo": null,
@@ -199,7 +199,7 @@
       "result": "W"
      },
      {
-      "date": "10/05",
+      "date": "10/06",
       "opp": "OKC",
       "opp_zh": "雷霆",
       "opp_logo": null,
@@ -209,7 +209,7 @@
       "result": "L"
      },
      {
-      "date": "10/07",
+      "date": "10/08",
       "opp": "DEN",
       "opp_zh": "金塊",
       "opp_logo": null,
@@ -219,7 +219,7 @@
       "result": "L"
      },
      {
-      "date": "10/09",
+      "date": "10/10",
       "opp": "SAC",
       "opp_zh": "國王",
       "opp_logo": null,
@@ -229,7 +229,7 @@
       "result": "W"
      },
      {
-      "date": "10/11",
+      "date": "10/12",
       "opp": "HOU",
       "opp_zh": "火箭",
       "opp_logo": null,
@@ -383,7 +383,7 @@
     ],
     "form": [
      {
-      "date": "10/01",
+      "date": "10/02",
       "opp": "PHX",
       "opp_zh": "太陽",
       "opp_logo": null,
@@ -393,7 +393,7 @@
       "result": "W"
      },
      {
-      "date": "10/03",
+      "date": "10/04",
       "opp": "SAC",
       "opp_zh": "國王",
       "opp_logo": null,
@@ -403,7 +403,7 @@
       "result": "W"
      },
      {
-      "date": "10/05",
+      "date": "10/06",
       "opp": "DEN",
       "opp_zh": "金塊",
       "opp_logo": null,
@@ -413,7 +413,7 @@
       "result": "L"
      },
      {
-      "date": "10/07",
+      "date": "10/08",
       "opp": "MIN",
       "opp_zh": "灰狼",
       "opp_logo": null,
@@ -423,7 +423,7 @@
       "result": "W"
      },
      {
-      "date": "10/09",
+      "date": "10/10",
       "opp": "POR",
       "opp_zh": "拓荒者",
       "opp_logo": null,
@@ -433,7 +433,7 @@
       "result": "W"
      },
      {
-      "date": "10/11",
+      "date": "10/12",
       "opp": "GS",
       "opp_zh": "勇士",
       "opp_logo": null,
@@ -503,10 +503,10 @@
    "tournament": null,
    "round": null,
    "name": "OKC @ BOS",
-   "start": "2026-10-13T13:00+00:00",
-   "start_tw": "2026-10-13T21:00+08:00",
+   "start": "2026-10-13T15:53+00:00",
+   "start_tw": "2026-10-13T23:53+08:00",
    "day_tw": "2026-10-13",
-   "time_tw": "21:00",
+   "time_tw": "23:53",
    "status": {
     "state": "in",
     "completed": false,
@@ -596,7 +596,7 @@
     ],
     "form": [
      {
-      "date": "10/01",
+      "date": "10/02",
       "opp": "NY",
       "opp_zh": "尼克",
       "opp_logo": null,
@@ -604,10 +604,10 @@
       "pf": 115,
       "pa": 108,
       "result": "W",
-      "date_iso": "2026-10-12T18:12+00:00"
+      "date_iso": "2026-10-12T21:05+00:00"
      },
      {
-      "date": "10/03",
+      "date": "10/04",
       "opp": "MIA",
       "opp_zh": "熱火",
       "opp_logo": null,
@@ -615,10 +615,10 @@
       "pf": 99,
       "pa": 105,
       "result": "L",
-      "date_iso": "2026-10-12T18:12+00:00"
+      "date_iso": "2026-10-12T21:05+00:00"
      },
      {
-      "date": "10/05",
+      "date": "10/06",
       "opp": "TOR",
       "opp_zh": "暴龍",
       "opp_logo": null,
@@ -626,10 +626,10 @@
       "pf": 120,
       "pa": 110,
       "result": "W",
-      "date_iso": "2026-10-12T18:12+00:00"
+      "date_iso": "2026-10-12T21:05+00:00"
      },
      {
-      "date": "10/07",
+      "date": "10/08",
       "opp": "PHI",
       "opp_zh": "七六人",
       "opp_logo": null,
@@ -637,10 +637,10 @@
       "pf": 104,
       "pa": 112,
       "result": "L",
-      "date_iso": "2026-10-12T18:12+00:00"
+      "date_iso": "2026-10-12T21:05+00:00"
      },
      {
-      "date": "10/09",
+      "date": "10/10",
       "opp": "CHA",
       "opp_zh": "黃蜂",
       "opp_logo": null,
@@ -648,10 +648,10 @@
       "pf": 118,
       "pa": 101,
       "result": "W",
-      "date_iso": "2026-10-12T18:12+00:00"
+      "date_iso": "2026-10-12T21:05+00:00"
      },
      {
-      "date": "10/11",
+      "date": "10/12",
       "opp": "CLE",
       "opp_zh": "騎士",
       "opp_logo": null,
@@ -659,7 +659,7 @@
       "pf": 108,
       "pa": 116,
       "result": "L",
-      "date_iso": "2026-10-12T18:12+00:00"
+      "date_iso": "2026-10-12T21:05+00:00"
      }
     ],
     "form_note": null,
@@ -735,7 +735,7 @@
     ],
     "form": [
      {
-      "date": "10/01",
+      "date": "10/02",
       "opp": "DAL",
       "opp_zh": "獨行俠",
       "opp_logo": null,
@@ -745,7 +745,7 @@
       "result": "W"
      },
      {
-      "date": "10/03",
+      "date": "10/04",
       "opp": "GS",
       "opp_zh": "勇士",
       "opp_logo": null,
@@ -755,7 +755,7 @@
       "result": "W"
      },
      {
-      "date": "10/05",
+      "date": "10/06",
       "opp": "HOU",
       "opp_zh": "火箭",
       "opp_logo": null,
@@ -765,7 +765,7 @@
       "result": "W"
      },
      {
-      "date": "10/07",
+      "date": "10/08",
       "opp": "MEM",
       "opp_zh": "灰熊",
       "opp_logo": null,
@@ -775,7 +775,7 @@
       "result": "W"
      },
      {
-      "date": "10/09",
+      "date": "10/10",
       "opp": "SA",
       "opp_zh": "馬刺",
       "opp_logo": null,
@@ -785,7 +785,7 @@
       "result": "W"
      },
      {
-      "date": "10/11",
+      "date": "10/12",
       "opp": "POR",
       "opp_zh": "拓荒者",
       "opp_logo": null,
@@ -888,10 +888,10 @@
    "tournament": null,
    "round": "歐冠 Round 5",
    "name": "ZAL @ FEN",
-   "start": "2026-10-13T19:42+00:00",
-   "start_tw": "2026-10-14T03:42+08:00",
+   "start": "2026-10-13T22:35+00:00",
+   "start_tw": "2026-10-14T06:35+08:00",
    "day_tw": "2026-10-14",
-   "time_tw": "03:42",
+   "time_tw": "06:35",
    "status": {
     "state": "pre",
     "completed": false,
@@ -924,8 +924,8 @@
     "hot": [],
     "form": [
      {
-      "date": "10/01",
-      "date_iso": "2026-10-01T14:12+00:00",
+      "date": "10/02",
+      "date_iso": "2026-10-01T17:05+00:00",
       "opp": "皇家馬德里",
       "opp_zh": "皇家馬德里",
       "opp_logo": null,
@@ -936,8 +936,8 @@
       "comp": null
      },
      {
-      "date": "10/04",
-      "date_iso": "2026-10-04T14:12+00:00",
+      "date": "10/05",
+      "date_iso": "2026-10-04T17:05+00:00",
       "opp": "摩納哥",
       "opp_zh": "摩納哥",
       "opp_logo": null,
@@ -948,8 +948,8 @@
       "comp": null
      },
      {
-      "date": "10/07",
-      "date_iso": "2026-10-07T14:12+00:00",
+      "date": "10/08",
+      "date_iso": "2026-10-07T17:05+00:00",
       "opp": "奧林匹亞科斯",
       "opp_zh": "奧林匹亞科斯",
       "opp_logo": null,
@@ -960,8 +960,8 @@
       "comp": null
      },
      {
-      "date": "10/10",
-      "date_iso": "2026-10-10T14:12+00:00",
+      "date": "10/11",
+      "date_iso": "2026-10-10T17:05+00:00",
       "opp": "巴塞隆納",
       "opp_zh": "巴塞隆納",
       "opp_logo": null,
@@ -1016,8 +1016,8 @@
     "hot": [],
     "form": [
      {
-      "date": "10/01",
-      "date_iso": "2026-10-01T14:12+00:00",
+      "date": "10/02",
+      "date_iso": "2026-10-01T17:05+00:00",
       "opp": "巴黎",
       "opp_zh": "巴黎",
       "opp_logo": null,
@@ -1028,8 +1028,8 @@
       "comp": null
      },
      {
-      "date": "10/04",
-      "date_iso": "2026-10-04T14:12+00:00",
+      "date": "10/05",
+      "date_iso": "2026-10-04T17:05+00:00",
       "opp": "米蘭",
       "opp_zh": "米蘭",
       "opp_logo": null,
@@ -1040,8 +1040,8 @@
       "comp": null
      },
      {
-      "date": "10/07",
-      "date_iso": "2026-10-07T14:12+00:00",
+      "date": "10/08",
+      "date_iso": "2026-10-07T17:05+00:00",
       "opp": "拜仁",
       "opp_zh": "拜仁",
       "opp_logo": null,
@@ -1052,8 +1052,8 @@
       "comp": null
      },
      {
-      "date": "10/10",
-      "date_iso": "2026-10-10T14:12+00:00",
+      "date": "10/11",
+      "date_iso": "2026-10-10T17:05+00:00",
       "opp": "帕納辛奈科斯",
       "opp_zh": "帕納辛奈科斯",
       "opp_logo": null,
@@ -1135,7 +1135,7 @@
    "tw": {
     "source": "玩運彩",
     "url": "https://www.playsport.cc/predict/scale?allianceid=8",
-    "updated": "2026-10-13T22:12+08:00",
+    "updated": "2026-10-14T01:05+08:00",
     "no": "306",
     "spread": {
      "line": "費內巴切 -6.5",
@@ -1178,7 +1178,14 @@
      "under": 47,
      "n": 57
     },
-    "signals": []
+    "signals": [
+     {
+      "label": "玩家預測",
+      "side": null,
+      "impact": 0,
+      "text": "玩運彩 82% 的玩家押費內巴切，太一面倒的時候反而要小心"
+     }
+    ]
    },
    "notes": {
     "injuries": "這個聯盟沒有官方傷兵名單，改看新聞；賽前再確認一次",
@@ -1196,10 +1203,10 @@
    "tournament": null,
    "round": null,
    "name": "BOS @ LAL",
-   "start": "2026-10-13T20:42+00:00",
-   "start_tw": "2026-10-14T04:42+08:00",
+   "start": "2026-10-13T23:35+00:00",
+   "start_tw": "2026-10-14T07:35+08:00",
    "day_tw": "2026-10-14",
-   "time_tw": "04:42",
+   "time_tw": "07:35",
    "status": {
     "state": "pre",
     "completed": false,
@@ -1344,7 +1351,7 @@
     ],
     "form": [
      {
-      "date": "10/01",
+      "date": "10/02",
       "opp": "PHX",
       "opp_zh": "太陽",
       "opp_logo": null,
@@ -1354,7 +1361,7 @@
       "result": "W"
      },
      {
-      "date": "10/03",
+      "date": "10/04",
       "opp": "SAC",
       "opp_zh": "國王",
       "opp_logo": null,
@@ -1364,7 +1371,7 @@
       "result": "W"
      },
      {
-      "date": "10/05",
+      "date": "10/06",
       "opp": "DEN",
       "opp_zh": "金塊",
       "opp_logo": null,
@@ -1374,7 +1381,7 @@
       "result": "L"
      },
      {
-      "date": "10/07",
+      "date": "10/08",
       "opp": "MIN",
       "opp_zh": "灰狼",
       "opp_logo": null,
@@ -1384,7 +1391,7 @@
       "result": "W"
      },
      {
-      "date": "10/09",
+      "date": "10/10",
       "opp": "POR",
       "opp_zh": "拓荒者",
       "opp_logo": null,
@@ -1394,7 +1401,7 @@
       "result": "W"
      },
      {
-      "date": "10/11",
+      "date": "10/12",
       "opp": "GS",
       "opp_zh": "勇士",
       "opp_logo": null,
@@ -1493,7 +1500,7 @@
     ],
     "form": [
      {
-      "date": "10/01",
+      "date": "10/02",
       "opp": "NY",
       "opp_zh": "尼克",
       "opp_logo": null,
@@ -1501,10 +1508,10 @@
       "pf": 115,
       "pa": 108,
       "result": "W",
-      "date_iso": "2026-10-12T18:12+00:00"
+      "date_iso": "2026-10-12T21:05+00:00"
      },
      {
-      "date": "10/03",
+      "date": "10/04",
       "opp": "MIA",
       "opp_zh": "熱火",
       "opp_logo": null,
@@ -1512,10 +1519,10 @@
       "pf": 99,
       "pa": 105,
       "result": "L",
-      "date_iso": "2026-10-12T18:12+00:00"
+      "date_iso": "2026-10-12T21:05+00:00"
      },
      {
-      "date": "10/05",
+      "date": "10/06",
       "opp": "TOR",
       "opp_zh": "暴龍",
       "opp_logo": null,
@@ -1523,10 +1530,10 @@
       "pf": 120,
       "pa": 110,
       "result": "W",
-      "date_iso": "2026-10-12T18:12+00:00"
+      "date_iso": "2026-10-12T21:05+00:00"
      },
      {
-      "date": "10/07",
+      "date": "10/08",
       "opp": "PHI",
       "opp_zh": "七六人",
       "opp_logo": null,
@@ -1534,10 +1541,10 @@
       "pf": 104,
       "pa": 112,
       "result": "L",
-      "date_iso": "2026-10-12T18:12+00:00"
+      "date_iso": "2026-10-12T21:05+00:00"
      },
      {
-      "date": "10/09",
+      "date": "10/10",
       "opp": "CHA",
       "opp_zh": "黃蜂",
       "opp_logo": null,
@@ -1545,10 +1552,10 @@
       "pf": 118,
       "pa": 101,
       "result": "W",
-      "date_iso": "2026-10-12T18:12+00:00"
+      "date_iso": "2026-10-12T21:05+00:00"
      },
      {
-      "date": "10/11",
+      "date": "10/12",
       "opp": "CLE",
       "opp_zh": "騎士",
       "opp_logo": null,
@@ -1556,7 +1563,7 @@
       "pf": 108,
       "pa": 116,
       "result": "L",
-      "date_iso": "2026-10-12T18:12+00:00"
+      "date_iso": "2026-10-12T21:05+00:00"
      }
     ],
     "form_note": null,
@@ -1760,7 +1767,7 @@
    "tw": {
     "source": "玩運彩",
     "url": "https://www.playsport.cc/predict/scale?allianceid=3",
-    "updated": "2026-10-13T22:12+08:00",
+    "updated": "2026-10-14T01:05+08:00",
     "no": "327",
     "spread": {
      "line": "湖人 -3.5",
@@ -1796,10 +1803,10 @@
    "tournament": null,
    "round": null,
    "name": "GS @ OKC",
-   "start": "2026-10-13T23:12+00:00",
-   "start_tw": "2026-10-14T07:12+08:00",
+   "start": "2026-10-14T02:05+00:00",
+   "start_tw": "2026-10-14T10:05+08:00",
    "day_tw": "2026-10-14",
-   "time_tw": "07:12",
+   "time_tw": "10:05",
    "status": {
     "state": "pre",
     "completed": false,
@@ -1873,7 +1880,7 @@
     ],
     "form": [
      {
-      "date": "10/01",
+      "date": "10/02",
       "opp": "DAL",
       "opp_zh": "獨行俠",
       "opp_logo": null,
@@ -1883,7 +1890,7 @@
       "result": "W"
      },
      {
-      "date": "10/03",
+      "date": "10/04",
       "opp": "GS",
       "opp_zh": "勇士",
       "opp_logo": null,
@@ -1893,7 +1900,7 @@
       "result": "W"
      },
      {
-      "date": "10/05",
+      "date": "10/06",
       "opp": "HOU",
       "opp_zh": "火箭",
       "opp_logo": null,
@@ -1903,7 +1910,7 @@
       "result": "W"
      },
      {
-      "date": "10/07",
+      "date": "10/08",
       "opp": "MEM",
       "opp_zh": "灰熊",
       "opp_logo": null,
@@ -1913,7 +1920,7 @@
       "result": "W"
      },
      {
-      "date": "10/09",
+      "date": "10/10",
       "opp": "SA",
       "opp_zh": "馬刺",
       "opp_logo": null,
@@ -1923,7 +1930,7 @@
       "result": "W"
      },
      {
-      "date": "10/11",
+      "date": "10/12",
       "opp": "POR",
       "opp_zh": "拓荒者",
       "opp_logo": null,
@@ -2039,7 +2046,7 @@
     ],
     "form": [
      {
-      "date": "10/01",
+      "date": "10/02",
       "opp": "LAL",
       "opp_zh": "湖人",
       "opp_logo": null,
@@ -2049,7 +2056,7 @@
       "result": "L"
      },
      {
-      "date": "10/03",
+      "date": "10/04",
       "opp": "UTAH",
       "opp_zh": "爵士",
       "opp_logo": null,
@@ -2059,7 +2066,7 @@
       "result": "W"
      },
      {
-      "date": "10/05",
+      "date": "10/06",
       "opp": "OKC",
       "opp_zh": "雷霆",
       "opp_logo": null,
@@ -2069,7 +2076,7 @@
       "result": "L"
      },
      {
-      "date": "10/07",
+      "date": "10/08",
       "opp": "DEN",
       "opp_zh": "金塊",
       "opp_logo": null,
@@ -2079,7 +2086,7 @@
       "result": "L"
      },
      {
-      "date": "10/09",
+      "date": "10/10",
       "opp": "SAC",
       "opp_zh": "國王",
       "opp_logo": null,
@@ -2089,7 +2096,7 @@
       "result": "W"
      },
      {
-      "date": "10/11",
+      "date": "10/12",
       "opp": "HOU",
       "opp_zh": "火箭",
       "opp_logo": null,
@@ -2191,10 +2198,10 @@
    "tournament": null,
    "round": null,
    "name": "TOR @ EDM",
-   "start": "2026-10-14T01:12+00:00",
-   "start_tw": "2026-10-14T09:12+08:00",
+   "start": "2026-10-14T04:05+00:00",
+   "start_tw": "2026-10-14T12:05+08:00",
    "day_tw": "2026-10-14",
-   "time_tw": "09:12",
+   "time_tw": "12:05",
    "status": {
     "state": "pre",
     "completed": false,
@@ -2268,7 +2275,7 @@
     ],
     "form": [
      {
-      "date": "10/03",
+      "date": "10/04",
       "opp": "CGY",
       "opp_zh": "火焰",
       "opp_logo": null,
@@ -2278,7 +2285,7 @@
       "result": "W"
      },
      {
-      "date": "10/05",
+      "date": "10/06",
       "opp": "VAN",
       "opp_zh": "加人",
       "opp_logo": null,
@@ -2288,7 +2295,7 @@
       "result": "W"
      },
      {
-      "date": "10/07",
+      "date": "10/08",
       "opp": "COL",
       "opp_zh": "雪崩",
       "opp_logo": null,
@@ -2298,7 +2305,7 @@
       "result": "L"
      },
      {
-      "date": "10/09",
+      "date": "10/10",
       "opp": "SEA",
       "opp_zh": "海妖",
       "opp_logo": null,
@@ -2308,7 +2315,7 @@
       "result": "W"
      },
      {
-      "date": "10/11",
+      "date": "10/12",
       "opp": "SJ",
       "opp_zh": "鯊魚",
       "opp_logo": null,
@@ -2366,7 +2373,7 @@
     "hot": [],
     "form": [
      {
-      "date": "10/03",
+      "date": "10/04",
       "opp": "MTL",
       "opp_zh": "加拿大人",
       "opp_logo": null,
@@ -2376,7 +2383,7 @@
       "result": "L"
      },
      {
-      "date": "10/05",
+      "date": "10/06",
       "opp": "OTT",
       "opp_zh": "參議員",
       "opp_logo": null,
@@ -2386,7 +2393,7 @@
       "result": "W"
      },
      {
-      "date": "10/07",
+      "date": "10/08",
       "opp": "DET",
       "opp_zh": "紅翼",
       "opp_logo": null,
@@ -2396,7 +2403,7 @@
       "result": "L"
      },
      {
-      "date": "10/09",
+      "date": "10/10",
       "opp": "BUF",
       "opp_zh": "軍刀",
       "opp_logo": null,
@@ -2406,7 +2413,7 @@
       "result": "L"
      },
      {
-      "date": "10/11",
+      "date": "10/12",
       "opp": "BOS",
       "opp_zh": "棕熊",
       "opp_logo": null,
@@ -2501,10 +2508,10 @@
    "tournament": null,
    "round": "女子",
    "name": "NEC @ SAG",
-   "start": "2026-10-14T04:12+00:00",
-   "start_tw": "2026-10-14T12:12+08:00",
+   "start": "2026-10-14T07:05+00:00",
+   "start_tw": "2026-10-14T15:05+08:00",
    "day_tw": "2026-10-14",
-   "time_tw": "12:12",
+   "time_tw": "15:05",
    "status": {
     "state": "pre",
     "completed": false,
@@ -2537,8 +2544,8 @@
     "hot": [],
     "form": [
      {
-      "date": "10/01",
-      "date_iso": "2026-10-01T14:12+00:00",
+      "date": "10/02",
+      "date_iso": "2026-10-01T17:05+00:00",
       "opp": "A愛知",
       "opp_zh": "A愛知",
       "opp_logo": null,
@@ -2549,8 +2556,8 @@
       "comp": null
      },
      {
-      "date": "10/04",
-      "date_iso": "2026-10-04T14:12+00:00",
+      "date": "10/05",
+      "date_iso": "2026-10-04T17:05+00:00",
       "opp": "A愛知",
       "opp_zh": "A愛知",
       "opp_logo": null,
@@ -2561,8 +2568,8 @@
       "comp": null
      },
      {
-      "date": "10/07",
-      "date_iso": "2026-10-07T14:12+00:00",
+      "date": "10/08",
+      "date_iso": "2026-10-07T17:05+00:00",
       "opp": "岡山",
       "opp_zh": "岡山",
       "opp_logo": null,
@@ -2573,8 +2580,8 @@
       "comp": null
      },
      {
-      "date": "10/10",
-      "date_iso": "2026-10-10T14:12+00:00",
+      "date": "10/11",
+      "date_iso": "2026-10-10T17:05+00:00",
       "opp": "NEC川崎",
       "opp_zh": "NEC川崎",
       "opp_logo": null,
@@ -2623,8 +2630,8 @@
     "hot": [],
     "form": [
      {
-      "date": "10/01",
-      "date_iso": "2026-10-01T14:12+00:00",
+      "date": "10/02",
+      "date_iso": "2026-10-01T17:05+00:00",
       "opp": "佐賀久光",
       "opp_zh": "佐賀久光",
       "opp_logo": null,
@@ -2635,8 +2642,8 @@
       "comp": null
      },
      {
-      "date": "10/04",
-      "date_iso": "2026-10-04T14:12+00:00",
+      "date": "10/05",
+      "date_iso": "2026-10-04T17:05+00:00",
       "opp": "デンソー",
       "opp_zh": "デンソー",
       "opp_logo": null,
@@ -2647,8 +2654,8 @@
       "comp": null
      },
      {
-      "date": "10/07",
-      "date_iso": "2026-10-07T14:12+00:00",
+      "date": "10/08",
+      "date_iso": "2026-10-07T17:05+00:00",
       "opp": "大阪MV",
       "opp_zh": "大阪MV",
       "opp_logo": null,
@@ -2659,8 +2666,8 @@
       "comp": null
      },
      {
-      "date": "10/10",
-      "date_iso": "2026-10-10T14:12+00:00",
+      "date": "10/11",
+      "date_iso": "2026-10-10T17:05+00:00",
       "opp": "PFU",
       "opp_zh": "PFU",
       "opp_logo": null,
@@ -2744,10 +2751,10 @@
    "tournament": null,
    "round": "B.LEAGUE",
    "name": "千葉ジ @ 富山グ",
-   "start": "2026-10-14T06:12+00:00",
-   "start_tw": "2026-10-14T14:12+08:00",
+   "start": "2026-10-14T09:05+00:00",
+   "start_tw": "2026-10-14T17:05+08:00",
    "day_tw": "2026-10-14",
-   "time_tw": "14:12",
+   "time_tw": "17:05",
    "status": {
     "state": "pre",
     "completed": false,
@@ -2780,8 +2787,8 @@
     "hot": [],
     "form": [
      {
-      "date": "10/01",
-      "date_iso": "2026-10-01T14:12+00:00",
+      "date": "10/02",
+      "date_iso": "2026-10-01T17:05+00:00",
       "opp": "千葉阿爾提里",
       "opp_zh": "千葉阿爾提里",
       "opp_logo": null,
@@ -2792,8 +2799,8 @@
       "comp": null
      },
      {
-      "date": "10/04",
-      "date_iso": "2026-10-04T14:12+00:00",
+      "date": "10/05",
+      "date_iso": "2026-10-04T17:05+00:00",
       "opp": "京都創榮",
       "opp_zh": "京都創榮",
       "opp_logo": null,
@@ -2804,8 +2811,8 @@
       "comp": null
      },
      {
-      "date": "10/07",
-      "date_iso": "2026-10-07T14:12+00:00",
+      "date": "10/08",
+      "date_iso": "2026-10-07T17:05+00:00",
       "opp": "信州勇士",
       "opp_zh": "信州勇士",
       "opp_logo": null,
@@ -2816,8 +2823,8 @@
       "comp": null
      },
      {
-      "date": "10/10",
-      "date_iso": "2026-10-10T14:12+00:00",
+      "date": "10/11",
+      "date_iso": "2026-10-10T17:05+00:00",
       "opp": "茨城機器人",
       "opp_zh": "茨城機器人",
       "opp_logo": null,
@@ -2865,8 +2872,8 @@
     "hot": [],
     "form": [
      {
-      "date": "10/01",
-      "date_iso": "2026-10-01T14:12+00:00",
+      "date": "10/02",
+      "date_iso": "2026-10-01T17:05+00:00",
       "opp": "廣島飛龍",
       "opp_zh": "廣島飛龍",
       "opp_logo": null,
@@ -2877,8 +2884,8 @@
       "comp": null
      },
      {
-      "date": "10/04",
-      "date_iso": "2026-10-04T14:12+00:00",
+      "date": "10/05",
+      "date_iso": "2026-10-04T17:05+00:00",
       "opp": "仙台89ers",
       "opp_zh": "仙台89ers",
       "opp_logo": null,
@@ -2889,8 +2896,8 @@
       "comp": null
      },
      {
-      "date": "10/07",
-      "date_iso": "2026-10-07T14:12+00:00",
+      "date": "10/08",
+      "date_iso": "2026-10-07T17:05+00:00",
       "opp": "群馬雷霆",
       "opp_zh": "群馬雷霆",
       "opp_logo": null,
@@ -2901,8 +2908,8 @@
       "comp": null
      },
      {
-      "date": "10/10",
-      "date_iso": "2026-10-10T14:12+00:00",
+      "date": "10/11",
+      "date_iso": "2026-10-10T17:05+00:00",
       "opp": "琉球黃金國王",
       "opp_zh": "琉球黃金國王",
       "opp_logo": null,
@@ -2975,7 +2982,7 @@
    "tw": {
     "source": "玩運彩",
     "url": "https://www.playsport.cc/predict/scale?allianceid=97",
-    "updated": "2026-10-13T22:12+08:00",
+    "updated": "2026-10-14T01:05+08:00",
     "no": "401",
     "spread": {
      "line": "富山松雞 -3.5",
@@ -3014,7 +3021,14 @@
      "under": 60,
      "n": 31
     },
-    "signals": []
+    "signals": [
+     {
+      "label": "玩家預測",
+      "side": null,
+      "impact": 0,
+      "text": "玩運彩 64% 的玩家押富山松雞"
+     }
+    ]
    },
    "notes": {
     "injuries": "這個聯盟沒有官方傷兵名單，改看新聞；賽前再確認一次",
@@ -3032,10 +3046,10 @@
    "tournament": null,
    "round": null,
    "name": "ARS @ MCI",
-   "start": "2026-10-14T17:12+00:00",
-   "start_tw": "2026-10-15T01:12+08:00",
+   "start": "2026-10-14T20:05+00:00",
+   "start_tw": "2026-10-15T04:05+08:00",
    "day_tw": "2026-10-15",
-   "time_tw": "01:12",
+   "time_tw": "04:05",
    "status": {
     "state": "pre",
     "completed": false,
@@ -3084,7 +3098,7 @@
     "hot": [],
     "form": [
      {
-      "date": "10/01",
+      "date": "10/02",
       "opp": "BUR",
       "opp_zh": null,
       "opp_logo": null,
@@ -3094,7 +3108,7 @@
       "result": "W"
      },
      {
-      "date": "10/03",
+      "date": "10/04",
       "opp": "ARS",
       "opp_zh": null,
       "opp_logo": null,
@@ -3104,7 +3118,7 @@
       "result": "W"
      },
      {
-      "date": "10/05",
+      "date": "10/06",
       "opp": "LIV",
       "opp_zh": null,
       "opp_logo": null,
@@ -3114,7 +3128,7 @@
       "result": "D"
      },
      {
-      "date": "10/07",
+      "date": "10/08",
       "opp": "FUL",
       "opp_zh": null,
       "opp_logo": null,
@@ -3124,7 +3138,7 @@
       "result": "W"
      },
      {
-      "date": "10/09",
+      "date": "10/10",
       "opp": "EVE",
       "opp_zh": null,
       "opp_logo": null,
@@ -3134,7 +3148,7 @@
       "result": "W"
      },
      {
-      "date": "10/11",
+      "date": "10/12",
       "opp": "BHA",
       "opp_zh": null,
       "opp_logo": null,
@@ -3192,7 +3206,7 @@
     "hot": [],
     "form": [
      {
-      "date": "10/01",
+      "date": "10/02",
       "opp": "TOT",
       "opp_zh": null,
       "opp_logo": null,
@@ -3202,7 +3216,7 @@
       "result": "W"
      },
      {
-      "date": "10/03",
+      "date": "10/04",
       "opp": "NEW",
       "opp_zh": null,
       "opp_logo": null,
@@ -3212,7 +3226,7 @@
       "result": "W"
      },
      {
-      "date": "10/05",
+      "date": "10/06",
       "opp": "CHE",
       "opp_zh": null,
       "opp_logo": null,
@@ -3222,7 +3236,7 @@
       "result": "W"
      },
      {
-      "date": "10/07",
+      "date": "10/08",
       "opp": "AVL",
       "opp_zh": null,
       "opp_logo": null,
@@ -3232,7 +3246,7 @@
       "result": "W"
      },
      {
-      "date": "10/09",
+      "date": "10/10",
       "opp": "MCI",
       "opp_zh": null,
       "opp_logo": null,
@@ -3242,7 +3256,7 @@
       "result": "L"
      },
      {
-      "date": "10/11",
+      "date": "10/12",
       "opp": "WHU",
       "opp_zh": null,
       "opp_logo": null,
@@ -3332,10 +3346,10 @@
    "tournament": null,
    "round": null,
    "name": "TOT @ LIV",
-   "start": "2026-10-14T19:42+00:00",
-   "start_tw": "2026-10-15T03:42+08:00",
+   "start": "2026-10-14T22:35+00:00",
+   "start_tw": "2026-10-15T06:35+08:00",
    "day_tw": "2026-10-15",
-   "time_tw": "03:42",
+   "time_tw": "06:35",
    "status": {
     "state": "pre",
     "completed": false,
@@ -3368,7 +3382,7 @@
     "hot": [],
     "form": [
      {
-      "date": "10/01",
+      "date": "10/02",
       "opp": "BOU",
       "opp_zh": null,
       "opp_logo": null,
@@ -3378,7 +3392,7 @@
       "result": "W"
      },
      {
-      "date": "10/03",
+      "date": "10/04",
       "opp": "MCI",
       "opp_zh": null,
       "opp_logo": null,
@@ -3388,7 +3402,7 @@
       "result": "D"
      },
      {
-      "date": "10/05",
+      "date": "10/06",
       "opp": "CHE",
       "opp_zh": null,
       "opp_logo": null,
@@ -3398,7 +3412,7 @@
       "result": "L"
      },
      {
-      "date": "10/07",
+      "date": "10/08",
       "opp": "EVE",
       "opp_zh": null,
       "opp_logo": null,
@@ -3408,7 +3422,7 @@
       "result": "W"
      },
      {
-      "date": "10/09",
+      "date": "10/10",
       "opp": "CRY",
       "opp_zh": null,
       "opp_logo": null,
@@ -3418,7 +3432,7 @@
       "result": "W"
      },
      {
-      "date": "10/11",
+      "date": "10/12",
       "opp": "MUN",
       "opp_zh": null,
       "opp_logo": null,
@@ -3460,7 +3474,7 @@
     "hot": [],
     "form": [
      {
-      "date": "10/01",
+      "date": "10/02",
       "opp": "ARS",
       "opp_zh": null,
       "opp_logo": null,
@@ -3470,7 +3484,7 @@
       "result": "L"
      },
      {
-      "date": "10/03",
+      "date": "10/04",
       "opp": "BRE",
       "opp_zh": null,
       "opp_logo": null,
@@ -3480,7 +3494,7 @@
       "result": "W"
      },
      {
-      "date": "10/05",
+      "date": "10/06",
       "opp": "WOL",
       "opp_zh": null,
       "opp_logo": null,
@@ -3490,7 +3504,7 @@
       "result": "D"
      },
      {
-      "date": "10/07",
+      "date": "10/08",
       "opp": "AVL",
       "opp_zh": null,
       "opp_logo": null,
@@ -3500,7 +3514,7 @@
       "result": "L"
      },
      {
-      "date": "10/09",
+      "date": "10/10",
       "opp": "LEE",
       "opp_zh": null,
       "opp_logo": null,
@@ -3510,7 +3524,7 @@
       "result": "W"
      },
      {
-      "date": "10/11",
+      "date": "10/12",
       "opp": "NFO",
       "opp_zh": null,
       "opp_logo": null,
@@ -3601,7 +3615,7 @@
    "return_date": null,
    "key": true,
    "official": false,
-   "time_tw": "07:12",
+   "time_tw": "10:05",
    "day_tw": "2026-10-14"
   },
   {
@@ -3623,7 +3637,7 @@
    "return_date": null,
    "key": false,
    "official": false,
-   "time_tw": "21:00",
+   "time_tw": "23:53",
    "day_tw": "2026-10-13"
   },
   {
@@ -3645,7 +3659,7 @@
    "return_date": null,
    "key": false,
    "official": false,
-   "time_tw": "04:42",
+   "time_tw": "07:35",
    "day_tw": "2026-10-14"
   },
   {
@@ -3667,7 +3681,7 @@
    "return_date": null,
    "key": false,
    "official": false,
-   "time_tw": "09:12",
+   "time_tw": "12:05",
    "day_tw": "2026-10-14"
   },
   {
@@ -3689,7 +3703,7 @@
    "return_date": "2026-10-20",
    "key": false,
    "official": false,
-   "time_tw": "04:42",
+   "time_tw": "07:35",
    "day_tw": "2026-10-14"
   },
   {
@@ -3711,7 +3725,7 @@
    "return_date": null,
    "key": false,
    "official": false,
-   "time_tw": "07:12",
+   "time_tw": "10:05",
    "day_tw": "2026-10-14"
   },
   {
@@ -3733,7 +3747,7 @@
    "return_date": null,
    "key": false,
    "official": false,
-   "time_tw": "01:12",
+   "time_tw": "04:05",
    "day_tw": "2026-10-15"
   },
   {
@@ -3755,7 +3769,7 @@
    "return_date": null,
    "key": false,
    "official": false,
-   "time_tw": "01:12",
+   "time_tw": "04:05",
    "day_tw": "2026-10-15"
   },
   {
@@ -3778,7 +3792,7 @@
    "url": "https://news.google.com/",
    "key": false,
    "official": false,
-   "time_tw": "03:42",
+   "time_tw": "06:35",
    "day_tw": "2026-10-14"
   },
   {
@@ -3801,7 +3815,7 @@
    "url": "https://news.google.com/",
    "key": false,
    "official": false,
-   "time_tw": "14:12",
+   "time_tw": "17:05",
    "day_tw": "2026-10-14"
   }
  ],

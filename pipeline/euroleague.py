@@ -79,6 +79,8 @@ class EuroLeague:
         self.games = []      # 官方賽事（含未打）
         self.results = {}    # code -> [rows]
         self.standings = {}  # comp -> groups
+        self.group_of = {}   # club code -> 分組字母（歐盃）
+        self.zh = {}         # club code -> 玩運彩中文名（今天配到的）
         self.loaded = False
 
     def load(self):
@@ -130,6 +132,10 @@ class EuroLeague:
         start = datetime.fromisoformat(dt.replace("Z", "+00:00")) if dt else None
         if start and start.tzinfo is None:
             start = start.replace(tzinfo=UTC)
+        grp = (g.get("group") or {}).get("rawName")
+        if grp and comp == "U":
+            self.group_of.setdefault(hc, grp)
+            self.group_of.setdefault(ac, grp)
         row = dict(comp=comp, label=label, home=hc, away=ac, start=start, played=bool(g.get("played")),
                    hs=(g.get("local") or {}).get("score"), as_=(g.get("road") or {}).get("score"),
                    round=g.get("roundAlias") or g.get("roundName"), group=(g.get("group") or {}).get("rawName"))
@@ -171,6 +177,11 @@ class EuroLeague:
             for i, r in enumerate(rows, 1):
                 r["pos"] = i
             name = grp.get("name") or ""
+            letters = sorted({self.group_of.get(r["team_id"]) for r in rows if self.group_of.get(r["team_id"])})
+            if comp == "U" and len(letters) == 1:
+                name = f"{letters[0]} 組"
+            elif name == "Regular Season":
+                name = "例行賽"
             groups.append(dict(name=f"{label} {name}".strip(), rows=rows))
         self.log(f"[eurobasket] {label} 排名 {len(groups)} 組")
         return groups
@@ -241,11 +252,23 @@ class EuroLeague:
                 t["en_key"] = club.get("abbr") or club.get("editorial")
                 if club.get("crest"):
                     t["logo"] = club["crest"]
+                self.zh[code] = t.get("name_zh") or t["name"]
                 rows = [dict(r) for r in self.results.get(code) or []]
                 if rows:
                     from playsport import summarize_form
+                    # 官方只有歐戰；玩運彩的歷史紀錄可能還有其他賽事，日期不重複的補進來
+                    dates = {r["date"] for r in rows}
+                    extra = [dict(r, comp=r.get("comp") or "其他賽事") for r in (t.get("form") or []) if r.get("date") not in dates]
+                    for r in extra:
+                        r.setdefault("ts", 0)
+                        if not r.get("ts") and r.get("date_iso"):
+                            try:
+                                r["ts"] = datetime.fromisoformat(r["date_iso"]).timestamp()
+                            except ValueError:
+                                pass
+                    rows = sorted(rows + extra, key=lambda r: r.get("ts") or 0)
                     t["record"] = None
-                    summarize_form(t, rows, note=f"{og['label']}官方賽程")
+                    summarize_form(t, rows, note=f"{og['label']}官方賽果" + ("＋玩運彩紀錄" if extra else ""))
                     t["record_note"] = f"{og['label']}戰績"
                 for grp in self.standings.get(og["comp"]) or []:
                     for r in grp["rows"]:
@@ -260,5 +283,30 @@ class EuroLeague:
         groups = []
         for comp in ("E", "U"):
             for grp in self.standings.get(comp) or []:
+                for r in grp["rows"]:
+                    club = self.clubs.get(r["team_id"]) or {}
+                    r["name_zh"] = self.zh.get(r["team_id"]) or _zh_static(club.get("norm", "")) or r["name_zh"]
                 groups.append(grp)
         return dict(groups=groups) if groups else None
+
+
+ZH_STATIC = {
+    "panathinaikos": "帕納辛奈科斯", "valencia": "瓦倫西亞", "olympiacos": "奧林匹亞科斯", "fenerbahce": "費內巴切",
+    "partizan": "貝爾格勒游擊隊", "crvena": "貝爾格勒紅星", "barcelona": "巴塞隆納", "zalgiris": "考納斯綠林",
+    "asvel": "艾思維爾", "dubai": "杜拜", "real madrid": "皇家馬德里", "monaco": "摩納哥", "paris": "巴黎",
+    "bayern": "拜仁慕尼黑", "efes": "艾菲斯", "maccabi": "馬卡比特拉維夫", "hapoel tel": "哈波特拉維夫", "hapoel": "哈波耶路撒冷",
+    "baskonia": "巴斯克尼亞", "milan": "米蘭", "virtus": "維圖斯博洛尼亞", "trento": "特倫托", "chemnitz": "凱姆尼茲",
+    "bourg": "布爾格", "neptunas": "克萊佩達海王星", "manresa": "曼雷薩", "bahcesehir": "花園城市學院", "besiktas": "貝西克塔斯",
+    "turk telekom": "土耳其電信", "lietkabelis": "利特卡貝利斯", "cedevita": "采迪維塔", "ulm": "烏爾姆", "hamburg": "漢堡",
+    "venezia": "威尼斯", "venice": "威尼斯", "gran canaria": "格蘭卡納利亞", "joventut": "尤文圖特", "brescia": "布雷西亞",
+    "cluj": "克盧日", "buducnost": "布杜克諾斯特", "london": "倫敦獅", "wolves": "維爾紐斯狼", "rytas": "里塔斯",
+    "aris": "阿里斯", "tenerife": "特內里費", "napoli": "拿坡里", "tofas": "托法什", "derthona": "德托納", "riga": "里加",
+    "roma": "羅馬", "paok": "薩洛尼卡PAOK", "jerusalem": "哈波耶路撒冷", "jlm": "哈波耶路撒冷", "slask": "弗羅茨瓦夫",
+}
+
+
+def _zh_static(norm):
+    for k, v in ZH_STATIC.items():
+        if k in norm:
+            return v
+    return None

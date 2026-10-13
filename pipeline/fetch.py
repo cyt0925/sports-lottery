@@ -1250,7 +1250,8 @@ def enrich_games(all_games):
                     f"raw_keys={list((RAW.get('summary_' + lg['key']) or {}).get('keys') or [])[:30]}")
         start = parse_dt(g["start"])
         try:
-            a["rest"] = {"home": compute_rest(g["home"], start), "away": compute_rest(g["away"], start)}
+            # 歐籃只有歐戰賽程、沒有各國聯賽，休息天數算不準，不算
+            a["rest"] = None if lg["key"] == "eurobasket" else {"home": compute_rest(g["home"], start), "away": compute_rest(g["away"], start)}
         except Exception as e:  # noqa: BLE001
             ERRORS.append(f"休息天數 {g['id']} 失敗: {e!r}")
         g["analysis"] = a
@@ -1322,7 +1323,7 @@ def process_playsport(lg, lo, hi, all_games, standings):
             finalize_team(g[side], lg)
     if keep:
         try:
-            newsinj.attach(keep, name_fn, log, ERRORS, lg["key"])
+            newsinj.attach(keep, name_fn, log, ERRORS, lg["key"], hint=(" basketball" if lg["key"] == "eurobasket" else ""))
         except Exception as e:  # noqa: BLE001
             ERRORS.append(f"{lg['key']} 新聞失敗: {e!r}")
     all_games.extend(keep)

@@ -48,7 +48,41 @@ class BLeague:
             self._parse(text)
         except Exception as e:  # noqa: BLE001
             self.errors.append(f"日籃 B.LEAGUE 排名解析失敗: {e!r}")
+        if not self.rows:
+            try:
+                self._parse_text(text)
+            except Exception as e:  # noqa: BLE001
+                self.errors.append(f"日籃 B.LEAGUE 排名文字解析失敗: {e!r}")
+            i = text.find("勝率")
+            self.log("[jpbasket] 排名頁原始碼樣本: " + re.sub(r"\s+", " ", text[max(0, i - 600): i + 1800]))
         self.log(f"[jpbasket] B.LEAGUE 排名 {len(self.groups)} 區、{len(self.rows)} 隊")
+
+    _ROW = re.compile(r"(\d{1,2})\s+(\S+)\s+(\S+)\s+(\d+)\s+(\d+)\s+(\d?\.\d{3})\s+(--|-|\d+(?:\.\d+)?)\s+(\d+)\s+(\d+)\s+(-?\d+)\s+(\d+-\d+)\s+(\d+-\d+)\s+(\d+-\d+)\s+([WL]\d+|--|-)\s+(\d+)\s+[\d.]+%")
+
+    def _parse_text(self, html):
+        body = re.sub(r"<script.*?</script>|<style.*?</style>", " ", html, flags=re.S | re.I)
+        body = re.sub(r"<[^>]+>", " ", body)
+        body = re.sub(r"\s+", " ", body)
+        parts = re.split(r"(東地区|西地区)", body)
+        groups = []
+        label = ""
+        for p in parts:
+            if p in ("東地区", "西地区"):
+                label = p
+                continue
+            rows = []
+            for m in self._ROW.finditer(p):
+                rank, name, abbr, w, l, pct, gb, pf, pa, diff, home, away, last5, streak, gp = m.groups()
+                rows.append(dict(
+                    team_id=abbr, team=name, abbr=abbr, name_zh=ZH_NAMES.get(abbr, name), logo=None,
+                    w=int(w), l=int(l), d=None, otl=None, pct=pct, gb=gb if gb not in ("--", "-") else None,
+                    streak=streak if re.match(r"^[WL]\d+$", streak) else None, points=None, gp=int(gp), rank=int(rank), pos=int(rank),
+                    pf=int(pf), pa=int(pa), diff=int(diff), home=home, away=away, last5=last5,
+                ))
+            if rows and not any(r["abbr"] in {x["abbr"] for g in groups for x in g["rows"]} for r in rows):
+                groups.append(dict(name=label, rows=rows))
+                self.rows.extend(rows)
+        self.groups = groups
 
     def _parse(self, text):
         soup = BeautifulSoup(text, "html.parser")

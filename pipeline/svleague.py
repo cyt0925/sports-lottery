@@ -114,7 +114,15 @@ def fetch_games(lg, log, errors, now=None):
             i = text.find("試合終了")
             if i < 0:
                 i = text.find('class="match"')
-            DEBUG[f"raw{path}"] = re.sub(r"\s+", " ", text[max(0, i - 800): i + 1200]) if i >= 0 else f"len={len(text)} 無 match 區塊；標題={re.search(r'<title>(.*?)</title>', text, re.S).group(1).strip() if re.search(r'<title>(.*?)</title>', text, re.S) else ''}"
+            if i < 0:
+                m = re.search(r"<main.*?(\d{1,2}\.\d{1,2})", text, re.S)
+                i = m.start(1) if m else -1
+            if i < 0:
+                m = re.search(r"(10|11|12|0?[1-9])月\s*\d{1,2}日|\d{1,2}/\d{1,2}", text)
+                i = m.start() if m else -1
+            classes = sorted(set(re.findall(r'class="([^"]+)"', text)))
+            hot = [c for c in classes if re.search(r"match|game|result|schedule|table|score|list|item|card|day", c, re.I)]
+            DEBUG[f"raw{path}"] = (re.sub(r"\s+", " ", text[max(0, i - 600): i + 1400]) if i >= 0 else f"len={len(text)} 找不到日期") + " ||| classes: " + ", ".join(hot[:60])
         rows_all.extend(rows)
         time.sleep(0.4)
     # 去重：同性別、同日、同兩隊

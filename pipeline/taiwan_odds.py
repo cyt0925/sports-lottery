@@ -193,24 +193,35 @@ def parse_scale_page(text):
                     crowd["n"] = max(crowd["n"], c["crowd_n"])
                 if c["intl"]:
                     if side in ("主", "客"):
-                        # 國際盤讓分寫法像「3分輸」「10分贏」：有線的那一方是讓分方
+                        # 國際盤讓分寫法像「暴龍 10分贏」「費內巴切 6分輸」：被點名的那隊是讓分方，
+                        # 「X分贏」= 剛好贏 X 分算過盤（線 -(X-0.5)），「X分輸」= 剛好贏 X 分算輸（線 -(X+0.5)）
                         m = re.match(r"(\d+(?:\.\d+)?)\s*分\s*(贏|輸)", c["line"] or "")
                         if m:
                             pts = float(m.group(1))
-                            fav_line = -pts if m.group(2) == "贏" else pts
+                            fav_line = -(pts - 0.5) if m.group(2) == "贏" else -(pts + 0.5)
                             if is_home or side == "主":
                                 intl["spread_home"] = fav_line
                             else:
                                 intl["spread_home"] = -fav_line
-                            intl["spread_text"] = f"{r['name']} {c['line']}"
+                            intl["spread_text"] = f"{r['name']} 讓 {abs(fav_line):g} 分"
+                        elif (c["line"] or "").upper() in ("PK", "平手"):
+                            intl["spread_home"] = 0.0
+                            intl["spread_text"] = "平手盤"
                         elif line is not None:
                             intl["spread_home"] = line if (is_home or side == "主") else -line
+                            intl["spread_text"] = f"{r['name']} {c['line']}"
                         if cn is not None:
                             crowd["intl_spread_home" if (is_home or side == "主") else "intl_spread_away"] = cn
                     elif side in ("大", "小"):
-                        m = re.match(r"(\d+(?:\.\d+)?)", c["line"] or "")
-                        if m:
-                            intl["total"] = float(m.group(1))
+                        # 「大 168贏」= 剛好 168 算大分過（線 167.5）、「大 218輸」= 剛好 218 算輸（218.5）；小分方向相反
+                        m = re.match(r"(\d+(?:\.\d+)?)\s*(贏|輸)?", c["line"] or "")
+                        if m and m.group(1):
+                            v = float(m.group(1))
+                            if m.group(2) == "贏":
+                                v = v - 0.5 if side == "大" else v + 0.5
+                            elif m.group(2) == "輸":
+                                v = v + 0.5 if side == "大" else v - 0.5
+                            intl["total"] = v
                     continue
                 if side in ("和", "和局"):
                     ml["draw"] = odds
