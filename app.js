@@ -130,9 +130,10 @@
       .sort((a, b) => {
         const c = order[a.suggestion.confidence] - order[b.suggestion.confidence];
         if (c) return c;
-        const pa = Math.max(a.odds?.prob_home || 0, a.odds?.prob_away || 0);
-        const pb = Math.max(b.odds?.prob_home || 0, b.odds?.prob_away || 0);
-        return pb - pa;
+        // 賠率低到沒賺頭的（1.2 以下）排後面，其餘照勝率
+        const dec = (g) => { const side = g.suggestion.pick; const ml = g.tw && g.tw.ml; return (ml && ml[side]) || (g.odds && g.odds["dec_" + side]) || null; };
+        const score = (g) => { const d = dec(g); const p = Math.max(g.odds?.prob_home || 0, g.odds?.prob_away || 0); return d != null && d < 1.2 ? p - 1 : p; };
+        return score(b) - score(a);
       });
   }
 

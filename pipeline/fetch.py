@@ -1031,6 +1031,9 @@ def build_suggestion(g, lg):
         if dec_tw < 1.12:
             cautions.append(f"台灣運彩不讓分賠率只有 {dec_tw}，贏了也幾乎沒賺頭，想下的話看讓分盤")
             ev = None
+            if o.get("spread") is not None and res["play"] == "不讓分":
+                res["play"] = "讓分"
+                res["summary"] = f"傾向 {res['pick_label']}，不讓分賠率太低，改看讓分盤，信心{res['confidence']}"
     if res["pick"] and ml.get(res["pick"]) and o.get(f"prob_{res['pick']}") and psrc != "tw_ml" and ev is not None:
         # 台灣運彩抽水約一成多，期望值 -8% 到 -14% 是「正常」；比這好算划算，比這差才提醒
         res["tw_ev"] = round(ev * 100)
