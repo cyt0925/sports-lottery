@@ -197,14 +197,17 @@ def build_story(g, sport):
         lead = "" if tot.get("main") else f"大小分看「{tot['lean']}」："
         why.insert(0 if tot.get("main") else len(why), f"{lead}{how} {tot['expected']:.0f} 分，盤口 {line_:g}，差了 {abs(tot['expected'] - line_):.0f} 分。")
         if tot.get("main"):
+            # 主建議是大小分：這兩句要排在最前面，不能被後面的近況擠掉
+            extra = []
+            if tot.get("prob"):
+                extra.append(f"照這個差距算，{tot['lean']}分大概{_cheng(tot['prob'])}會中。")
             side_ = s.get("side") or {}
             if side_.get("pick") in ("home", "away"):
                 sn = hn if side_["pick"] == "home" else an
-                why.append(f"輸贏我偏{sn}，但優勢不大，大小分比較有把握。")
+                extra.append(f"輸贏我偏{sn}，但優勢不大，大小分比較有把握。")
             else:
-                why.append("輸贏看不出誰穩，大小分比較有把握。")
-            if tot.get("prob"):
-                why.append(f"照這個差距算，{tot['lean']}分大概{_cheng(tot['prob'])}會中。")
+                extra.append("輸贏看不出誰穩，大小分比較有把握。")
+            why[1:1] = extra
     # 沒資料的時候也要講
     if not why:
         why.append(notes.get("form") or "兩隊資料還不多，先看賽前消息。")
