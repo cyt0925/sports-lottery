@@ -266,7 +266,7 @@
     if (!feed.length) { el.innerHTML = `<div class="empty">今明兩天的比賽沒有傷兵消息。</div>`; return; }
     const list = state.showAllInj ? feed : feed.slice(0, 10);
     el.innerHTML = list.map((x) => `<button class="item" data-goto="${esc(x.game_id)}">${x.severity === "news" ? `<span class="avatar fallback">${icon("i-news")}</span>` : avatarImg(x)}<div class="grow"><div class="pn">${esc(x.player)} ${x.key ? `<span class="badge vio">主力</span>` : ""}</div>
-      <div class="ps">${x.team_logo ? `<img src="${esc(x.team_logo)}" alt="">` : ""}${esc(x.team)}${x.position ? " · " + esc(x.position) : ""}${x.detail ? " · " + esc(x.detail) : ""} · ${esc(dayLabel(x.day_tw).name)} ${esc(x.time_tw)}</div></div>
+      <div class="ps">${x.team_logo ? `<img src="${esc(x.team_logo)}" alt="">` : ""}${esc(x.team)}${x.position ? " · " + esc(x.position) : ""}${x.ppg != null ? ` · 場均 ${Number(x.ppg).toFixed(1)} 分` : ""}${x.detail ? " · " + esc(x.detail) : ""} · ${esc(dayLabel(x.day_tw).name)} ${esc(x.time_tw)}</div></div>
       <span class="badge ${sevClass(x.severity)}">${esc(x.status_zh)}</span></button>`).join("") +
       (feed.length > 10 ? `<button class="more" data-more="inj">${state.showAllInj ? "收起" : `還有 ${feed.length - 10} 筆，點開看全部`}</button>` : "");
   }

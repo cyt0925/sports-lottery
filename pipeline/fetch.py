@@ -1130,13 +1130,15 @@ def aggregate(games):
                         status=x["status"], status_zh=x["status_zh"], severity=x["severity"],
                         detail=x.get("detail"), return_date=x.get("return_date"),
                         key=(x["player"] in t.get("key_out", []) or x["player"] in t.get("key_maybe", [])),
-                        official=bool(x.get("official")),
+                        official=bool(x.get("official")), url=x.get("url"), ppg=x.get("ppg"), impact=x.get("impact"),
                         time_tw=g["time_tw"], day_tw=g["day_tw"],
                     ))
             # 沒有官方傷兵名單的聯盟：新聞裡的傷兵消息也放進快報，讓爸爸不用自己翻
+            # （已經從那則新聞對出球員的，就不再重複放一次標題）
+            used_urls = {x.get("url") for x in t.get("injuries") or [] if x.get("url")}
             for a in (t.get("injury_news") or [])[:2]:
                 key = (t.get("id"), a.get("url") or a.get("title"))
-                if key in seen_inj:
+                if key in seen_inj or (a.get("url") and a.get("url") in used_urls):
                     continue
                 seen_inj.add(key)
                 feed.append(dict(
