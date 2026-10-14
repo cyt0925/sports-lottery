@@ -1382,6 +1382,10 @@ def enrich_games(all_games):
             ERRORS.append(f"nba 傷兵影響失敗: {e!r}")
 
 
+def args_debug():
+    return "--debug-dir" in sys.argv
+
+
 def _window(games, lo, hi):
     keep = []
     for g in games:
@@ -1403,6 +1407,7 @@ def process_playsport(lg, lo, hi, all_games, standings):
     if keep:
         playsport.attach_history(lg, keep, log, ERRORS)
     st = None
+    bl = None
     try:
         if lg["key"] == "eurobasket":
             from euroleague import EuroLeague
@@ -1455,6 +1460,26 @@ def process_playsport(lg, lo, hi, all_games, standings):
                 import traceback
                 ERRORS.append(f"eurobasket 球員層級失敗: {e!r}")
                 traceback.print_exc()
+        elif lg["key"] == "jpbasket":
+            try:
+                from jpplayers import bleague_rosters, player_layer
+                ids = sorted({g[s_]["bl_id"] for g in keep for s_ in ("home", "away") if g[s_].get("bl_id")})
+                rosters = bleague_rosters(ids, log, ERRORS)
+                player_layer(keep, rosters, "bl_id", log, ERRORS, "jpbasket", impact_scale="el")
+                for g in keep:
+                    for side in ("home", "away"):
+                        finalize_team(g[side], lg)
+            except Exception as e:  # noqa: BLE001
+                ERRORS.append(f"jpbasket 球員層級失敗: {e!r}")
+    elif lg["key"] == "jpbasket" and st and args_debug():
+        # 沒比賽的時候也驗證一下名單與新聞對得起來（只寫 log）
+        try:
+            from jpplayers import bleague_rosters, validate
+            rows = [r for r in (bl.rows if bl else []) if r.get("bl_id")][:3]
+            rosters = bleague_rosters([r["bl_id"] for r in rows], log, ERRORS)
+            validate("jpbasket", {r["team"]: rosters.get(r["bl_id"]) for r in rows}, log, ERRORS)
+        except Exception as e:  # noqa: BLE001
+            ERRORS.append(f"jpbasket 球員驗證失敗: {e!r}")
     all_games.extend(keep)
     if st:
         standings[lg["key"]] = dict(label=lg["label"], sport=lg["sport"], chip=lg["key"], **st)
@@ -1479,6 +1504,29 @@ def process_svleague(lg, lo, hi, all_games, standings):
             newsinj.attach(keep, lambda t: (t["jp_name"] + " バレー", "ja") if t.get("jp_name") else None, log, ERRORS, lg["key"])
         except Exception as e:  # noqa: BLE001
             ERRORS.append(f"{lg['key']} 新聞失敗: {e!r}")
+        try:
+            from jpplayers import sv_rosters, player_layer
+            codes = sorted({g[s_]["sv_code"] for g in keep for s_ in ("home", "away") if g[s_].get("sv_code")})
+            rosters = sv_rosters(codes, log, ERRORS)
+            player_layer(keep, rosters, "sv_code", log, ERRORS, "jpvolley")
+            for g in keep:
+                for side in ("home", "away"):
+                    finalize_team(g[side], lg)
+        except Exception as e:  # noqa: BLE001
+            ERRORS.append(f"{lg['key']} 球員層級失敗: {e!r}")
+    elif games and args_debug():
+        try:
+            from jpplayers import sv_rosters, validate
+            seen = {}
+            for g in games:
+                for s_ in ("home", "away"):
+                    if g[s_].get("sv_code") and g[s_]["sv_code"] not in seen:
+                        seen[g[s_]["sv_code"]] = g[s_]["jp_name"]
+            codes = list(seen)[:3]
+            rosters = sv_rosters(codes, log, ERRORS)
+            validate("jpvolley", {seen[c] + " バレー": rosters.get(c) for c in codes}, log, ERRORS)
+        except Exception as e:  # noqa: BLE001
+            ERRORS.append(f"{lg['key']} 球員驗證失敗: {e!r}")
     all_games.extend(keep)
     if st:
         standings[lg["key"]] = dict(label=lg["label"], sport=lg["sport"], chip=lg["key"], **st)

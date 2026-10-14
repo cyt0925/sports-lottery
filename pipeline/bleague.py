@@ -114,8 +114,10 @@ class BLeague:
                 img = tr.find("img")
                 if img and img.get("src"):
                     logo = img["src"] if img["src"].startswith("http") else "https://www.bleague.jp" + img["src"]
+                a = team_td.find("a", href=True) or tr.find("a", href=re.compile(r"TeamID=\d+"))
+                m_id = re.search(r"TeamID=(\d+)", a["href"]) if a else None
                 rows.append(dict(
-                    team_id=abbr, team=name, abbr=abbr, name_zh=ZH_NAMES.get(abbr, name), logo=logo,
+                    team_id=abbr, team=name, abbr=abbr, name_zh=ZH_NAMES.get(abbr, name), logo=logo, bl_id=m_id.group(1) if m_id else None,
                     w=w, l=l, d=None, otl=None, pct=pct, gb=gb if gb not in ("--", "-") else None,
                     streak=streak if re.match(r"^[WL]\d+$", streak) else None,
                     points=None, gp=w + l, rank=rank, pos=rank, pf=round(pf / max(1, w + l), 1), pa=round(pa / max(1, w + l), 1), diff=diff,
@@ -167,6 +169,7 @@ class BLeague:
                 hit += 1
                 t["jp_name"] = r["team"]
                 t["jp_abbr"] = r["abbr"]
+                t["bl_id"] = r.get("bl_id")
                 t["abbr"] = r["abbr"]
                 t["name"] = r["team"]
                 t["short"] = r["abbr"]

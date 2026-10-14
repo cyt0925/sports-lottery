@@ -120,7 +120,10 @@ def build_story(g, sport):
         imp = t.get("injury_impact") or {}
         said = imp.get("pts", 0) >= 1
         said_maybe = said and any(p.get("status") == "maybe" for p in imp.get("players") or [])
-        if t.get("key_out") and not said:
+        if t.get("key_out") and not said and sport == "volleyball":
+            who = "、".join(t["key_out"][:2])
+            why.append(f"{name}的 {who} 缺陣（新聞說的），少了主力差很多，賽前再確認。")
+        elif t.get("key_out") and not said:
             who = "、".join(t["key_out"][:2])
             why.append(f"{name}主力 {who} 不打，影響不小。")
         elif t.get("out_count", 0) >= 3 and not said:
