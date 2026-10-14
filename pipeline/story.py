@@ -91,15 +91,14 @@ def build_story(g, sport):
             if maybes:
                 parts.append(f"{'' if outs else '的'}{_who(maybes)}還不確定上不上")
             line = f"{name}{'，'.join(parts)}，{'大概影響' if outs else '如果都不打大概影響'} {imp['pts']:g} 分。"
-        elif imp.get("players"):
-            # 只缺替補：講一句就好，不用算分
-            p0 = imp["players"][0]
-            care.append(f"{name}少了 {p0['player'].split(' ')[-1]}，不是主力，影響不大。")
-            continue
             lm = a.get("line_move") or {}
             if lm.get("spread_open") is not None and lm.get("spread_now") is not None and abs(lm["spread_now"] - lm["spread_open"]) >= 1:
                 line += "盤口已經有動，應該反映進去了。"
             (care if (pick == ("home" if t is H else "away")) else why).append(line)
+        elif imp.get("players"):
+            # 只缺替補：講一句就好，不用算分
+            p0 = imp["players"][0]
+            care.append(f"{name}少了 {p0['player'].split(' ')[-1]}，不是主力，影響不大。")
     order = ((H, hn), (A, an)) if pick != "away" else ((A, an), (H, hn))
     for t, name in order:
         if t.get("last10"):
@@ -155,11 +154,14 @@ def build_story(g, sport):
     if r and not r.get("weak") and r.get("diff") is not None and r.get("market_spread") is not None:
         ours, mk = -r["our_spread"], -r["market_spread"]
         th = 3.0 if sport == "basketball" else 0.45 if sport == "hockey" else 3.0
+        def _let(v, who_fav, who_dog):
+            # 正的是主隊讓分，負的是主隊受讓；用「誰讓幾分」講，不出現負號
+            return f"{who_fav}讓 {abs(v):g} 分" if v >= 0 else f"{who_dog}讓 {abs(v):g} 分"
         if r["diff"] <= -th:
-            line = f"照兩隊實力算，主隊大概只該讓 {ours:g} 分，盤口開到 {mk:g}，讓分盤反而是{an}划算。"
+            line = f"照兩隊實力算，大概只該{_let(ours, '主隊', an)}，盤口卻開{_let(mk, '主隊', an)}，讓分盤反而是{an}划算。"
             (why if pick == "away" else care).append(line)
         elif r["diff"] >= th:
-            line = f"照兩隊實力算，主隊該讓 {ours:g} 分，盤口只開 {mk:g}，讓分盤{hn}划算。"
+            line = f"照兩隊實力算，該{_let(ours, '主隊', an)}，盤口只開{_let(mk, '主隊', an)}，讓分盤{hn}划算。"
             (why if pick == "home" else care).append(line)
         else:
             why.append(f"我們自己算的實力差距跟盤口差不多（主隊讓 {ours:g} 分左右）。")
