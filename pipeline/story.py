@@ -75,11 +75,22 @@ def build_story(g, sport):
     for t, name in ((H, hn), (A, an)):
         imp = t.get("injury_impact") or {}
         if imp.get("pts", 0) >= 1:
-            p0 = imp["players"][0]
-            who = p0["player"].split(" ")[-1]
-            ppg = f"場均 {p0['ppg']:.0f} 分" if p0.get("ppg") else ""
-            extra = f"等 {len(imp['players'])} 人" if len(imp["players"]) > 1 else ""
-            line = f"{name}少了{who}{extra}（{ppg}），大概影響 {imp['pts']:g} 分。"
+            outs = [p for p in imp["players"] if p.get("status") in ("out", "ir")]
+            maybes = [p for p in imp["players"] if p.get("status") == "maybe"]
+
+            def _who(lst):
+                p0 = lst[0]
+                toks = [x for x in p0["player"].split(" ") if x.rstrip(".").lower() not in ("jr", "sr", "ii", "iii", "iv")]
+                who = toks[-1] if toks else p0["player"]
+                ppg = f"（場均 {p0['ppg']:.0f} 分）" if p0.get("ppg") else ""
+                extra = f"等 {len(lst)} 人" if len(lst) > 1 else ""
+                return f"{who}{extra}{ppg}"
+            parts = []
+            if outs:
+                parts.append(f"少了{_who(outs)}")
+            if maybes:
+                parts.append(f"{'' if outs else '的'}{_who(maybes)}還不確定上不上")
+            line = f"{name}{'，'.join(parts)}，{'大概影響' if outs else '如果都不打大概影響'} {imp['pts']:g} 分。"
             lm = a.get("line_move") or {}
             if lm.get("spread_open") is not None and lm.get("spread_now") is not None and abs(lm["spread_now"] - lm["spread_open"]) >= 1:
                 line += "盤口已經有動，應該反映進去了。"
