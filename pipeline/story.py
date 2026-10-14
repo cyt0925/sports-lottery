@@ -91,6 +91,11 @@ def build_story(g, sport):
             if maybes:
                 parts.append(f"{'' if outs else '的'}{_who(maybes)}還不確定上不上")
             line = f"{name}{'，'.join(parts)}，{'大概影響' if outs else '如果都不打大概影響'} {imp['pts']:g} 分。"
+        elif imp.get("players"):
+            # 只缺替補：講一句就好，不用算分
+            p0 = imp["players"][0]
+            care.append(f"{name}少了 {p0['player'].split(' ')[-1]}，不是主力，影響不大。")
+            continue
             lm = a.get("line_move") or {}
             if lm.get("spread_open") is not None and lm.get("spread_now") is not None and abs(lm["spread_now"] - lm["spread_open"]) >= 1:
                 line += "盤口已經有動，應該反映進去了。"
@@ -107,14 +112,17 @@ def build_story(g, sport):
                 n_s = t['streak'][2:]
                 line += f"，{'連贏' if t['streak'].startswith('連勝') else '連輸'} {n_s} 場"
             why.append(line + "。")
-    # 傷兵
+    # 傷兵（上面已經用「少了誰、影響幾分」講過的隊就不再重複）
     for t, name in ((H, hn), (A, an)):
-        if t.get("key_out"):
+        imp = t.get("injury_impact") or {}
+        said = imp.get("pts", 0) >= 1
+        said_maybe = said and any(p.get("status") == "maybe" for p in imp.get("players") or [])
+        if t.get("key_out") and not said:
             who = "、".join(t["key_out"][:2])
             why.append(f"{name}主力 {who} 不打，影響不小。")
-        elif t.get("out_count", 0) >= 3:
+        elif t.get("out_count", 0) >= 3 and not said:
             why.append(f"{name}有 {t['out_count']} 個人缺陣。")
-        if t.get("key_maybe"):
+        if t.get("key_maybe") and not said_maybe:
             care.append(f"{name}的 {t['key_maybe'][0]} 要賽前才知道打不打，開賽前再看一次。")
     # 手感
     for t, name in ((H, hn), (A, an)):
@@ -181,7 +189,8 @@ def build_story(g, sport):
     if not why:
         why.append(notes.get("form") or "兩隊資料還不多，先看賽前消息。")
     inj_news = any((t.get("injury_news") or []) for t in (H, A))
-    if inj_news and not any("不打" in w or "缺陣" in w for w in why):
+    matched = any(x.get("severity") in ("out", "maybe") for t in (H, A) for x in (t.get("injuries") or []))
+    if inj_news and not matched and not any(("不打" in w or "缺陣" in w or "少了" in w or "還不確定" in w) for w in why + care):
         care.append("新聞有提到傷兵消息，點下面的新聞看是誰。")
     elif not inj_news and not any(t.get("injuries") for t in (H, A)) and g["status"]["state"] != "post":
         inj_note = "兩隊都沒看到傷兵消息，應該是全員到齊。" if sport != "volleyball" else "沒看到傷兵消息。"

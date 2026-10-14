@@ -1128,7 +1128,9 @@ def aggregate(games):
                         team_id=t["id"], team=team_label(t), team_logo=t.get("logo"),
                         player=x["player"], headshot=x.get("headshot"), position=x.get("position"),
                         status=x["status"], status_zh=x["status_zh"], severity=x["severity"],
-                        detail=x.get("detail"), return_date=x.get("return_date"),
+                        # 從新聞對出來的（有連結、沒有官方狀態）快報只寫來源，英文原句留在詳細頁
+                        detail=(f"{x.get('source') or '新聞'}" if x.get("url") and not x.get("official") else x.get("detail")),
+                        return_date=x.get("return_date"),
                         key=(x["player"] in t.get("key_out", []) or x["player"] in t.get("key_maybe", [])),
                         official=bool(x.get("official")), url=x.get("url"), ppg=x.get("ppg"), impact=x.get("impact"),
                         time_tw=g["time_tw"], day_tw=g["day_tw"],
