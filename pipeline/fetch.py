@@ -1259,7 +1259,11 @@ def main():
     )
     for g in all_games:
         for side in ("home", "away"):
-            g[side].pop("leaders", None)
+            t = g[side]
+            if not t.get("stars") and t.get("leaders"):
+                t["stars"] = [dict(id=l.get("id"), player=l.get("player"), headshot=l.get("headshot"), position=l.get("position"),
+                                   stat=l.get("stat"), value=l.get("value")) for l in t["leaders"][:3]]
+            t.pop("leaders", None)
     os.makedirs(os.path.dirname(os.path.abspath(args.out)), exist_ok=True)
     with open(args.out, "w", encoding="utf-8") as f:
         json.dump(out, f, ensure_ascii=False, separators=(",", ":"))
@@ -1334,6 +1338,12 @@ def enrich_games(all_games):
         for side in ("home", "away"):
             finalize_team(g[side], lg)
     log(f"進階分析：summary {n_sum}/{len(targets)} 場，官方傷報 {n_off} 筆，累計呼叫 {CALLS['n']}")
+    if any(g["league"] == "nba" for g in targets):
+        try:
+            from players import nba_injury_impact
+            nba_injury_impact(targets, get, log, ERRORS, keep_raw)
+        except Exception as e:  # noqa: BLE001
+            ERRORS.append(f"nba 傷兵影響失敗: {e!r}")
 
 
 def _window(games, lo, hi):
@@ -1387,6 +1397,22 @@ def process_playsport(lg, lo, hi, all_games, standings):
             newsinj.attach(keep, name_fn, log, ERRORS, lg["key"], hint=(" basketball" if lg["key"] == "eurobasket" else ""))
         except Exception as e:  # noqa: BLE001
             ERRORS.append(f"{lg['key']} 新聞失敗: {e!r}")
+        if lg["key"] == "eurobasket":
+            try:
+                from players import fetch_el_players, el_player_layer
+                from euroleague import season_code
+                from taiwan_odds import fetch as _fetch
+                rosters = {}
+                for comp in ("E", "U"):
+                    rosters.update(fetch_el_players(comp, season_code(comp), _fetch, log, ERRORS))
+                el_player_layer(keep, rosters, log, ERRORS)
+                for g in keep:
+                    for side in ("home", "away"):
+                        finalize_team(g[side], lg)
+            except Exception as e:  # noqa: BLE001
+                import traceback
+                ERRORS.append(f"eurobasket 球員層級失敗: {e!r}")
+                traceback.print_exc()
     all_games.extend(keep)
     if st:
         standings[lg["key"]] = dict(label=lg["label"], sport=lg["sport"], chip=lg["key"], **st)

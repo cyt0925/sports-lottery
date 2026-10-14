@@ -1,6 +1,6 @@
 {
- "generated_at": "2026-10-14T13:43+08:00",
- "generated_ts": 1791956636,
+ "generated_at": "2026-10-14T13:51+08:00",
+ "generated_ts": 1791957102,
  "record": {
   "days": 30,
   "since": "2026-10-01",
@@ -228,10 +228,10 @@
    "tournament": null,
    "round": null,
    "name": "LAL @ GS",
-   "start": "2026-10-13T22:43+00:00",
-   "start_tw": "2026-10-14T06:43+08:00",
+   "start": "2026-10-13T22:51+00:00",
+   "start_tw": "2026-10-14T06:51+08:00",
    "day_tw": "2026-10-14",
-   "time_tw": "06:43",
+   "time_tw": "06:51",
    "status": {
     "state": "post",
     "completed": true,
@@ -644,7 +644,7 @@
       "湖人作客，盤口看好他，大概六成會贏。",
       "勇士近 6 場 2 勝 4 敗。",
       "湖人近 6 場 5 勝 1 敗，連贏 3 場。",
-      "勇士主力Stephen Curry不打，影響不小。"
+      "勇士主力 Stephen Curry 不打，影響不小。"
      ],
      "care": [
       "勇士的 Curry 最近手感冷，近 5 場只有 21.0 PTS。"
@@ -656,7 +656,7 @@
      "湖人作客，盤口看好他，大概六成會贏。",
      "勇士近 6 場 2 勝 4 敗。",
      "湖人近 6 場 5 勝 1 敗，連贏 3 場。",
-     "勇士主力Stephen Curry不打，影響不小。",
+     "勇士主力 Stephen Curry 不打，影響不小。",
      "勇士的 Curry 最近手感冷，近 5 場只有 21.0 PTS。",
      "台灣運彩還沒開這場，通常前一天才會開。"
     ]
@@ -680,6 +680,8 @@
      "our_prob_home": 0.464,
      "market_spread": null,
      "weak": false,
+     "impact_home": 0,
+     "impact_away": 0,
      "total": 222.8,
      "exp_home": 107.0,
      "exp_away": 115.8
@@ -696,10 +698,10 @@
    "tournament": null,
    "round": null,
    "name": "OKC @ BOS",
-   "start": "2026-10-14T04:31+00:00",
-   "start_tw": "2026-10-14T12:31+08:00",
+   "start": "2026-10-14T04:39+00:00",
+   "start_tw": "2026-10-14T12:39+08:00",
    "day_tw": "2026-10-14",
-   "time_tw": "12:31",
+   "time_tw": "12:39",
    "status": {
     "state": "in",
     "completed": false,
@@ -797,7 +799,7 @@
       "pf": 115,
       "pa": 108,
       "result": "W",
-      "date_iso": "2026-10-13T09:43+00:00"
+      "date_iso": "2026-10-13T09:51+00:00"
      },
      {
       "date": "10/04",
@@ -808,7 +810,7 @@
       "pf": 99,
       "pa": 105,
       "result": "L",
-      "date_iso": "2026-10-13T09:43+00:00"
+      "date_iso": "2026-10-13T09:51+00:00"
      },
      {
       "date": "10/06",
@@ -819,7 +821,7 @@
       "pf": 120,
       "pa": 110,
       "result": "W",
-      "date_iso": "2026-10-13T09:43+00:00"
+      "date_iso": "2026-10-13T09:51+00:00"
      },
      {
       "date": "10/08",
@@ -830,7 +832,7 @@
       "pf": 104,
       "pa": 112,
       "result": "L",
-      "date_iso": "2026-10-13T09:43+00:00"
+      "date_iso": "2026-10-13T09:51+00:00"
      },
      {
       "date": "10/10",
@@ -841,7 +843,7 @@
       "pf": 118,
       "pa": 101,
       "result": "W",
-      "date_iso": "2026-10-13T09:43+00:00"
+      "date_iso": "2026-10-13T09:51+00:00"
      },
      {
       "date": "10/12",
@@ -852,7 +854,7 @@
       "pf": 108,
       "pa": 116,
       "result": "L",
-      "date_iso": "2026-10-13T09:43+00:00"
+      "date_iso": "2026-10-13T09:51+00:00"
      }
     ],
     "form_note": null,
@@ -1095,6 +1097,8 @@
      "our_prob_home": 0.413,
      "market_spread": 2.5,
      "weak": false,
+     "impact_home": 0,
+     "impact_away": 0,
      "diff": 0.0,
      "total": 221.9,
      "exp_home": 105.0,
@@ -1120,10 +1124,10 @@
    "tournament": null,
    "round": "歐冠 Round 5",
    "name": "ZAL @ FEN",
-   "start": "2026-10-14T11:13+00:00",
-   "start_tw": "2026-10-14T19:13+08:00",
+   "start": "2026-10-14T11:21+00:00",
+   "start_tw": "2026-10-14T19:21+08:00",
    "day_tw": "2026-10-14",
-   "time_tw": "19:13",
+   "time_tw": "19:21",
    "status": {
     "state": "pre",
     "completed": false,
@@ -1157,7 +1161,7 @@
     "form": [
      {
       "date": "10/02",
-      "date_iso": "2026-10-02T05:43+00:00",
+      "date_iso": "2026-10-02T05:51+00:00",
       "opp": "皇家馬德里",
       "opp_zh": "皇家馬德里",
       "opp_logo": null,
@@ -1169,7 +1173,7 @@
      },
      {
       "date": "10/05",
-      "date_iso": "2026-10-05T05:43+00:00",
+      "date_iso": "2026-10-05T05:51+00:00",
       "opp": "摩納哥",
       "opp_zh": "摩納哥",
       "opp_logo": null,
@@ -1181,7 +1185,7 @@
      },
      {
       "date": "10/08",
-      "date_iso": "2026-10-08T05:43+00:00",
+      "date_iso": "2026-10-08T05:51+00:00",
       "opp": "奧林匹亞科斯",
       "opp_zh": "奧林匹亞科斯",
       "opp_logo": null,
@@ -1193,7 +1197,7 @@
      },
      {
       "date": "10/11",
-      "date_iso": "2026-10-11T05:43+00:00",
+      "date_iso": "2026-10-11T05:51+00:00",
       "opp": "巴塞隆納",
       "opp_zh": "巴塞隆納",
       "opp_logo": null,
@@ -1249,7 +1253,7 @@
     "form": [
      {
       "date": "10/02",
-      "date_iso": "2026-10-02T05:43+00:00",
+      "date_iso": "2026-10-02T05:51+00:00",
       "opp": "巴黎",
       "opp_zh": "巴黎",
       "opp_logo": null,
@@ -1261,7 +1265,7 @@
      },
      {
       "date": "10/05",
-      "date_iso": "2026-10-05T05:43+00:00",
+      "date_iso": "2026-10-05T05:51+00:00",
       "opp": "米蘭",
       "opp_zh": "米蘭",
       "opp_logo": null,
@@ -1273,7 +1277,7 @@
      },
      {
       "date": "10/08",
-      "date_iso": "2026-10-08T05:43+00:00",
+      "date_iso": "2026-10-08T05:51+00:00",
       "opp": "拜仁",
       "opp_zh": "拜仁",
       "opp_logo": null,
@@ -1285,7 +1289,7 @@
      },
      {
       "date": "10/11",
-      "date_iso": "2026-10-11T05:43+00:00",
+      "date_iso": "2026-10-11T05:51+00:00",
       "opp": "帕納辛奈科斯",
       "opp_zh": "帕納辛奈科斯",
       "opp_logo": null,
@@ -1388,7 +1392,7 @@
    "tw": {
     "source": "玩運彩",
     "url": "https://www.playsport.cc/predict/scale?allianceid=8",
-    "updated": "2026-10-14T13:43+08:00",
+    "updated": "2026-10-14T13:51+08:00",
     "no": "306",
     "spread": {
      "line": "費內巴切 -6.5",
@@ -1457,6 +1461,8 @@
      "our_prob_home": 0.673,
      "market_spread": -6.5,
      "weak": false,
+     "impact_home": 0,
+     "impact_away": 0,
      "diff": -1.5,
      "total": 170.9,
      "exp_home": 87.6,
@@ -1481,10 +1487,10 @@
    "tournament": null,
    "round": null,
    "name": "BOS @ LAL",
-   "start": "2026-10-14T12:13+00:00",
-   "start_tw": "2026-10-14T20:13+08:00",
+   "start": "2026-10-14T12:21+00:00",
+   "start_tw": "2026-10-14T20:21+08:00",
    "day_tw": "2026-10-14",
-   "time_tw": "20:13",
+   "time_tw": "20:21",
    "status": {
     "state": "pre",
     "completed": false,
@@ -1786,7 +1792,7 @@
       "pf": 115,
       "pa": 108,
       "result": "W",
-      "date_iso": "2026-10-13T09:43+00:00"
+      "date_iso": "2026-10-13T09:51+00:00"
      },
      {
       "date": "10/04",
@@ -1797,7 +1803,7 @@
       "pf": 99,
       "pa": 105,
       "result": "L",
-      "date_iso": "2026-10-13T09:43+00:00"
+      "date_iso": "2026-10-13T09:51+00:00"
      },
      {
       "date": "10/06",
@@ -1808,7 +1814,7 @@
       "pf": 120,
       "pa": 110,
       "result": "W",
-      "date_iso": "2026-10-13T09:43+00:00"
+      "date_iso": "2026-10-13T09:51+00:00"
      },
      {
       "date": "10/08",
@@ -1819,7 +1825,7 @@
       "pf": 104,
       "pa": 112,
       "result": "L",
-      "date_iso": "2026-10-13T09:43+00:00"
+      "date_iso": "2026-10-13T09:51+00:00"
      },
      {
       "date": "10/10",
@@ -1830,7 +1836,7 @@
       "pf": 118,
       "pa": 101,
       "result": "W",
-      "date_iso": "2026-10-13T09:43+00:00"
+      "date_iso": "2026-10-13T09:51+00:00"
      },
      {
       "date": "10/12",
@@ -1841,7 +1847,7 @@
       "pf": 108,
       "pa": 116,
       "result": "L",
-      "date_iso": "2026-10-13T09:43+00:00"
+      "date_iso": "2026-10-13T09:51+00:00"
      }
     ],
     "form_note": null,
@@ -2076,6 +2082,8 @@
      "our_prob_home": 0.635,
      "market_spread": -3.5,
      "weak": false,
+     "impact_home": 0,
+     "impact_away": 0,
      "diff": 0.5,
      "total": 221.8,
      "exp_home": 112.0,
@@ -2087,7 +2095,7 @@
    "tw": {
     "source": "玩運彩",
     "url": "https://www.playsport.cc/predict/scale?allianceid=3",
-    "updated": "2026-10-14T13:43+08:00",
+    "updated": "2026-10-14T13:51+08:00",
     "no": "327",
     "spread": {
      "line": "湖人 -3.5",
@@ -2123,10 +2131,10 @@
    "tournament": null,
    "round": null,
    "name": "GS @ OKC",
-   "start": "2026-10-14T14:43+00:00",
-   "start_tw": "2026-10-14T22:43+08:00",
+   "start": "2026-10-14T14:51+00:00",
+   "start_tw": "2026-10-14T22:51+08:00",
    "day_tw": "2026-10-14",
-   "time_tw": "22:43",
+   "time_tw": "22:51",
    "status": {
     "state": "pre",
     "completed": false,
@@ -2479,7 +2487,7 @@
       "雷霆在主場，盤口看好他，大概八成會贏。",
       "雷霆近 6 場 6 勝 0 敗，連贏 6 場。",
       "勇士近 6 場 2 勝 4 敗。",
-      "勇士主力Stephen Curry不打，影響不小。"
+      "勇士主力 Stephen Curry 不打，影響不小。"
      ],
      "care": [
       "勇士的 Curry 最近手感冷，近 5 場只有 21.0 PTS。"
@@ -2491,7 +2499,7 @@
      "雷霆在主場，盤口看好他，大概八成會贏。",
      "雷霆近 6 場 6 勝 0 敗，連贏 6 場。",
      "勇士近 6 場 2 勝 4 敗。",
-     "勇士主力Stephen Curry不打，影響不小。",
+     "勇士主力 Stephen Curry 不打，影響不小。",
      "勇士的 Curry 最近手感冷，近 5 場只有 21.0 PTS。",
      "台灣運彩還沒開這場，通常前一天才會開。"
     ]
@@ -2535,6 +2543,8 @@
      "our_prob_home": 0.837,
      "market_spread": -9.5,
      "weak": false,
+     "impact_home": 0,
+     "impact_away": 0,
      "diff": 1.5,
      "total": 223.2,
      "exp_home": 120.9,
@@ -2560,10 +2570,10 @@
    "tournament": null,
    "round": null,
    "name": "TOR @ EDM",
-   "start": "2026-10-14T16:43+00:00",
-   "start_tw": "2026-10-15T00:43+08:00",
+   "start": "2026-10-14T16:51+00:00",
+   "start_tw": "2026-10-15T00:51+08:00",
    "day_tw": "2026-10-15",
-   "time_tw": "00:43",
+   "time_tw": "00:51",
    "status": {
     "state": "pre",
     "completed": false,
@@ -2889,6 +2899,8 @@
      "our_prob_home": 0.662,
      "market_spread": -1.5,
      "weak": false,
+     "impact_home": 0,
+     "impact_away": 0,
      "diff": -0.5,
      "total": 5.8,
      "exp_home": 3.9,
@@ -2914,10 +2926,10 @@
    "tournament": null,
    "round": "女子",
    "name": "NEC @ SAG",
-   "start": "2026-10-14T19:43+00:00",
-   "start_tw": "2026-10-15T03:43+08:00",
+   "start": "2026-10-14T19:51+00:00",
+   "start_tw": "2026-10-15T03:51+08:00",
    "day_tw": "2026-10-15",
-   "time_tw": "03:43",
+   "time_tw": "03:51",
    "status": {
     "state": "pre",
     "completed": false,
@@ -2951,7 +2963,7 @@
     "form": [
      {
       "date": "10/02",
-      "date_iso": "2026-10-02T05:43+00:00",
+      "date_iso": "2026-10-02T05:51+00:00",
       "opp": "A愛知",
       "opp_zh": "A愛知",
       "opp_logo": null,
@@ -2963,7 +2975,7 @@
      },
      {
       "date": "10/05",
-      "date_iso": "2026-10-05T05:43+00:00",
+      "date_iso": "2026-10-05T05:51+00:00",
       "opp": "A愛知",
       "opp_zh": "A愛知",
       "opp_logo": null,
@@ -2975,7 +2987,7 @@
      },
      {
       "date": "10/08",
-      "date_iso": "2026-10-08T05:43+00:00",
+      "date_iso": "2026-10-08T05:51+00:00",
       "opp": "岡山",
       "opp_zh": "岡山",
       "opp_logo": null,
@@ -2987,7 +2999,7 @@
      },
      {
       "date": "10/11",
-      "date_iso": "2026-10-11T05:43+00:00",
+      "date_iso": "2026-10-11T05:51+00:00",
       "opp": "NEC川崎",
       "opp_zh": "NEC川崎",
       "opp_logo": null,
@@ -3037,7 +3049,7 @@
     "form": [
      {
       "date": "10/02",
-      "date_iso": "2026-10-02T05:43+00:00",
+      "date_iso": "2026-10-02T05:51+00:00",
       "opp": "佐賀久光",
       "opp_zh": "佐賀久光",
       "opp_logo": null,
@@ -3049,7 +3061,7 @@
      },
      {
       "date": "10/05",
-      "date_iso": "2026-10-05T05:43+00:00",
+      "date_iso": "2026-10-05T05:51+00:00",
       "opp": "デンソー",
       "opp_zh": "デンソー",
       "opp_logo": null,
@@ -3061,7 +3073,7 @@
      },
      {
       "date": "10/08",
-      "date_iso": "2026-10-08T05:43+00:00",
+      "date_iso": "2026-10-08T05:51+00:00",
       "opp": "大阪MV",
       "opp_zh": "大阪MV",
       "opp_logo": null,
@@ -3073,7 +3085,7 @@
      },
      {
       "date": "10/11",
-      "date_iso": "2026-10-11T05:43+00:00",
+      "date_iso": "2026-10-11T05:51+00:00",
       "opp": "PFU",
       "opp_zh": "PFU",
       "opp_logo": null,
@@ -3170,10 +3182,10 @@
    "tournament": null,
    "round": "B.LEAGUE",
    "name": "千葉ジ @ 富山グ",
-   "start": "2026-10-14T21:43+00:00",
-   "start_tw": "2026-10-15T05:43+08:00",
+   "start": "2026-10-14T21:51+00:00",
+   "start_tw": "2026-10-15T05:51+08:00",
    "day_tw": "2026-10-15",
-   "time_tw": "05:43",
+   "time_tw": "05:51",
    "status": {
     "state": "pre",
     "completed": false,
@@ -3207,7 +3219,7 @@
     "form": [
      {
       "date": "10/02",
-      "date_iso": "2026-10-02T05:43+00:00",
+      "date_iso": "2026-10-02T05:51+00:00",
       "opp": "千葉阿爾提里",
       "opp_zh": "千葉阿爾提里",
       "opp_logo": null,
@@ -3219,7 +3231,7 @@
      },
      {
       "date": "10/05",
-      "date_iso": "2026-10-05T05:43+00:00",
+      "date_iso": "2026-10-05T05:51+00:00",
       "opp": "京都創榮",
       "opp_zh": "京都創榮",
       "opp_logo": null,
@@ -3231,7 +3243,7 @@
      },
      {
       "date": "10/08",
-      "date_iso": "2026-10-08T05:43+00:00",
+      "date_iso": "2026-10-08T05:51+00:00",
       "opp": "信州勇士",
       "opp_zh": "信州勇士",
       "opp_logo": null,
@@ -3243,7 +3255,7 @@
      },
      {
       "date": "10/11",
-      "date_iso": "2026-10-11T05:43+00:00",
+      "date_iso": "2026-10-11T05:51+00:00",
       "opp": "茨城機器人",
       "opp_zh": "茨城機器人",
       "opp_logo": null,
@@ -3292,7 +3304,7 @@
     "form": [
      {
       "date": "10/02",
-      "date_iso": "2026-10-02T05:43+00:00",
+      "date_iso": "2026-10-02T05:51+00:00",
       "opp": "廣島飛龍",
       "opp_zh": "廣島飛龍",
       "opp_logo": null,
@@ -3304,7 +3316,7 @@
      },
      {
       "date": "10/05",
-      "date_iso": "2026-10-05T05:43+00:00",
+      "date_iso": "2026-10-05T05:51+00:00",
       "opp": "仙台89ers",
       "opp_zh": "仙台89ers",
       "opp_logo": null,
@@ -3316,7 +3328,7 @@
      },
      {
       "date": "10/08",
-      "date_iso": "2026-10-08T05:43+00:00",
+      "date_iso": "2026-10-08T05:51+00:00",
       "opp": "群馬雷霆",
       "opp_zh": "群馬雷霆",
       "opp_logo": null,
@@ -3328,7 +3340,7 @@
      },
      {
       "date": "10/11",
-      "date_iso": "2026-10-11T05:43+00:00",
+      "date_iso": "2026-10-11T05:51+00:00",
       "opp": "琉球黃金國王",
       "opp_zh": "琉球黃金國王",
       "opp_logo": null,
@@ -3419,7 +3431,7 @@
    "tw": {
     "source": "玩運彩",
     "url": "https://www.playsport.cc/predict/scale?allianceid=97",
-    "updated": "2026-10-14T13:43+08:00",
+    "updated": "2026-10-14T13:51+08:00",
     "no": "401",
     "spread": {
      "line": "富山松雞 -3.5",
@@ -3484,6 +3496,8 @@
      "our_prob_home": 0.755,
      "market_spread": -3.5,
      "weak": false,
+     "impact_home": 0,
+     "impact_away": 0,
      "diff": 4.0,
      "total": 168.6,
      "exp_home": 92.0,
@@ -3508,10 +3522,10 @@
    "tournament": null,
    "round": null,
    "name": "ARS @ MCI",
-   "start": "2026-10-15T08:43+00:00",
-   "start_tw": "2026-10-15T16:43+08:00",
+   "start": "2026-10-15T08:51+00:00",
+   "start_tw": "2026-10-15T16:51+08:00",
    "day_tw": "2026-10-15",
-   "time_tw": "16:43",
+   "time_tw": "16:51",
    "status": {
     "state": "pre",
     "completed": false,
@@ -3823,6 +3837,8 @@
      "our_prob_home": 0.693,
      "market_spread": -0.5,
      "weak": false,
+     "impact_home": 0,
+     "impact_away": 0,
      "diff": 0.0,
      "total": 1.9,
      "exp_home": 1.2,
@@ -3848,10 +3864,10 @@
    "tournament": null,
    "round": null,
    "name": "TOT @ LIV",
-   "start": "2026-10-15T11:13+00:00",
-   "start_tw": "2026-10-15T19:13+08:00",
+   "start": "2026-10-15T11:21+00:00",
+   "start_tw": "2026-10-15T19:21+08:00",
    "day_tw": "2026-10-15",
-   "time_tw": "19:13",
+   "time_tw": "19:21",
    "status": {
     "state": "pre",
     "completed": false,
@@ -4114,6 +4130,8 @@
      "our_prob_home": 0.654,
      "market_spread": null,
      "weak": false,
+     "impact_home": 0,
+     "impact_away": 0,
      "total": 2.7,
      "exp_home": 1.6,
      "exp_away": 1.1,
@@ -4149,7 +4167,7 @@
    "return_date": null,
    "key": true,
    "official": false,
-   "time_tw": "22:43",
+   "time_tw": "22:51",
    "day_tw": "2026-10-14"
   },
   {
@@ -4171,7 +4189,7 @@
    "return_date": null,
    "key": false,
    "official": false,
-   "time_tw": "12:31",
+   "time_tw": "12:39",
    "day_tw": "2026-10-14"
   },
   {
@@ -4193,7 +4211,7 @@
    "return_date": null,
    "key": false,
    "official": false,
-   "time_tw": "20:13",
+   "time_tw": "20:21",
    "day_tw": "2026-10-14"
   },
   {
@@ -4215,7 +4233,7 @@
    "return_date": null,
    "key": false,
    "official": false,
-   "time_tw": "00:43",
+   "time_tw": "00:51",
    "day_tw": "2026-10-15"
   },
   {
@@ -4237,7 +4255,7 @@
    "return_date": "2026-10-20",
    "key": false,
    "official": false,
-   "time_tw": "20:13",
+   "time_tw": "20:21",
    "day_tw": "2026-10-14"
   },
   {
@@ -4259,7 +4277,7 @@
    "return_date": null,
    "key": false,
    "official": false,
-   "time_tw": "22:43",
+   "time_tw": "22:51",
    "day_tw": "2026-10-14"
   },
   {
@@ -4281,7 +4299,7 @@
    "return_date": null,
    "key": false,
    "official": false,
-   "time_tw": "16:43",
+   "time_tw": "16:51",
    "day_tw": "2026-10-15"
   },
   {
@@ -4303,7 +4321,7 @@
    "return_date": null,
    "key": false,
    "official": false,
-   "time_tw": "16:43",
+   "time_tw": "16:51",
    "day_tw": "2026-10-15"
   },
   {
@@ -4326,7 +4344,7 @@
    "url": "https://news.google.com/",
    "key": false,
    "official": false,
-   "time_tw": "19:13",
+   "time_tw": "19:21",
    "day_tw": "2026-10-14"
   },
   {
@@ -4349,7 +4367,7 @@
    "url": "https://news.google.com/",
    "key": false,
    "official": false,
-   "time_tw": "05:43",
+   "time_tw": "05:51",
    "day_tw": "2026-10-15"
   }
  ],

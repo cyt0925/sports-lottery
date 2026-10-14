@@ -71,6 +71,19 @@ def build_story(g, sport):
             why.append(f"沒有盤口，看近況猜{fn}大概{_cheng(p)}會贏。")
         else:
             why.append(f"{fn}{where}，盤口看好他，大概{_cheng(p)}會贏。")
+    # 缺陣影響幾分
+    for t, name in ((H, hn), (A, an)):
+        imp = t.get("injury_impact") or {}
+        if imp.get("pts", 0) >= 1:
+            p0 = imp["players"][0]
+            who = p0["player"].split(" ")[-1]
+            ppg = f"場均 {p0['ppg']:.0f} 分" if p0.get("ppg") else ""
+            extra = f"等 {len(imp['players'])} 人" if len(imp["players"]) > 1 else ""
+            line = f"{name}少了{who}{extra}（{ppg}），大概影響 {imp['pts']:g} 分。"
+            lm = a.get("line_move") or {}
+            if lm.get("spread_open") is not None and lm.get("spread_now") is not None and abs(lm["spread_now"] - lm["spread_open"]) >= 1:
+                line += "盤口已經有動，應該反映進去了。"
+            (care if (pick == ("home" if t is H else "away")) else why).append(line)
     order = ((H, hn), (A, an)) if pick != "away" else ((A, an), (H, hn))
     for t, name in order:
         if t.get("last10"):
@@ -87,11 +100,11 @@ def build_story(g, sport):
     for t, name in ((H, hn), (A, an)):
         if t.get("key_out"):
             who = "、".join(t["key_out"][:2])
-            why.append(f"{name}主力{who}不打，影響不小。")
+            why.append(f"{name}主力 {who} 不打，影響不小。")
         elif t.get("out_count", 0) >= 3:
             why.append(f"{name}有 {t['out_count']} 個人缺陣。")
         if t.get("key_maybe"):
-            care.append(f"{name}的{t['key_maybe'][0]}要賽前才知道打不打，開賽前再看一次。")
+            care.append(f"{name}的 {t['key_maybe'][0]} 要賽前才知道打不打，開賽前再看一次。")
     # 手感
     for t, name in ((H, hn), (A, an)):
         for p_ in (t.get("hot") or [])[:1]:
@@ -151,8 +164,8 @@ def build_story(g, sport):
     # 大小分
     tot = s.get("totals")
     if tot and tot.get("lean") in ("大", "小"):
-        how = "照兩隊得分和失分算" if tot.get("method") == "評分" else "兩隊最近平均"
-        why.append(f"大小分看「{tot['lean']}」：{how}這場大概 {tot['expected']:.0f} 分，盤口 {tot['line']:g}。")
+        how = "照兩隊得分和失分算，這場大概" if tot.get("method") == "評分" else "兩隊最近一場平均"
+        why.append(f"大小分看「{tot['lean']}」：{how} {tot['expected']:.0f} 分，盤口 {tot['line']:g}。")
     # 沒資料的時候也要講
     if not why:
         why.append(notes.get("form") or "兩隊資料還不多，先看賽前消息。")

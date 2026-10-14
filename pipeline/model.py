@@ -88,7 +88,9 @@ def rate_game(g, lg, standings):
         sides[side] = stat
     hca = HCA.get(lg["key"], HCA_SPORT.get(sport, 2.5))
     rh, ra = rating(sides["home"], sport), rating(sides["away"], sport)
-    edge = rh + hca - ra                      # 正數 = 主隊比較強
+    imp_h = ((g["home"].get("injury_impact") or {}).get("pts") or 0) if sport == "basketball" else 0
+    imp_a = ((g["away"].get("injury_impact") or {}).get("pts") or 0) if sport == "basketball" else 0
+    edge = rh + hca - ra - imp_h + imp_a      # 正數 = 主隊比較強；缺陣的影響也扣進去
     sigma = SIGMA.get(sport, 11.0)
     prob_home = 0.5 * (1 + erf(edge / (sigma * sqrt(2))))
     o = g.get("odds") or {}
@@ -102,6 +104,7 @@ def rate_game(g, lg, standings):
         src_home=sides["home"].get("src", "standings"), src_away=sides["away"].get("src", "standings"),
         our_spread=round(-edge * 2) / 2, our_prob_home=round(prob_home, 3),
         market_spread=market, weak=min(sides["home"]["gp"], sides["away"]["gp"]) < MIN_GP,
+        impact_home=imp_h, impact_away=imp_a,
     )
     if market is not None:
         out["diff"] = round(market - out["our_spread"], 1)   # 負數 = 盤口比我們更看好主隊
@@ -163,6 +166,18 @@ def rating_signals(g, lg):
         sigs.append(dict(label="實力評分", side=None, weight=0,
                          text=f"兩隊才打 {min(r['gp_home'], r['gp_away'])} 場，評分還不準，先參考就好（我們算主隊讓 {-r['our_spread']:+g} 分）"))
         return sigs
+    for side, t in (("home", H), ("away", A)):
+        imp = t.get("injury_impact") or {}
+        if imp.get("pts", 0) >= 1:
+            names = "、".join(p["player"].split(" ")[-1] for p in imp["players"][:2])
+            tn = hn if side == "home" else an
+            other = "away" if side == "home" else "home"
+            lm = a.get("line_move") or {}
+            moved = ""
+            if lm.get("spread_open") is not None and lm.get("spread_now") is not None and abs(lm["spread_now"] - lm["spread_open"]) >= 1:
+                moved = "，盤口已經有動"
+            sigs.append(dict(label="傷兵影響", side=other, weight=min(0.6, imp["pts"] * 0.12),
+                             text=f"{tn}少了 {names}，大概差 {imp['pts']:g} 分{moved}"))
     th = EDGE_TH.get(sport, 3.0)
     if r.get("diff") is not None:
         d = r["diff"]

@@ -327,7 +327,7 @@
     const list = (t.injuries || []).slice(0, 12);
     let body = "";
     if (list.length) {
-      body = list.map((x) => `<div class="prow">${avatarImg(x)}<div class="grow"><div class="pn">${esc(x.player)}</div><div class="ps">${esc(x.position_zh || x.position || "")}${x.detail ? " · " + esc(x.detail) : ""}${x.return_date ? " · 預計 " + esc(String(x.return_date).slice(5, 10)) + " 回來" : ""}</div></div><span class="badge ${sevClass(x.severity)}">${esc(x.status_zh)}</span></div>`).join("");
+      body = list.map((x) => `<div class="prow">${avatarImg(x)}<div class="grow"><div class="pn">${esc(x.player)}${x.ppg != null ? ` <small style="color:var(--muted);font-weight:500">場均 ${Number(x.ppg).toFixed(1)} 分</small>` : ""}</div><div class="ps">${esc(x.position_zh || x.position || "")}${x.detail ? " · " + esc(x.detail) : ""}${x.return_date ? " · 預計 " + esc(String(x.return_date).slice(5, 10)) + " 回來" : ""}${x.url ? ` · <a href="${esc(x.url)}" target="_blank" rel="noopener">看新聞</a>` : ""}</div></div><span class="badge ${sevClass(x.severity)}">${esc(x.status_zh)}</span></div>`).join("");
       if ((t.injuries || []).length > 12) body += `<div class="note">還有 ${(t.injuries || []).length - 12} 人沒列</div>`;
     } else {
       body = `<div class="note">${esc(t.injury_note || (g.notes && g.notes.injuries) || "沒有傷兵消息，應該是全員到齊。")}</div>`;
@@ -345,6 +345,26 @@
     if (t.rank_note) bits.push(esc(t.rank_note));
     if (t.avg_for5 != null) bits.push(`最近平均得 ${t.avg_for5} 失 ${t.avg_against5}`);
     return `<div class="team-block">${teamHead(t)}<div class="results">${boxes}</div><div class="form-sum">${bits.join(" · ")}${t.form_note ? `<br><small style="color:var(--muted)">${esc(t.form_note)}（右邊是最近一場）</small>` : ""}</div></div>`;
+  }
+  function starsBlock(g) {
+    const blocks = [];
+    for (const side of ["away", "home"]) {
+      const t = g[side];
+      const stars = t.stars || [];
+      const imp = t.injury_impact;
+      if (!stars.length && !imp) continue;
+      const injBy = {};
+      (t.injuries || []).forEach((x) => { injBy[x.player] = x; });
+      const rows = stars.map((p) => {
+        const x = injBy[p.player];
+        const st = x ? `<span class="badge ${sevClass(x.severity)}">${esc(x.status_zh)}</span>` : `<span class="badge ok">正常</span>`;
+        const line = [p.ppg != null ? `場均 ${Number(p.ppg).toFixed(1)} 分` : "", p.mpg != null ? `${Math.round(p.mpg)} 分鐘` : "", p.pir != null ? `PIR ${Number(p.pir).toFixed(1)}` : "", p.stat && p.value != null ? `${esc(p.stat)} ${esc(p.value)}` : ""].filter(Boolean).join(" · ");
+        return `<div class="prow">${avatarImg(p)}<div class="grow"><div class="pn">${esc(p.player)}</div><div class="ps">${line}</div></div>${st}</div>`;
+      }).join("");
+      const impHtml = imp && imp.pts >= 1 ? `<div class="note" style="margin-top:8px">少了 ${esc(imp.players.map((p) => p.player.split(" ").pop() + (p.ppg != null ? "（場均 " + Number(p.ppg).toFixed(0) + " 分）" : "")).join("、"))}，大概影響 <b>${imp.pts}</b> 分讓分。${esc(imp.note || "")}</div>` : "";
+      blocks.push(`<div class="team-block">${teamHead(t)}${rows || `<div class="note">主力名單還沒有資料。</div>`}${impHtml}</div>`);
+    }
+    return blocks.length ? `<div class="h">${icon("i-star")}主力球員</div>${blocks.join("")}` : "";
   }
   function hotBlock(g) {
     const rows = [];
@@ -401,6 +421,7 @@
         ${t.care && t.care.length ? `<div class="h">${icon("i-warn")}要小心</div>${pts(t.care, "minus", "i-warn")}` : ""}
         <div class="h">${icon("i-star")}台灣運彩賠率</div>${twTiles(g)}
         <div class="h">${icon("i-med")}傷兵</div>${injuryBlock(g.away, g)}${injuryBlock(g.home, g)}
+        ${starsBlock(g)}
         <div class="h">${icon("i-clock")}最近 5 場</div>${formBlock(g.away, g)}${formBlock(g.home, g)}
         ${hotBlock(g)}
         ${newsBlock(g)}
