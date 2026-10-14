@@ -867,7 +867,7 @@ def build_suggestion(g, lg):
     sp = lg["sport"]
     res = dict(pick=None, pick_label=None, play="觀望", confidence="低", summary="", reasons=[], cautions=[], totals=None)
     if g["status"]["state"] == "post":
-        res["summary"] = "比賽已結束"
+        res["summary"] = "這場打完了"
         return res
     if g.get("tennis"):
         if o.get("prob_home") is not None and o.get("prob_away") is not None:
@@ -876,14 +876,14 @@ def build_suggestion(g, lg):
             res["reasons"].append(f"國際盤 {g[fav]['name']} 勝率約 {round(pf * 100)}%")
             if pf >= 0.68:
                 res.update(pick=fav, pick_label=g[fav]["name"], play="不讓分", confidence="中",
-                           summary=f"傾向 {g[fav]['name']}，盤口明顯看好，信心中")
+                           summary=f"押 {g[fav]['name']}，盤口明顯看好，信心中")
             else:
-                res["summary"] = "兩人實力接近，建議觀望"
+                res["summary"] = "兩人差不多，先不下"
         else:
-            res["summary"] = "目前沒有盤口資料，先觀望"
+            res["summary"] = "還沒開盤，等盤出來再說"
         return res
     if o.get("prob_home") is None or o.get("prob_away") is None:
-        res["summary"] = "目前沒有盤口資料，先觀望"
+        res["summary"] = "還沒開盤，等盤出來再說"
         return res
     ph, pa = o["prob_home"], o["prob_away"]
     fav, dog = ("home", "away") if ph >= pa else ("away", "home")
@@ -991,7 +991,7 @@ def build_suggestion(g, lg):
         conf = "中"   # 沒盤口、只靠近況估的，不給高信心
     if conf == "低":
         res.update(pick=None, pick_label=None, play="觀望", confidence="低",
-                   summary="兩隊實力接近或訊號互相矛盾，建議觀望")
+                   summary="看不出誰比較穩，先不下")
     else:
         play = "不讓分"
         spread = o.get("spread")
@@ -1006,7 +1006,7 @@ def build_suggestion(g, lg):
             else:
                 cautions.append("賠率偏低，不讓分獲利有限")
         res.update(pick=fav, pick_label=fn, play=play, confidence=conf,
-                   summary=f"傾向 {fn}，建議玩法「{play}」，信心{conf}")
+                   summary=f"押 {fn}，玩{play}，信心{conf}")
     th = lg.get("total_th", 99)
     h, a = g["home"], g["away"]
     if o.get("total") and h.get("avg_total5") and a.get("avg_total5"):
@@ -1033,7 +1033,7 @@ def build_suggestion(g, lg):
             ev = None
             if o.get("spread") is not None and res["play"] == "不讓分":
                 res["play"] = "讓分"
-                res["summary"] = f"傾向 {res['pick_label']}，不讓分賠率太低，改看讓分盤，信心{res['confidence']}"
+                res["summary"] = f"押 {res['pick_label']}，不讓分賠率太低，改玩讓分，信心{res['confidence']}"
     if res["pick"] and ml.get(res["pick"]) and o.get(f"prob_{res['pick']}") and psrc != "tw_ml" and ev is not None:
         # 台灣運彩抽水約一成多，期望值 -8% 到 -14% 是「正常」；比這好算划算，比這差才提醒
         res["tw_ev"] = round(ev * 100)
@@ -1182,10 +1182,12 @@ def main():
         except Exception as e:  # noqa: BLE001
             ERRORS.append(f"{lg['key']} 建議 {g['id']} 失敗: {e!r}")
             g["suggestion"] = dict(pick=None, pick_label=None, play="觀望", confidence="低",
-                                   summary="資料不完整，先觀望", reasons=[], cautions=[], totals=None)
+                                   summary="資料不夠，先不下", reasons=[], cautions=[], totals=None)
         try:
             from story import build_story
-            g["suggestion"]["story"] = build_story(g, lg["sport"])
+            talk = build_story(g, lg["sport"])
+            g["suggestion"]["talk"] = talk
+            g["suggestion"]["story"] = [talk["verdict"]] + talk["why"] + talk["care"] + [talk["odds"]]
         except Exception as e:  # noqa: BLE001
             ERRORS.append(f"{lg['key']} 白話 {g['id']} 失敗: {e!r}")
             g["suggestion"]["story"] = [g["suggestion"].get("summary") or "資料整理中。"]

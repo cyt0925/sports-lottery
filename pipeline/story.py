@@ -1,159 +1,173 @@
 # -*- coding: utf-8 -*-
-"""把一場比賽的資料寫成幾段白話文，像朋友在解釋一樣。資料缺什麼就講什麼，不留空白。"""
+"""把一場比賽講成人話：先講結論，再講為什麼、要小心什麼，最後一行賠率。
+每句都短，像朋友在旁邊跟你講。資料缺什麼就說缺什麼，不留空白。"""
 
 
 def _n(t):
     return t.get("name_zh") or t.get("short") or t.get("name") or "對手"
 
 
-def _pct(p):
-    return f"{round(p * 100)}%"
+def _cheng(p):
+    """0.72 -> 七成、0.55 -> 五成五、0.5 -> 一半。"""
+    if p is None:
+        return None
+    v = round(p * 20) / 2  # 以 0.5 成為單位
+    if v >= 9.5:
+        return "九成五以上"
+    if v <= 1:
+        return "一成不到"
+    digits = "零一二三四五六七八九十"
+    whole, half = int(v), (v - int(v)) >= 0.5
+    if whole == 5 and not half:
+        return "一半"
+    return f"{digits[whole]}成" + ("五" if half else "")
+
+
+def _short(t, limit=7):
+    """隊名太長就用短名（玩運彩即時比分裡的三字短名），沒有就照用。"""
+    name = _n(t)
+    if len(name) > limit and t.get("short_zh"):
+        return t["short_zh"]
+    return name
 
 
 def build_story(g, sport):
     H, A = g["home"], g["away"]
-    hn, an = _n(H), _n(A)
+    hn, an = _short(H), _short(A)
     o = g.get("odds") or {}
     s = g.get("suggestion") or {}
     a = g.get("analysis") or {}
     tw = g.get("tw") or {}
     notes = g.get("notes") or {}
-    tennis = bool(g.get("tennis"))
     sets = bool(g.get("sets"))
-    paras = []
-
-    # 1. 盤口與勝率
+    pick = s.get("pick")
+    pn = hn if pick == "home" else an if pick == "away" else None
+    psrc = o.get("prob_source")
     ph, pa = o.get("prob_home"), o.get("prob_away")
+
+    why, care = [], []
+
+    # ---- 結論 ----
+    if g["status"]["state"] == "post":
+        verdict = "這場打完了。"
+    elif pn:
+        play = s.get("play") or "不讓分"
+        extra = ""
+        if play == "讓分" and o.get("spread") is not None:
+            extra = f"（讓 {abs(o['spread']):g} 分）"
+        verdict = f"這場我會押{pn}，玩{play}{extra}，信心{s.get('confidence', '中')}。"
+    elif ph is None:
+        verdict = "還沒開盤，等盤出來再說。" if not sets else "這場沒有盤口，看球用的。"
+    else:
+        verdict = "這場看不出誰比較穩，我會先不下。"
+
+    # ---- 為什麼（最多 3 點）----
     if ph is not None and pa is not None:
         fav = "home" if ph >= pa else "away"
         fn = hn if fav == "home" else an
         p = max(ph, pa)
-        psrc = o.get("prob_source")
-        src = {"spread": "依國際盤讓分推估，", "tw_ml": "依台灣運彩賠率換算，", "form": "這場沒有盤口，光看兩隊近況粗估，"}.get(psrc, "國際盤")
-        t = f"這場{'是 ' + an + ' 作客 ' + hn if not tennis else an + ' 對上 ' + hn}。{src}比較看好{fn}，{'勝率' if psrc == 'form' else '換算勝率'}大約 {_pct(p)}，差不多是十場贏 {round(p * 10)} 場的意思"
+        where = "在主場" if fav == "home" else "作客"
         if psrc == "form":
-            t += "，這種估法很粗，只能當參考"
-        if o.get("prob_draw"):
-            t += f"，和局機率約 {_pct(o['prob_draw'])}"
-        pred = a.get("predictor")
-        if pred:
-            pv = pred["home"] if fav == "home" else pred["away"]
-            diff = pv - p
-            mood = "比盤口更看好" if diff >= 0.04 else ("比盤口保守一點" if diff <= -0.04 else "跟盤口看法差不多")
-            t += f"；ESPN 的模型給{fn} {_pct(pv)}，{mood}。"
+            why.append(f"沒有盤口，看近況猜{fn}大概{_cheng(p)}會贏。")
         else:
-            t += "。"
-        ml = tw.get("ml") or {}
-        dec = ml.get(fav)
-        if dec:
-            val = s.get("tw_value")
-            tail = {"划算": "比平常划算，可以考慮", "偏差": "比平常差，想下的話注碼小一點", "正常": "算正常水準"}.get(val, "")
-            t += f" 台灣運彩不讓分賠率{fn} {dec:.2f}，{tail}。" if tail else f" 台灣運彩不讓分賠率{fn} {dec:.2f}。"
-        elif tw.get("spread") or tw.get("total"):
-            t += " 台灣運彩這場有開讓分和大小，不讓分還沒開。"
-        elif notes.get("tw"):
-            t += " " + notes["tw"] + "。"
-        if o.get("spread") is not None and psrc != "form":
-            t += f" 讓分盤是{o.get('details') or ('主隊 ' + format(o['spread'], '+g'))}"
-            t += f"，大小分 {o['total']}。" if o.get("total") else "。"
-        paras.append(t)
-    else:
-        paras.append(notes.get("odds") or f"這場目前還沒有盤口。通常開賽前一天盤口才會出現，先看下面的近況和傷兵。")
-
-    if tennis:
-        if s.get("pick"):
-            paras.append(f"綜合起來我會偏向{s['pick_label']}，信心{s['confidence']}。")
-        return paras
-
-    # 2. 傷兵
-    inj_parts = []
-    for t, name in ((H, hn), (A, an)):
-        inj = t.get("injuries") or []
-        key_out = t.get("key_out") or []
-        key_maybe = t.get("key_maybe") or []
-        outs = [x for x in inj if x.get("severity") in ("out", "ir")]
-        maybes = [x for x in inj if x.get("severity") == "maybe"]
-        if key_out:
-            who = "、".join(key_out[:3])
-            reason = next((x.get("detail") for x in outs if x.get("player") in key_out and x.get("detail")), None)
-            inj_parts.append(f"{name}的主力 {who} 確定缺陣" + (f"（{reason}）" if reason else "") + "，這個影響最大")
-        elif outs:
-            inj_parts.append(f"{name}有 {len(outs)} 名球員缺陣，但都不是主要得分來源")
-        if key_maybe:
-            inj_parts.append(f"{name}的 {'、'.join(key_maybe[:2])} 要到賽前才會決定上不上，開賽前再看一次")
-        elif maybes:
-            inj_parts.append(f"{name}另有 {len(maybes)} 人狀態存疑")
-        if not inj and not outs and not maybes:
-            news = t.get("injury_news") or []
-            if news:
-                first = (news[0].get("title") or "")[:48]
-                inj_parts.append(f"{name}沒有官方傷兵名單，但近 10 天新聞有提到傷兵相關消息，例如「{first}」，建議點開看一下再決定")
-            elif t.get("injury_note"):
-                inj_parts.append(f"{name}{t['injury_note']}")
-            elif notes.get("injuries"):
-                inj_parts.append(f"{name}：{notes['injuries']}")
-            else:
-                inj_parts.append(f"{name}目前沒有傷兵回報")
-    if inj_parts:
-        paras.append("傷兵方面，" + "；".join(inj_parts) + "。")
-
-    # 3. 近況、休息、手感
-    form_parts = []
-    for t, name, side in ((H, hn, "home"), (A, an, "away")):
+            why.append(f"{fn}{where}，盤口看好他，大概{_cheng(p)}會贏。")
+    order = ((H, hn), (A, an)) if pick != "away" else ((A, an), (H, hn))
+    for t, name in order:
         if t.get("last10"):
-            f = f"{name}近 {len(t.get('form') or [])} 場 {t['last10']}"
-            if t.get("streak"):
-                f += f"，目前{t['streak']}"
+            n = len(t.get("form") or [])
+            w = t.get("last10_w", 0)
+            line = f"{name}近 {n} 場 {w} 勝 {n - w} 敗"
             if t.get("rank_note"):
-                f += f"，{t['rank_note']}"
-            form_parts.append(f)
-        elif t.get("rank_note"):
-            form_parts.append(f"{name}{t['rank_note']}")
-        rest = (a.get("rest") or {}).get(side)
-        if rest:
-            if rest.get("b2b"):
-                form_parts.append(f"{name}昨天才打完，今天是背靠背第二天，體力和命中率通常會掉一點")
-            elif rest.get("days") is not None and rest["days"] >= 3:
-                form_parts.append(f"{name}休了 {rest['days']} 天，體力充足")
-        for p in t.get("hot") or []:
-            if p.get("label") == "火燙":
-                form_parts.append(f"{name}的 {p['player']} 最近手感很燙，近 5 場場均 {p['last5']} {p['stat']}，季平均才 {p['season']}")
-            elif p.get("label") == "冰冷":
-                form_parts.append(f"{name}的 {p['player']} 最近手感偏冷，近 5 場場均 {p['last5']} {p['stat']}，比季平均低不少")
+                line += f"，{t['rank_note'].replace('第 ', '第').replace(' 名', '名')}"
+            if t.get("streak"):
+                n_s = t['streak'][2:]
+                line += f"，{'連贏' if t['streak'].startswith('連勝') else '連輸'} {n_s} 場"
+            why.append(line + "。")
+    # 傷兵
+    for t, name in ((H, hn), (A, an)):
+        if t.get("key_out"):
+            who = "、".join(t["key_out"][:2])
+            why.append(f"{name}主力{who}不打，影響不小。")
+        elif t.get("out_count", 0) >= 3:
+            why.append(f"{name}有 {t['out_count']} 個人缺陣。")
+        if t.get("key_maybe"):
+            care.append(f"{name}的{t['key_maybe'][0]}要賽前才知道打不打，開賽前再看一次。")
+    # 手感
+    for t, name in ((H, hn), (A, an)):
+        for p_ in (t.get("hot") or [])[:1]:
+            nm = p_["player"].split(" ")[-1]
+            if p_.get("label") == "火燙":
+                why.append(f"{name}的 {nm} 最近手感很燙，近 5 場平均 {p_['last5']} {p_['stat']}。")
+            elif p_.get("label") == "冰冷":
+                care.append(f"{name}的 {nm} 最近手感冷，近 5 場只有 {p_['last5']} {p_['stat']}。")
+    # 休息
+    rest = a.get("rest") or {}
+    for side, name in (("home", hn), ("away", an)):
+        r = rest.get(side) if isinstance(rest, dict) else None
+        if r and r.get("b2b"):
+            care.append(f"{name}昨天才打完，今天背靠背，體力會差一點。")
+    # 對戰
     h2h = a.get("h2h")
     if h2h and h2h.get("games"):
         hw = sum(1 for x in h2h["games"] if x["winner"] == "home")
         aw = sum(1 for x in h2h["games"] if x["winner"] == "away")
-        if hw + aw:
-            form_parts.append(f"兩隊最近 {hw + aw} 次交手{hn} {hw} 勝 {aw} 敗")
+        if hw + aw >= 2 and hw != aw:
+            why.append(f"最近交手{hn if hw > aw else an}贏比較多（{max(hw, aw)} 比 {min(hw, aw)}）。")
+    # 盤口變動
     lm = a.get("line_move")
-    if lm and lm.get("spread_open") is not None and lm.get("spread_now") is not None and abs(lm["spread_now"] - lm["spread_open"]) >= 0.5:
+    if lm and lm.get("spread_open") is not None and lm.get("spread_now") is not None and abs(lm["spread_now"] - lm["spread_open"]) >= 1:
         who = hn if lm["spread_now"] < lm["spread_open"] else an
-        form_parts.append(f"盤口從開盤的 {lm['spread_open']:+g} 變成 {lm['spread_now']:+g}，代表錢往{who}那邊流")
-    crowd = a.get("crowd")
-    if crowd and crowd.get("ml_home") is not None:
-        side = hn if crowd["ml_home"] >= 50 else an
-        v = max(crowd["ml_home"], 100 - crowd["ml_home"])
-        form_parts.append(f"玩運彩上有 {v}% 的玩家押{side}" + ("，一面倒的時候反而要小心" if v >= 75 else ""))
-    if form_parts:
-        paras.append("近況方面，" + "；".join(form_parts) + "。")
-    elif notes.get("form"):
-        paras.append(notes["form"] + "。")
-    if sets:
-        paras.append("排球是五局三勝制，比分看的是局數；台灣運彩沒有開日本排球，這裡的內容是給你看球用的。")
+        why.append(f"盤口往{who}那邊移，錢在押他。")
+    # 玩家一面倒
+    crowd = a.get("crowd") or {}
+    if crowd.get("ml_home") is not None and crowd.get("ml_away") is not None:
+        v = max(crowd["ml_home"], crowd["ml_away"])
+        side = hn if crowd["ml_home"] >= crowd["ml_away"] else an
+        if v >= 80:
+            care.append(f"{_cheng(v / 100)}的人都押{side}，太一面倒的時候反而常翻車。")
+    # 台灣賠率划不划算
+    if s.get("tw_value") == "偏差":
+        care.append(f"台灣運彩賠率 {s.get('tw_dec')} 比平常差，注碼小一點。")
+    elif s.get("tw_value") == "划算":
+        why.append(f"台灣運彩賠 {s.get('tw_dec')}，比平常好一點。")
+    for c in s.get("cautions") or []:
+        if "幾乎沒賺頭" in c:
+            care.append("不讓分賠率太低，贏了也沒賺頭，要下就下讓分。")
+    # 大小分
+    tot = s.get("totals")
+    if tot and tot.get("lean") in ("大", "小"):
+        why.append(f"大小分看「{tot['lean']}」：兩隊最近平均 {tot['expected']:.0f} 分，盤口 {tot['line']:g}。")
+    # 沒資料的時候也要講
+    if not why:
+        why.append(notes.get("form") or "兩隊資料還不多，先看賽前消息。")
+    inj_news = any((t.get("injury_news") or []) for t in (H, A))
+    if inj_news and not any("不打" in w or "缺陣" in w for w in why):
+        care.append("新聞有提到傷兵消息，點下面的新聞看是誰。")
+    elif not inj_news and not any(t.get("injuries") for t in (H, A)) and g["status"]["state"] != "post":
+        inj_note = "兩隊都沒看到傷兵消息，應該是全員到齊。" if sport != "volleyball" else "沒看到傷兵消息。"
+        why.append(inj_note)
 
-    # 4. 結論
-    if s.get("pick"):
-        t = f"綜合起來，我會偏向{s['pick_label']}，玩法建議「{s['play']}」，信心{s['confidence']}。"
-        if s.get("cautions"):
-            t += f"要注意的是：{s['cautions'][0]}。"
-        tot = s.get("totals")
-        if tot and tot.get("lean") in ("大", "小"):
-            t += f" 大小分方面，兩隊近五場平均總分 {tot['expected']}，盤口開 {tot['line']}，偏向「{tot['lean']}」。"
-        paras.append(t)
+    # ---- 賠率一句話 ----
+    ml = tw.get("ml") or {}
+    sp = tw.get("spread") or {}
+    tt = tw.get("total") or {}
+    parts = []
+    if ml.get("home") or ml.get("away"):
+        parts.append(f"不讓分 {an} {ml.get('away') or '–'}、{hn} {ml.get('home') or '–'}")
+    if sp.get("line"):
+        parts.append(f"讓分 {sp['line']}")
+    if tt.get("line") is not None:
+        parts.append(f"大小 {tt['line']:g}")
+    if parts:
+        odds_line = "台灣運彩：" + "，".join(parts) + "。"
+    elif sets:
+        odds_line = "台灣運彩沒有開日本排球。"
+    elif o.get("prob_home") is not None and psrc != "form":
+        odds_line = "台灣運彩還沒開這場，通常前一天才會開。"
     else:
-        t = "綜合起來這場訊號互相矛盾或資料不夠，我會先觀望，等開賽前再看一次傷兵名單和盤口有沒有變動。"
-        if s.get("summary") and "沒有盤口" in s["summary"]:
-            t = "盤口還沒開，先不下結論。等盤口出來，上面的勝率和建議會自動更新。" if not sets else "這場沒有盤口也看不出明顯強弱，先當作五五波。"
-        paras.append(t)
-    return paras
+        odds_line = notes.get("odds") or "還沒開盤。"
+
+    talk = dict(verdict=verdict, why=why[:4], care=care[:3], odds=odds_line)
+    if sets:
+        talk["note"] = "排球看局數，五局三勝。"
+    return talk

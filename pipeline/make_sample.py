@@ -238,7 +238,9 @@ def main():
     for g in games:
         if "notes" not in g:
             F.fill_notes(g, F.LEAGUES_BY_KEY[g["league"]])
-        g["suggestion"]["story"] = build_story(g, g["sport"])
+        talk = build_story(g, g["sport"])
+        g["suggestion"]["talk"] = talk
+        g["suggestion"]["story"] = [talk["verdict"]] + talk["why"] + talk["care"] + [talk["odds"]]
     feed, hotp = F.aggregate(games)
     standings = {
         "eurobasket": dict(label="歐洲籃球", sport="basketball", chip="eurobasket", groups=[dict(name="歐冠 Regular Season", rows=[

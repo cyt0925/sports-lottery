@@ -135,6 +135,10 @@ def fetch_games(lg, log, errors, now=None):
             state, detail, completed = _state_for(start_utc, now, ls)
             home = _blank_team(r["home"], r.get("home_teamid"), aid)
             away = _blank_team(r["away"], r.get("away_teamid"), aid)
+            for t, key in ((home, "hname"), (away, "aname")):
+                sn = (ls.get(key) or "").strip()
+                if sn and len(sn) < len(t["name"]) and not sn.isascii():
+                    t["short_zh"] = sn
             if state != "pre" and ls:
                 if ls.get("hscore") not in (None, "", 0) or ls.get("ascore") not in (None, "", 0):
                     home["score"] = str(ls.get("hscore"))
