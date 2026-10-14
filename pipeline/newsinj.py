@@ -138,7 +138,6 @@ def attach(games, name_fn, log, errors, label, hint=None):
                 if inj:
                     note = f"沒有官方傷兵名單，近 10 天新聞有提到傷兵相關消息（{len(inj)} 則，點進去看）"
                     n_team += 1
-                    probe_injury_report(inj, log)
                 else:
                     note = "沒有官方傷兵名單；近 10 天新聞沒有提到這隊的傷兵消息，通常代表陣容完整，但賽前仍可能臨時缺陣"
                 t["injury_news"], t["injury_note"] = inj, note

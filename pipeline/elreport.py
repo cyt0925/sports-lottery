@@ -151,6 +151,7 @@ def fetch_reports(log, errors, limit=MAX_ARTICLES):
     log(f"[elreport] 候選 {len(cands)} 篇：" + "；".join(x["title"][:50] for x in cands[:8]))
     out = []
     seen_real = set()
+    blocked = set()  # 回 403/429 的站，這一輪就不再試
     for it in cands[: limit * 2]:
         if len(out) >= limit:
             break
@@ -159,11 +160,16 @@ def fetch_reports(log, errors, limit=MAX_ARTICLES):
             continue
         seen_real.add(real)
         host = urlparse(real).hostname or ""
+        if host in blocked:
+            continue
+        time.sleep(1.2)
         try:
             text, code = _article_text(real)
         except Exception as e:  # noqa: BLE001
             log(f"[elreport] 抓文章失敗 {host} {e!r}")
             continue
+        if code in (403, 429):
+            blocked.add(host)
         if not text or len(text) < 300:
             log(f"[elreport] 文章太短或抓不到 {host} ({code}) {it['title'][:60]}")
             continue
