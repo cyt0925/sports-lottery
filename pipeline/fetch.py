@@ -9,6 +9,7 @@
 """
 import json
 import os
+import re
 import sys
 import time
 import argparse
@@ -543,10 +544,16 @@ def parse_injury_entries(entries, lg):
                 sev = "out"
             else:
                 sev = "other"
+            aid = str(a.get("id") or "")
+            shot = headshot_url(a, lg)
+            if not aid:
+                # ESPN 聯盟傷兵頁的球員沒有 id，只有大頭照網址和連結裡帶 id
+                m = re.search(r"/players/full/(\d+)\.png", shot or "") or re.search(r"/id/(\d+)", json.dumps(a.get("links") or []))
+                aid = m.group(1) if m else ""
             lst.append(dict(
-                id=str(a.get("id") or ""),
+                id=aid,
                 player=a.get("displayName") or a.get("fullName") or a.get("shortName"),
-                headshot=headshot_url(a, lg),
+                headshot=shot,
                 position=(a.get("position") or {}).get("abbreviation"),
                 position_zh=POS_ZH.get((a.get("position") or {}).get("abbreviation") or ""),
                 status=status,
@@ -1405,7 +1412,13 @@ def process_playsport(lg, lo, hi, all_games, standings):
                 rosters = {}
                 for comp in ("E", "U"):
                     rosters.update(fetch_el_players(comp, season_code(comp), _fetch, log, ERRORS))
-                el_player_layer(keep, rosters, log, ERRORS)
+                try:
+                    from elreport import fetch_reports
+                    articles = fetch_reports(log, ERRORS)
+                except Exception as e:  # noqa: BLE001
+                    ERRORS.append(f"eurobasket 傷兵報告失敗: {e!r}")
+                    articles = []
+                el_player_layer(keep, rosters, log, ERRORS, articles)
                 for g in keep:
                     for side in ("home", "away"):
                         finalize_team(g[side], lg)

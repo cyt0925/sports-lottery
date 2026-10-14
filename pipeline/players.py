@@ -6,6 +6,7 @@ NBA：ESPN 傷兵名單有球員 id → 查本季（沒有就上季）場均得�
 影響分數用簡單的級距（透明、好解釋），不假裝很精準。"""
 import re
 import time
+import unicodedata
 from datetime import datetime, timezone, timedelta
 
 TW = timezone(timedelta(hours=8))
@@ -101,9 +102,17 @@ def nba_injury_impact(games, get, log, errors, keep_raw=None):
 
 
 # ---------- EuroLeague ----------
-OUT_WORDS = re.compile(r"\b(out|miss|misses|missing|sidelined|surgery|injur|ruled out|absent|absence|will not|won't|without)\b", re.I)
-MAYBE_WORDS = re.compile(r"\b(doubtful|questionable|game-time|uncertain|50-50|could miss|may miss|might miss)\b", re.I)
-BACK_WORDS = re.compile(r"\b(returns?|is back|comeback|cleared|available|rejoins?|recovered)\b", re.I)
+OUT_WORDS = re.compile(r"\b(out|miss|misses|missing|sidelined|surgery|injur\w*|ruled out|absent|absence|absences|will not|won't|without|unavailable|not travel\w*|not play\w*|remain out|still out|inactive)\b", re.I)
+MAYBE_WORDS = re.compile(r"\b(doubtful|questionable|game-time|game time decision|uncertain|50-50|could miss|may miss|might miss|probable|expected to)\b", re.I)
+BACK_WORDS = re.compile(r"\b(returns?|returned|returning|is back|back in|comeback|cleared|available|rejoins?|recovered|will play|ready to play|makes his debut|set to play)\b", re.I)
+REPORT_TITLE = re.compile(r"injury report|absences|will miss|key players who will miss|sidelined", re.I)
+SEV_RANK = {"out": 2, "maybe": 1, "ok": 0}
+STATUS = {"out": ("Out", "缺陣"), "maybe": ("Doubtful", "存疑"), "ok": ("Available", "回歸")}
+
+
+def _ascii(s):
+    s = unicodedata.normalize("NFKD", s or "")
+    return "".join(ch for ch in s if not unicodedata.combining(ch))
 
 
 def _display(name):
@@ -150,9 +159,57 @@ def fetch_el_players(comp, season_code, fetch, log, errors):
     return out
 
 
-def el_player_layer(games, rosters, log, errors):
-    """主力名單（stars）＋從新聞標題對出來的傷兵＋影響分數。"""
-    n_star = n_inj = 0
+def _sentences(text):
+    out = []
+    for line in (text or "").split("\n"):
+        for s in re.split(r"(?<=[.!?;])\s+", line):
+            s = s.strip()
+            if len(s) > 3:
+                out.append(s)
+    return out
+
+
+IMPLIED_HINT = re.compile(r"\(|knee|ankle|calf|hamstring|shoulder|foot|hand|wrist|thigh|groin|hip|muscle|illness|surgery|fracture|strain|sprain|tear|rehab|recover|achilles|concussion|back\b", re.I)
+
+
+def _severity(sentence, implied_out=False):
+    """同一句裡誰先出現就聽誰的：「returns after missing two games」是回來，「will not return」是缺陣。
+    傷兵報告類文章裡只點名、沒講狀態的句子（通常是「名字（膝蓋）」這種），當缺陣。"""
+    hits = []
+    for sev, rx in (("ok", BACK_WORDS), ("out", OUT_WORDS), ("maybe", MAYBE_WORDS)):
+        m = rx.search(sentence)
+        if m:
+            hits.append((m.start(), sev))
+    if hits:
+        return min(hits)[1]
+    if implied_out and (IMPLIED_HINT.search(sentence) or len(sentence) < 90):
+        return "out"
+    return None
+
+
+def _name_regex(name):
+    return re.compile(r"(?<![A-Za-z])" + re.escape(_ascii(name)) + r"(?![a-z])", re.I)
+
+
+def el_player_layer(games, rosters, log, errors, articles=None):
+    """主力名單（stars）＋傷兵（從傷兵報告文章內文與新聞標題對球員全名）＋影響分數。
+
+    對名字的規則：全名一定對；只有姓氏的話，要姓氏夠長而且全聯盟只有他一個人姓這個，才算。
+    傷兵報告類的文章（標題有 injury report / absences / will miss），句子裡點到名又沒說「回來了」就當缺陣。"""
+    articles = articles or []
+    # 全聯盟姓氏出現幾次，只出現一次的才准用姓氏對
+    sur_count = {}
+    for roster in rosters.values():
+        for p in roster:
+            k = _ascii(p["surname"]).lower()
+            sur_count[k] = sur_count.get(k, 0) + 1
+    art_sents = []
+    for a in articles:
+        implied = bool(REPORT_TITLE.search(a.get("title") or ""))
+        for s in _sentences(a.get("text")):
+            art_sents.append((s, implied, a))
+    n_star = n_inj = n_art = 0
+    seen_codes = set()
     for g in games:
         for side in ("home", "away"):
             t = g[side]
@@ -165,43 +222,49 @@ def el_player_layer(games, rosters, log, errors):
             t["stars"] = [dict(id=p["id"], player=p["name"], headshot=p.get("headshot"), ppg=p.get("ppg"), mpg=p.get("mpg"), pir=p.get("pir"), position=None) for p in roster[:4]]
             t["leaders"] = [dict(id=p["id"], player=p["name"], headshot=p.get("headshot"), position=None, stat="PTS", value=str(p.get("ppg"))) for p in roster[:3]]
             n_star += 1
-            found = {}
+            # 要比對的句子：傷兵報告文章的每一句 + 這隊新聞標題
+            sents = list(art_sents)
             for a in t.get("injury_news") or []:
-                title = a.get("title") or ""
-                for p in roster:
-                    sur = p["surname"]
-                    if len(sur) < 4:
+                sents.append((a.get("title") or "", False, a))
+            found = {}
+            for p in roster:
+                full_re = _name_regex(p["name"])
+                sur = _ascii(p["surname"])
+                sur_ok = len(sur) >= 5 and sur_count.get(sur.lower(), 0) == 1
+                sur_re = _name_regex(sur) if sur_ok else None
+                for s, implied, a in sents:
+                    s_a = _ascii(s)
+                    if not (full_re.search(s_a) or (sur_re and sur_re.search(s_a))):
                         continue
-                    if not re.search(r"(?<![A-Za-z])" + re.escape(sur) + r"(?![a-z])", title):
+                    sev = _severity(s_a, implied_out=implied)
+                    if not sev:
                         continue
-                    if BACK_WORDS.search(title) and not OUT_WORDS.search(title):
-                        sev = "ok"
-                    elif MAYBE_WORDS.search(title):
-                        sev = "maybe"
-                    elif OUT_WORDS.search(title):
-                        sev = "out"
-                    else:
-                        continue
+                    # 新的消息優先，同一天才比嚴重程度
+                    key = (a.get("published") or "", SEV_RANK[sev])
                     cur = found.get(p["id"])
-                    rank = {"out": 2, "maybe": 1, "ok": 0}
-                    if cur is None or rank[sev] > rank[cur["severity"]]:
+                    if cur is None or key > cur["_key"]:
+                        status, status_zh = STATUS[sev]
                         found[p["id"]] = dict(
                             id=p["id"], player=p["name"], headshot=p.get("headshot"), position=None,
-                            status={"out": "Out", "maybe": "Doubtful", "ok": "Available"}[sev],
-                            status_zh={"out": "缺陣", "maybe": "存疑", "ok": "回歸"}[sev], severity=sev,
-                            detail=title[:80], url=a.get("url"), source=a.get("source"), official=False,
-                            ppg=p.get("ppg"), mpg=p.get("mpg"), return_date=None, comment=None,
+                            status=status, status_zh=status_zh, severity=sev,
+                            detail=s[:90], url=a.get("url"), source=a.get("source"), official=False,
+                            ppg=p.get("ppg"), mpg=p.get("mpg"), return_date=None, comment=None, _key=key,
                         )
             if found:
                 inj = list(found.values())
                 for x in inj:
+                    x.pop("_key", None)
                     if x["severity"] in ("out", "maybe"):
                         x["impact"] = round(impact_points(x["ppg"], x["mpg"], "el") * (0.5 if x["severity"] == "maybe" else 1), 1)
                 t["injuries"] = inj
                 players = [dict(player=x["player"], ppg=x["ppg"], mpg=x["mpg"], status=x["severity"], impact=x["impact"], status_zh=x["status_zh"]) for x in inj if x["severity"] in ("out", "maybe")]
                 if players:
                     players.sort(key=lambda x: -x["impact"])
-                    t["injury_impact"] = dict(pts=round(min(8.0, sum(p["impact"] for p in players)), 1), players=players[:4], note="從新聞標題對到球員，依場均得分估算")
-                t["injury_note"] = "沒有官方傷兵名單，這是從新聞標題對出來的，賽前再確認一次"
+                    t["injury_impact"] = dict(pts=round(min(8.0, sum(p["impact"] for p in players)), 1), players=players[:4], note="從傷兵報告與新聞對到球員，依場均得分估算")
+                t["injury_note"] = "沒有官方傷兵名單，這是從傷兵報告文章和新聞對出來的，賽前再確認一次"
                 n_inj += 1
-    log(f"[eurobasket] 球員層級：{n_star} 隊有主力名單，{n_inj} 隊從新聞對到傷兵")
+                if code not in seen_codes:
+                    seen_codes.add(code)
+                    log(f"[eurobasket] 傷兵 {t.get('name')}：" + "、".join(f"{x['player']}({x['status_zh']})" for x in inj))
+    n_art = len(articles)
+    log(f"[eurobasket] 球員層級：{n_star} 隊有主力名單，{n_inj} 隊對到傷兵（傷兵報告 {n_art} 篇、{len(art_sents)} 句）")
