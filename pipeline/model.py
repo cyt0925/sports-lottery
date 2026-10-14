@@ -14,6 +14,9 @@ SIGMA = {"basketball": 11.0, "hockey": 2.2, "football": 13.5, "soccer": 1.3, "vo
 SHRINK_K = {"basketball": 8, "hockey": 10, "football": 4, "soccer": 8, "volleyball": 6}
 EDGE_TH = {"basketball": 3.0, "hockey": 0.45, "football": 3.0, "soccer": 0.35}       # 我們的讓分跟盤口差多少才算有話講
 TOTAL_TH = {"basketball": 5.0, "hockey": 0.5, "football": 4.0, "soccer": 0.4}
+# 大小分當主建議的門檻（算出來的總分跟盤口差這麼多才推），以及總分的標準差（換算「大概幾成」用）
+TOTAL_MAIN = {"basketball": 7.0, "hockey": 0.8, "football": 6.0, "soccer": 99.0}  # 足球的得失分算法還不可靠，先不拿大小分當主建議
+TOTAL_SIGMA = {"basketball": 17.0, "hockey": 1.9, "football": 13.0, "soccer": 1.4}
 MIN_GP = 4
 
 

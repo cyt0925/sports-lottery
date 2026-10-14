@@ -1058,6 +1058,31 @@ def build_suggestion(g, lg):
             lean = "小"
             reasons.append(f"兩隊近 5 場平均總分 {exp:.1f}，低於盤口 {o['total']}，可考慮小分")
         res["totals"] = dict(lean=lean, line=o["total"], expected=round(exp, 1), method="近5場")
+    # ---- 大小分差距夠大、輸贏那邊又沒明顯優勢時，主建議改玩大小分 ----
+    tot = res.get("totals")
+    if tot and tot.get("lean") in ("大", "小") and tot.get("method") == "評分" and g["status"]["state"] == "pre":
+        from math import erf, sqrt
+        from model import TOTAL_SIGMA, TOTAL_MAIN
+        tt_tw = (g.get("tw") or {}).get("total") or {}
+        line_use = tt_tw["line"] if tt_tw.get("line") is not None else tot["line"]
+        diff_t = tot["expected"] - line_use
+        if (diff_t > 0) == (tot["lean"] == "大"):
+            p_t = 0.5 * (1 + erf(abs(diff_t) / (TOTAL_SIGMA.get(sp, 17.0) * sqrt(2))))
+            tot["prob"] = round(p_t, 3)
+            tot["line_tw"] = tt_tw.get("line")
+            if abs(diff_t) >= TOTAL_MAIN.get(sp, 99) and res["confidence"] != "高":
+                conf_t = "高" if p_t >= 0.70 else "中"
+                lean = tot["lean"]
+                res["side"] = dict(pick=res["pick"], pick_label=res["pick_label"], play=res["play"], confidence=res["confidence"])
+                res.update(pick="over" if lean == "大" else "under", pick_label=f"{lean}分", play="大小分", confidence=conf_t,
+                           summary=f"玩{lean}分 {line_use:g}，信心{conf_t}")
+                tot["main"] = True
+                reasons.append(f"算出來的總分跟盤口差 {abs(diff_t):.0f} 分，比輸贏那邊有把握，改玩大小分")
+                if tt_tw.get("over") and tt_tw.get("under"):
+                    dec_t = tt_tw["over"] if lean == "大" else tt_tw["under"]
+                    ev_t = p_t * dec_t - 1
+                    res["tw_ev"], res["tw_dec"] = round(ev_t * 100), dec_t
+                    res["tw_value"] = "划算" if ev_t >= -0.04 else "偏差" if ev_t <= -0.15 else "正常"
     # 台灣運彩盤口：用國際盤的公平勝率去算台灣賠率的期望值
     tw = g.get("tw") or {}
     ml = tw.get("ml") or {}

@@ -46,36 +46,58 @@ def describe(url, keys=("得点", "PTS", "選手", "身長"), max_tables=3):
     return text, soup
 
 
+def snippet(text, key, before=200, after=1500, nth=0):
+    idx = -1
+    for _ in range(nth + 1):
+        idx = text.find(key, idx + 1)
+        if idx < 0:
+            return None
+    return re.sub(r"\s+", " ", text[max(0, idx - before): idx + after])
+
+
 def main():
-    print("######## B.LEAGUE")
-    _, st = describe("https://www.bleague.jp/standings/?tab=1", keys=("順位",), max_tables=1)
-    team_links = []
-    if st:
-        for a in st.select("table a[href]"):
-            if a["href"] not in team_links:
-                team_links.append(a["href"])
-        print(f"   standings team links: {team_links[:30]}")
-    for u in ("https://www.bleague.jp/stats/", "https://www.bleague.jp/stats/?tab=1", "https://www.bleague.jp/stats/?tab=2",
-              "https://www.bleague.jp/roster/", "https://www.bleague.jp/club/"):
-        describe(u)
-    for h in team_links[:2]:
-        describe(h if h.startswith("http") else "https://www.bleague.jp" + h)
-    print("######## SV.LEAGUE")
-    _, home = describe("https://www.svleague.jp/", keys=("選手",), max_tables=1)
-    links = []
-    if home:
-        for a in home.find_all("a", href=True):
-            h = a["href"]
-            if re.search(r"team|member|player|stats|ranking", h, re.I) and h not in links:
-                links.append(h)
-        print(f"   home links: {links[:40]}")
-    for u in ("https://www.svleague.jp/team/", "https://www.svleague.jp/team/sv/men/", "https://www.svleague.jp/team/sv/men/tokyogb/",
-              "https://www.svleague.jp/team/detail/tokyogb/", "https://www.svleague.jp/stats/", "https://www.svleague.jp/stats/sv/men/",
-              "https://www.svleague.jp/ranking/", "https://www.svleague.jp/player/"):
-        describe(u)
-    for h in links[:3]:
-        if h.startswith("/"):
-            describe("https://www.svleague.jp" + h)
+    print("######## B.LEAGUE club_detail")
+    text, soup = describe("https://www.bleague.jp/club_detail/?TeamID=706", keys=("選手",), max_tables=6)
+    if text:
+        for i, tb in enumerate(soup.find_all("table")):
+            head = [th.get_text(" ", strip=True) for th in tb.find_all("th")][:20]
+            if any("選手" in h for h in head):
+                trs = tb.find_all("tr")
+                print(f"   player-table{i}: rows={len(trs)} head={head}")
+                for tr in trs[1:4]:
+                    print("      row:", [td.get_text(" ", strip=True) for td in tr.find_all("td")][:20])
+                    a = tr.find("a", href=True)
+                    print("      link:", a["href"] if a else None, "| html:", re.sub(r"\s+", " ", str(tr))[:600])
+        print("   around roster_detail (2nd):", snippet(text, "roster_detail", 600, 1400, nth=1))
+        print("   around clubDetail-leader:", snippet(text, "clubDetail-leader", 100, 1200))
+    print("######## B.LEAGUE roster list")
+    text, soup = describe("https://www.bleague.jp/roster/?year=2026&club=706&e=%E5%9C%A8%E7%B1%8D%E4%B8%AD", keys=("選手",), max_tables=2)
+    if text:
+        n = len(re.findall(r"roster_detail/\?PlayerID=", text))
+        print(f"   roster_detail links: {n}")
+        print("   around roster_detail (1st):", snippet(text, "roster_detail", 800, 1600))
+    print("######## B.LEAGUE stats with params")
+    text, soup = describe("https://www.bleague.jp/stats/?year=2026&data=avg&club=706&event=2&tab=1", keys=("得点",), max_tables=2)
+    if text:
+        print("   around player_b1_more:", snippet(text, "player_b1_more", 1500, 1500))
+        print("   around 'ajax' :", snippet(text, "ajax(", 800, 1200))
+        print("   around '.php':", snippet(text, ".php", 400, 600))
+    print("######## SV.LEAGUE team/player")
+    for u in ("https://www.svleague.jp/team/tokyogb/player/", "https://www.svleague.jp/team/tokyogb/", "https://www.svleague.jp/record/",
+              "https://www.svleague.jp/match/detail/37992/"):
+        text, soup = describe(u, keys=("選手", "得点"), max_tables=4)
+        if not text:
+            continue
+        main = soup.find("main") or soup.find(class_="content-main") or soup
+        body_text = re.sub(r"\s+", " ", main.get_text(" ", strip=True))
+        print("   text:", body_text[:1200])
+        for cls in ("player", "member", "roster", "card", "list"):
+            el = main.find(class_=re.compile(cls))
+            if el is not None:
+                print(f"   first .{cls}:", re.sub(r"\s+", " ", str(el))[:1500])
+                break
+        if "record" in u:
+            print("   record links:", [a["href"] for a in main.find_all("a", href=True)][:40])
 
 
 if __name__ == "__main__":

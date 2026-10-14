@@ -50,6 +50,10 @@ def build_story(g, sport):
     # ---- 結論 ----
     if g["status"]["state"] == "post":
         verdict = "這場打完了。"
+    elif s.get("play") == "大小分" and s.get("pick_label"):
+        tot_ = s.get("totals") or {}
+        line_ = tot_.get("line_tw") if tot_.get("line_tw") is not None else tot_.get("line")
+        verdict = f"這場我會玩{s['pick_label']}（盤口 {line_:g}），信心{s.get('confidence', '中')}。" if line_ is not None else f"這場我會玩{s['pick_label']}，信心{s.get('confidence', '中')}。"
     elif pn:
         play = s.get("play") or "不讓分"
         extra = ""
@@ -186,7 +190,18 @@ def build_story(g, sport):
     tot = s.get("totals")
     if tot and tot.get("lean") in ("大", "小"):
         how = "照兩隊得分和失分算，這場大概" if tot.get("method") == "評分" else "兩隊最近一場平均"
-        why.append(f"大小分看「{tot['lean']}」：{how} {tot['expected']:.0f} 分，盤口 {tot['line']:g}。")
+        line_ = tot.get("line_tw") if tot.get("line_tw") is not None else tot.get("line")
+        lead = "" if tot.get("main") else f"大小分看「{tot['lean']}」："
+        why.insert(0 if tot.get("main") else len(why), f"{lead}{how} {tot['expected']:.0f} 分，盤口 {line_:g}，差了 {abs(tot['expected'] - line_):.0f} 分。")
+        if tot.get("main"):
+            side_ = s.get("side") or {}
+            if side_.get("pick") in ("home", "away"):
+                sn = hn if side_["pick"] == "home" else an
+                why.append(f"輸贏我偏{sn}，但優勢不大，大小分比較有把握。")
+            else:
+                why.append("輸贏看不出誰穩，大小分比較有把握。")
+            if tot.get("prob"):
+                why.append(f"照這個差距算，{tot['lean']}分大概{_cheng(tot['prob'])}會中。")
     # 沒資料的時候也要講
     if not why:
         why.append(notes.get("form") or "兩隊資料還不多，先看賽前消息。")

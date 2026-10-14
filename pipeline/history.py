@@ -27,17 +27,24 @@ def save(path, hist):
         json.dump(hist, f, ensure_ascii=False, separators=(",", ":"))
 
 
-def _snap(g, pick, now):
+def _snap(g, s, now):
+    pick = s["pick"]
     o = g.get("odds") or {}
     tw = g.get("tw") or {}
     ml = tw.get("ml") or {}
     sp = tw.get("spread") or {}
     tt = tw.get("total") or {}
-    dec = ml.get(pick) if ml.get(pick) else o.get(f"dec_{pick}")
     spread_home = sp.get("line_home") if sp.get("line_home") is not None else o.get("spread")
     total = tt.get("line") if tt.get("line") is not None else o.get("total")
-    return dict(t=now.isoformat(timespec="minutes"), dec=dec, spread_home=spread_home, total=total,
-                prob=o.get(f"prob_{pick}"), tw=bool(ml.get(pick)))
+    if s.get("play") == "大小分":
+        dec = tt.get("over") if pick == "over" else tt.get("under")
+        prob = (s.get("totals") or {}).get("prob")
+        has_tw = bool(dec)
+    else:
+        dec = ml.get(pick) if ml.get(pick) else o.get(f"dec_{pick}")
+        prob = o.get(f"prob_{pick}")
+        has_tw = bool(ml.get(pick))
+    return dict(t=now.isoformat(timespec="minutes"), dec=dec, spread_home=spread_home, total=total, prob=prob, tw=has_tw)
 
 
 def _score(t):
@@ -56,26 +63,31 @@ def settle(e, g):
     close = e.get("latest") or e.get("first") or {}
     first = e.get("first") or {}
     res = dict(hs=hs, as_=as_, margin=margin, settled=datetime.now(TW).isoformat(timespec="minutes"))
-    # 不讓分
-    if margin == 0:
-        res["ml"] = "push"
-    else:
-        res["ml"] = "win" if (margin > 0) == (pick == "home") else "loss"
-    # 讓分（用開賽前最後的線）
+    totals_main = e.get("play") == "大小分"
     sh = close.get("spread_home")
-    if sh is not None:
-        v = margin + sh if pick == "home" else -(margin + sh)
-        res["ats"] = "push" if v == 0 else ("win" if v > 0 else "loss")
-        res["ats_line"] = sh if pick == "home" else -sh
-    # 大小分（建議有方向才算）
+    if not totals_main:
+        # 不讓分
+        if margin == 0:
+            res["ml"] = "push"
+        else:
+            res["ml"] = "win" if (margin > 0) == (pick == "home") else "loss"
+        # 讓分（用開賽前最後的線）
+        if sh is not None:
+            v = margin + sh if pick == "home" else -(margin + sh)
+            res["ats"] = "push" if v == 0 else ("win" if v > 0 else "loss")
+            res["ats_line"] = sh if pick == "home" else -sh
+    # 大小分（建議有方向才算；主建議是大小分的話這就是對錯）
     tl = close.get("total")
     lean = e.get("total_lean")
     if tl is not None and lean in ("大", "小"):
         tot = hs + as_
         res["total"] = tot
+        res["total_line"] = tl
         res["ou"] = "push" if tot == tl else ("win" if (tot > tl) == (lean == "大") else "loss")
+        if first.get("total") is not None:
+            res["clv_total"] = round((tl - first["total"]) if lean == "大" else (first["total"] - tl), 1)
     # 跟收盤線比：正數＝我們拿到的線比收盤好
-    if first.get("spread_home") is not None and sh is not None:
+    if not totals_main and first.get("spread_home") is not None and sh is not None:
         res["clv_spread"] = round((first["spread_home"] - sh) if pick == "home" else (sh - first["spread_home"]), 1)
     if first.get("dec") and close.get("dec"):
         res["clv_dec"] = round(first["dec"] - close["dec"], 2)
@@ -92,7 +104,7 @@ def update(hist, games, now=None):
         e = entries.get(g["id"])
         state = g["status"]["state"]
         if state == "pre" and s.get("pick"):
-            snap = _snap(g, s["pick"], now)
+            snap = _snap(g, s, now)
             if e is None:
                 tot = s.get("totals") or {}
                 entries[g["id"]] = dict(
@@ -101,6 +113,7 @@ def update(hist, games, now=None):
                     home=g["home"].get("name_zh") or g["home"].get("name"), away=g["away"].get("name_zh") or g["away"].get("name"),
                     pick=s["pick"], pick_label=s.get("pick_label"), play=s.get("play"), confidence=s.get("confidence"),
                     total_lean=tot.get("lean") if tot.get("lean") in ("大", "小") else None,
+                    side=(s.get("side") or {}).get("pick_label") if s.get("play") == "大小分" else None,
                     first=snap, latest=snap,
                 )
                 n_new += 1
@@ -120,13 +133,18 @@ def update(hist, games, now=None):
 
 
 def _bucket():
-    return dict(n=0, ml_w=0, ml_l=0, ml_p=0, ats_w=0, ats_l=0, ats_p=0, ou_w=0, ou_l=0, clv=[], clv_dec=[])
+    return dict(n=0, ml_w=0, ml_l=0, ml_p=0, ats_w=0, ats_l=0, ats_p=0, ou_w=0, ou_l=0, tot_w=0, tot_l=0, clv=[], clv_dec=[], clv_total=[])
 
 
 def _add(b, e):
     r = e["result"]
     b["n"] += 1
-    b["ml_" + {"win": "w", "loss": "l", "push": "p"}[r["ml"]]] += 1
+    if r.get("ml"):
+        b["ml_" + {"win": "w", "loss": "l", "push": "p"}[r["ml"]]] += 1
+    if e.get("play") == "大小分" and r.get("ou") in ("win", "loss"):
+        b["tot_" + ("w" if r["ou"] == "win" else "l")] += 1
+        if r.get("clv_total") is not None:
+            b["clv_total"].append(r["clv_total"])
     if r.get("ats"):
         b["ats_" + {"win": "w", "loss": "l", "push": "p"}[r["ats"]]] += 1
     if r.get("ou") in ("win", "loss"):
@@ -141,12 +159,18 @@ def _fin(b):
     b["clv_avg"] = round(sum(b["clv"]) / len(b["clv"]), 2) if b["clv"] else None
     b["clv_n"] = len(b["clv"])
     b["clv_dec_avg"] = round(sum(b["clv_dec"]) / len(b["clv_dec"]), 3) if b["clv_dec"] else None
+    b["clv_total_avg"] = round(sum(b["clv_total"]) / len(b["clv_total"]), 1) if b["clv_total"] else None
     b.pop("clv", None)
     b.pop("clv_dec", None)
+    b.pop("clv_total", None)
     tot = b["ml_w"] + b["ml_l"]
     b["ml_rate"] = round(b["ml_w"] / tot * 100) if tot else None
     tot = b["ats_w"] + b["ats_l"]
     b["ats_rate"] = round(b["ats_w"] / tot * 100) if tot else None
+    tot = b["ou_w"] + b["ou_l"]
+    b["ou_rate"] = round(b["ou_w"] / tot * 100) if tot else None
+    tot = b["tot_w"] + b["tot_l"]
+    b["tot_rate"] = round(b["tot_w"] / tot * 100) if tot else None
     return b
 
 
@@ -171,6 +195,6 @@ def summarize(hist, now=None, days=30):
         recent=[dict(id=e["id"], league_zh=e["league_zh"], chip=e.get("chip"), day_tw=e["day_tw"], time_tw=e["time_tw"],
                      home=e["home"], away=e["away"], pick=e["pick"], pick_label=e.get("pick_label"), play=e.get("play"),
                      confidence=e.get("confidence"), dec=(e.get("first") or {}).get("dec"), line=(e.get("result") or {}).get("ats_line"),
-                     hs=e["result"]["hs"], as_=e["result"]["as_"], ml=e["result"]["ml"], ats=e["result"].get("ats"), ou=e["result"].get("ou"),
-                     clv=e["result"].get("clv_spread"), total_lean=e.get("total_lean")) for e in recent],
+                     hs=e["result"]["hs"], as_=e["result"]["as_"], ml=e["result"].get("ml"), ats=e["result"].get("ats"), ou=e["result"].get("ou"),
+                     clv=e["result"].get("clv_spread"), total_lean=e.get("total_lean"), total_line=e["result"].get("total_line")) for e in recent],
     )

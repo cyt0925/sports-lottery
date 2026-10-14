@@ -108,6 +108,7 @@
   function verdictPill(g) {
     const s = g.suggestion || {};
     if (g.status.state === "post") return `<span class="pill post">打完了</span>`;
+    if (s.play === "大小分" && s.pick) { const tt = s.totals || {}; const line = tt.line_tw ?? tt.line; return `<span class="pill">${icon("i-star")}玩 ${esc(s.pick_label)}${line != null ? " " + line : ""}</span><span class="conf">信心${esc(s.confidence)}</span>`; }
     if (s.pick) return `<span class="pill">${icon("i-star")}押 ${esc(s.pick_label)} · ${esc(s.play)}</span><span class="conf">信心${esc(s.confidence)}</span>`;
     if (!g.odds || g.odds.prob_home == null) return `<span class="pill wait">還沒開盤</span>`;
     return `<span class="pill wait">先不下</span>`;
@@ -189,18 +190,22 @@
       `<div class="stat"><div class="sl">近 ${rec.days} 天建議（已結算）</div><b>${o.n} 場</b><small>還有 ${rec.pending} 場等結果</small></div>`,
       `<div class="stat"><div class="sl">不讓分 押對幾場</div><b>${o.ml_w} 勝 ${o.ml_l} 敗</b><small>${o.ml_rate != null ? "命中 " + o.ml_rate + "%" : ""}</small></div>`,
       `<div class="stat"><div class="sl">讓分 過盤</div><b>${o.ats_w} 過 ${o.ats_l} 沒過</b><small>${o.ats_rate != null ? "過盤率 " + o.ats_rate + "%（52.4% 以上才算贏錢）" : "還沒有讓分資料"}</small></div>`,
+      `<div class="stat"><div class="sl">大小分（當主建議的）</div><b>${o.tot_w || 0} 對 ${o.tot_l || 0} 錯</b><small>${o.tot_rate != null ? "命中 " + o.tot_rate + "%" : "還沒推過大小分"}${o.ou_rate != null ? " · 含附帶看法 " + o.ou_w + "-" + o.ou_l : ""}</small></div>`,
       `<div class="stat"><div class="sl">跟收盤線比</div><b>${o.clv_avg != null ? (o.clv_avg > 0 ? "+" : "") + o.clv_avg + " 分" : "–"}</b><small>${o.clv_avg != null ? (o.clv_avg > 0 ? "我們推薦時的線比收盤好，長期這樣才會贏" : "推薦時的線比收盤差，要再早一點") : "等比賽多一點"}</small></div>`,
     ];
     if (hi) tiles.push(`<div class="stat"><div class="sl">信心「高」的建議</div><b>${hi.ml_w} 勝 ${hi.ml_l} 敗</b><small>${hi.ats_w + hi.ats_l ? "讓分過盤 " + hi.ats_w + "-" + hi.ats_l : ""}</small></div>`);
     const leagues = Object.keys(rec.by_league || {}).filter((k) => !hid.has(k));
     const lgRows = leagues.map((k) => { const b = rec.by_league[k]; const label = (state.data.sports || []).find((s) => s.key === k)?.label || k; return `<div class="stat"><div class="sl">${esc(label)}</div><b>${b.ml_w} 勝 ${b.ml_l} 敗</b><small>${b.ats_w + b.ats_l ? "讓分 " + b.ats_w + "-" + b.ats_l : ""}${b.ou_w + b.ou_l ? " · 大小 " + b.ou_w + "-" + b.ou_l : ""}</small></div>`; }).join("");
     const list = (rec.recent || []).filter((r) => state.sport === "all" ? !hid.has(r.chip) : r.chip === state.sport).map((r) => {
-      const cls = r.ml === "win" ? "win" : r.ml === "loss" ? "loss" : "push";
-      const mark = r.ml === "win" ? "對" : r.ml === "loss" ? "錯" : "平";
+      const totalsMain = r.play === "大小分";
+      const main = totalsMain ? r.ou : r.ml;
+      const cls = main === "win" ? "win" : main === "loss" ? "loss" : "push";
+      const mark = main === "win" ? "對" : main === "loss" ? "錯" : "平";
       const bits = [];
-      if (r.ats) bits.push(`讓分${r.line != null ? "（" + (r.line > 0 ? "+" : "") + r.line + "）" : ""}${r.ats === "win" ? "過" : r.ats === "loss" ? "沒過" : "平"}`);
-      if (r.ou) bits.push(`大小看${esc(r.total_lean)} ${r.ou === "win" ? "對" : "錯"}`);
-      return `<button class="rec" data-goto="${esc(r.id)}"><span class="mark ${cls}">${mark}</span><div><div class="t1">押 ${esc(r.pick_label)} · ${esc(r.play)}${r.confidence ? " · 信心" + esc(r.confidence) : ""}</div><div class="t2">${esc(r.league_zh)} ${esc(r.day_tw.slice(5))} · ${esc(r.away)} 對 ${esc(r.home)}${bits.length ? " · " + bits.join("，") : ""}</div></div><div class="sc">${r.as_}:${r.hs}<small>${r.dec ? "賠 " + Number(r.dec).toFixed(2) : ""}</small></div></button>`;
+      if (!totalsMain && r.ats) bits.push(`讓分${r.line != null ? "（" + (r.line > 0 ? "+" : "") + r.line + "）" : ""}${r.ats === "win" ? "過" : r.ats === "loss" ? "沒過" : "平"}`);
+      if (!totalsMain && r.ou) bits.push(`大小看${esc(r.total_lean)} ${r.ou === "win" ? "對" : "錯"}`);
+      if (totalsMain && r.total_line != null) bits.push(`盤口 ${r.total_line}，打了 ${r.as_ + r.hs} 分`);
+      return `<button class="rec" data-goto="${esc(r.id)}"><span class="mark ${cls}">${mark}</span><div><div class="t1">${totalsMain ? "玩 " + esc(r.pick_label) : "押 " + esc(r.pick_label) + " · " + esc(r.play)}${r.confidence ? " · 信心" + esc(r.confidence) : ""}</div><div class="t2">${esc(r.league_zh)} ${esc(r.day_tw.slice(5))} · ${esc(r.away)} 對 ${esc(r.home)}${bits.length ? " · " + bits.join("，") : ""}</div></div><div class="sc">${r.as_}:${r.hs}<small>${r.dec ? "賠 " + Number(r.dec).toFixed(2) : ""}</small></div></button>`;
     }).join("");
     el.innerHTML = `<div class="explain">每次建議都先記下來，比賽打完對答案，不改分。「跟收盤線比」是看我們推薦時拿到的讓分，比開賽前最後的讓分好還是差。</div>
       <div class="stat-grid">${tiles.join("")}</div>${lgRows ? `<div class="grp">各聯盟</div><div class="stat-grid">${lgRows}</div>` : ""}
@@ -223,7 +228,7 @@
 
   function topPicks() {
     const order = { 高: 0, 中: 1, 低: 2 };
-    const dec = (g) => { const side = g.suggestion.pick; const ml = g.tw && g.tw.ml; return (ml && ml[side]) || (g.odds && g.odds["dec_" + side]) || null; };
+    const dec = (g) => { const side = g.suggestion.pick; if (g.suggestion.play === "大小分") { const tt = g.tw && g.tw.total; return tt ? (side === "over" ? tt.over : tt.under) || null : null; } const ml = g.tw && g.tw.ml; return (ml && ml[side]) || (g.odds && g.odds["dec_" + side]) || null; };
     return gamesForSport()
       .filter((g) => g.suggestion && g.suggestion.pick && g.status.state !== "post" && !(dec(g) != null && dec(g) < 1.2))
       .sort((a, b) => {
@@ -316,7 +321,7 @@
     const tiles = [];
     tiles.push(`<div class="tile ${s.pick && s.play === "不讓分" ? "fav" : ""}"><div class="tl">不讓分</div><b>${num(ml.away)} / ${num(ml.home)}</b><small>客 / 主</small></div>`);
     tiles.push(`<div class="tile ${s.pick && s.play === "讓分" ? "fav" : ""}"><div class="tl">讓分</div><b>${sp.line ? esc(sp.line) : "–"}</b><small>${sp.line ? num(sp.away) + " / " + num(sp.home) : "還沒開"}</small></div>`);
-    tiles.push(`<div class="tile"><div class="tl">大小</div><b>${tt.line != null ? tt.line : "–"}</b><small>${tt.line != null ? "大 " + num(tt.over) + " 小 " + num(tt.under) : "還沒開"}</small></div>`);
+    tiles.push(`<div class="tile ${s.play === "大小分" ? "fav" : ""}"><div class="tl">大小${s.play === "大小分" ? "（玩" + esc(s.pick_label) + "）" : ""}</div><b>${tt.line != null ? tt.line : "–"}</b><small>${tt.line != null ? "大 " + num(tt.over) + " 小 " + num(tt.under) : "還沒開"}</small></div>`);
     const o = g.odds || {};
     const src = { spread: "國際盤讓分推的", tw_ml: "用台灣賠率算的", form: "沒盤口，用近況猜的", moneyline: "國際盤算的" }[o.prob_source] || "";
     const line = o.prob_home != null ? `<div class="line">贏的機會：${esc(tname(g.away))} ${cheng(o.prob_away)}、${esc(tname(g.home))} ${cheng(o.prob_home)}${src ? "（" + src + "）" : ""}${s.tw_value && s.tw_value !== "正常" ? " · 台灣賠率" + (s.tw_value === "划算" ? "比平常好" : "比平常差") : ""}</div>` : "";
