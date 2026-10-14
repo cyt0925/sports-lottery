@@ -104,6 +104,7 @@ def fetch_games(lg, log, errors, now=None):
     days = [(now_tw + timedelta(days=i)).strftime("%Y%m%d") for i in range(-1, 3)]
     games = []
     seen = set()
+    names_by_tid = {}
     for d in days:
         url = f"{BASE}/predict/scale?allianceid={aid}&gametime={d}"
         text = fetch(url)
@@ -121,6 +122,9 @@ def fetch_games(lg, log, errors, now=None):
         if rows and f"row_{aid}" not in DEBUG:
             DEBUG[f"row_{aid}"] = {k: v for k, v in rows[0].items() if k != "sides"}
         for r in rows:
+            for key in ("home", "away"):
+                if r.get(f"{key}_teamid") and r.get(key):
+                    names_by_tid[str(r[f"{key}_teamid"])] = r[key]
             gid = str(r.get("gameid") or "")
             if not gid or gid in seen or not r.get("time"):
                 continue
@@ -137,7 +141,7 @@ def fetch_games(lg, log, errors, now=None):
             away = _blank_team(r["away"], r.get("away_teamid"), aid)
             for t, key in ((home, "hname"), (away, "aname")):
                 sn = (ls.get(key) or "").strip()
-                if sn and len(sn) < len(t["name"]) and not sn.isascii():
+                if sn and 3 <= len(sn) < len(t["name"]) and not sn.isascii():
                     t["short_zh"] = sn
             if state != "pre" and ls:
                 if ls.get("hscore") not in (None, "", 0) or ls.get("ascore") not in (None, "", 0):
@@ -179,8 +183,12 @@ def fetch_games(lg, log, errors, now=None):
             seen.add(gid)
             start_utc = start_tw.astimezone(UTC)
             state, detail, completed = _state_for(start_utc, now, ls)
-            home = _blank_team(ls.get("hname") or ls.get("h") or "主隊", None, aid)
-            away = _blank_team(ls.get("aname") or ls.get("a") or "客隊", None, aid)
+            home = _blank_team(names_by_tid.get(str(ls.get("h"))) or ls.get("hname") or ls.get("h") or "主隊", ls.get("h") if names_by_tid.get(str(ls.get("h"))) else None, aid)
+            away = _blank_team(names_by_tid.get(str(ls.get("a"))) or ls.get("aname") or ls.get("a") or "客隊", ls.get("a") if names_by_tid.get(str(ls.get("a"))) else None, aid)
+            for t, key in ((home, "hname"), (away, "aname")):
+                sn = (ls.get(key) or "").strip()
+                if sn and 3 <= len(sn) < len(t["name"]) and not sn.isascii():
+                    t["short_zh"] = sn
             if ls.get("hscore") not in (None, "", 0) or ls.get("ascore") not in (None, "", 0):
                 home["score"], away["score"] = str(ls.get("hscore")), str(ls.get("ascore"))
                 if state == "post":

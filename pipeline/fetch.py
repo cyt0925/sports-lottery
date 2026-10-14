@@ -848,6 +848,8 @@ def fetch_standings(lg):
                 pct=disp("winPercent"), gb=disp("gamesBehind"), streak=disp("streak"),
                 points=val("points"), gp=val("gamesPlayed"),
                 rank=val("rank") or val("playoffSeed"),
+                pf=(val("avgPointsFor") if val("avgPointsFor") is not None else (val("pointsFor") / val("gamesPlayed") if val("pointsFor") is not None and val("gamesPlayed") else None)),
+                pa=(val("avgPointsAgainst") if val("avgPointsAgainst") is not None else (val("pointsAgainst") / val("gamesPlayed") if val("pointsAgainst") is not None and val("gamesPlayed") else None)),
             ))
         if lg["sport"] == "soccer":
             rows.sort(key=lambda r: (-(r["points"] or 0), (r["rank"] or 99)))
@@ -976,6 +978,21 @@ def build_suggestion(g, lg):
                 sig(x["label"], None, 0, x["text"])
     except Exception as e:  # noqa: BLE001
         ERRORS.append(f"進階訊號失敗 {g['id']}: {e!r}")
+    try:
+        from model import rating_signals
+        for x in rating_signals(g, lg):
+            if x["side"] == fav:
+                score += x["weight"]
+                reasons.append(f"{x['label']}：{x['text']}")
+                sig(x["label"], fav, 1, x["text"])
+            elif x["side"] == dog:
+                score -= x["weight"]
+                cautions.append(f"{x['label']}：{x['text']}")
+                sig(x["label"], dog, -1, x["text"])
+            else:
+                sig(x["label"], None, 0, x["text"])
+    except Exception as e:  # noqa: BLE001
+        ERRORS.append(f"評分訊號失敗 {g['id']}: {e!r}")
     if sp == "soccer":
         hi, mid = 0.60, 0.50
     else:
@@ -1009,7 +1026,21 @@ def build_suggestion(g, lg):
                    summary=f"押 {fn}，玩{play}，信心{conf}")
     th = lg.get("total_th", 99)
     h, a = g["home"], g["away"]
-    if o.get("total") and h.get("avg_total5") and a.get("avg_total5"):
+    rt = ((g.get("analysis") or {}).get("rating") or {}) if isinstance(g.get("analysis"), dict) else {}
+    if o.get("total") and rt.get("total") is not None and not rt.get("weak"):
+        from model import TOTAL_TH
+        exp = rt["total"]
+        diff = exp - o["total"]
+        th2 = TOTAL_TH.get(sp, th)
+        lean = "無明顯方向"
+        if diff >= th2:
+            lean = "大"
+            reasons.append(f"照兩隊得分和失分算，這場大概 {exp:.0f} 分，盤口 {o['total']}，偏大分")
+        elif diff <= -th2:
+            lean = "小"
+            reasons.append(f"照兩隊得分和失分算，這場大概 {exp:.0f} 分，盤口 {o['total']}，偏小分")
+        res["totals"] = dict(lean=lean, line=o["total"], expected=round(exp, 1), method="評分")
+    elif o.get("total") and h.get("avg_total5") and a.get("avg_total5"):
         exp = (h["avg_total5"] + a["avg_total5"]) / 2
         diff = exp - o["total"]
         lean = "無明顯方向"
@@ -1019,7 +1050,7 @@ def build_suggestion(g, lg):
         elif diff <= -th:
             lean = "小"
             reasons.append(f"兩隊近 5 場平均總分 {exp:.1f}，低於盤口 {o['total']}，可考慮小分")
-        res["totals"] = dict(lean=lean, line=o["total"], expected=round(exp, 1))
+        res["totals"] = dict(lean=lean, line=o["total"], expected=round(exp, 1), method="近5場")
     # 台灣運彩盤口：用國際盤的公平勝率去算台灣賠率的期望值
     tw = g.get("tw") or {}
     ml = tw.get("ml") or {}
@@ -1167,6 +1198,11 @@ def main():
         log(f"台灣盤口失敗：{e!r}")
     log(f"台灣盤口：配對到 {tw_count} 場")
     enrich_games(all_games)
+    try:
+        from model import rate_games
+        rate_games(all_games, LEAGUES_BY_KEY, standings, log, ERRORS)
+    except Exception as e:  # noqa: BLE001
+        ERRORS.append(f"實力評分失敗: {e!r}")
     for g in all_games:
         lg = LEAGUES_BY_KEY[g["league"]]
         if not g.get("odds") or g["odds"].get("prob_home") is None:
@@ -1192,6 +1228,20 @@ def main():
             ERRORS.append(f"{lg['key']} 白話 {g['id']} 失敗: {e!r}")
             g["suggestion"]["story"] = [g["suggestion"].get("summary") or "資料整理中。"]
     feed, hot = aggregate(all_games)
+    # 成績單：記下建議、賽後對答案
+    record = None
+    try:
+        import history
+        hpath = os.path.join(os.path.dirname(os.path.abspath(args.out)), "history.json")
+        hist = history.load(hpath)
+        n_new, n_upd, n_set = history.update(hist, all_games, now_tw)
+        history.save(hpath, hist)
+        record = history.summarize(hist, now_tw)
+        log(f"成績單：新記 {n_new} 場、更新 {n_upd} 場、結算 {n_set} 場；近 30 天已結算 {record['settled']} 場、待結算 {record['pending']} 場")
+    except Exception as e:  # noqa: BLE001
+        import traceback
+        ERRORS.append(f"成績單失敗: {e!r}")
+        traceback.print_exc()
     out = dict(
         generated_at=now_tw.isoformat(timespec="minutes"),
         generated_ts=int(now.timestamp()),
@@ -1202,6 +1252,7 @@ def main():
         injury_feed=feed[:80],
         hot_players=hot[:40],
         standings=standings,
+        record=record,
         source="NBA 來自 ESPN；歐洲籃球、日本籃球的賽程與盤口來自玩運彩，隊徽與排名來自 EuroLeague 官方與 B.LEAGUE 官網；日本排球來自 SV.LEAGUE 官網；沒有官方傷兵名單的聯盟用 Google 新聞",
         errors=ERRORS[:50],
         calls=CALLS["n"],

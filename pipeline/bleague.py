@@ -77,7 +77,7 @@ class BLeague:
                     team_id=abbr, team=name, abbr=abbr, name_zh=ZH_NAMES.get(abbr, name), logo=None,
                     w=int(w), l=int(l), d=None, otl=None, pct=pct, gb=gb if gb not in ("--", "-") else None,
                     streak=streak if re.match(r"^[WL]\d+$", streak) else None, points=None, gp=int(gp), rank=int(rank), pos=int(rank),
-                    pf=int(pf), pa=int(pa), diff=int(diff), home=home, away=away, last5=last5,
+                    pf=round(int(pf) / max(1, int(gp)), 1), pa=round(int(pa) / max(1, int(gp)), 1), diff=int(diff), home=home, away=away, last5=last5,
                 ))
             if rows and not any(r["abbr"] in {x["abbr"] for g in groups for x in g["rows"]} for r in rows):
                 groups.append(dict(name=label, rows=rows))
@@ -118,7 +118,7 @@ class BLeague:
                     team_id=abbr, team=name, abbr=abbr, name_zh=ZH_NAMES.get(abbr, name), logo=logo,
                     w=w, l=l, d=None, otl=None, pct=pct, gb=gb if gb not in ("--", "-") else None,
                     streak=streak if re.match(r"^[WL]\d+$", streak) else None,
-                    points=None, gp=w + l, rank=rank, pos=rank, pf=pf, pa=pa, diff=diff,
+                    points=None, gp=w + l, rank=rank, pos=rank, pf=round(pf / max(1, w + l), 1), pa=round(pa / max(1, w + l), 1), diff=diff,
                     home=home, away=away, last5=last5,
                 ))
             if not rows:

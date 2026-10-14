@@ -270,7 +270,25 @@ def main():
             dict(pos=3, team_id="364", team="Liverpool", abbr="LIV", name_zh="利物浦", logo="https://a.espncdn.com/i/teamlogos/soccer/500/364.png", gp=8, w=5, d=1, l=2, points=16),
         ])]),
     }
-    out = dict(generated_at=now.astimezone(TW).isoformat(timespec="minutes"), generated_ts=int(now.timestamp()),
+    # 實力評分與成績單的範例
+    from model import rate_games
+    rate_games(games, F.LEAGUES_BY_KEY, standings, lambda m: None, [])
+    for g in games:
+        g["suggestion"] = F.build_suggestion(g, F.LEAGUES_BY_KEY[g["league"]])
+        talk = build_story(g, g["sport"])
+        g["suggestion"]["talk"] = talk
+        g["suggestion"]["story"] = [talk["verdict"]] + talk["why"] + talk["care"] + [talk["odds"]]
+    record = dict(days=30, since="2026-10-01", settled=12, pending=5,
+                  overall=dict(n=12, ml_w=8, ml_l=4, ml_p=0, ats_w=6, ats_l=5, ats_p=1, ou_w=3, ou_l=2, clv_avg=0.4, clv_n=11, clv_dec_avg=0.02, ml_rate=67, ats_rate=55),
+                  by_league={"nba": dict(n=7, ml_w=5, ml_l=2, ml_p=0, ats_w=4, ats_l=3, ats_p=0, ou_w=2, ou_l=1, clv_avg=0.3, clv_n=7, clv_dec_avg=0.01, ml_rate=71, ats_rate=57),
+                             "eurobasket": dict(n=5, ml_w=3, ml_l=2, ml_p=0, ats_w=2, ats_l=2, ats_p=1, ou_w=1, ou_l=1, clv_avg=0.6, clv_n=4, clv_dec_avg=0.04, ml_rate=60, ats_rate=50)},
+                  by_conf={"高": dict(n=6, ml_w=5, ml_l=1, ml_p=0, ats_w=4, ats_l=2, ats_p=0, ou_w=1, ou_l=1, clv_avg=0.5, clv_n=6, clv_dec_avg=0.02, ml_rate=83, ats_rate=67),
+                           "中": dict(n=6, ml_w=3, ml_l=3, ml_p=0, ats_w=2, ats_l=3, ats_p=1, ou_w=2, ou_l=1, clv_avg=0.3, clv_n=5, clv_dec_avg=0.01, ml_rate=50, ats_rate=40)},
+                  by_play={},
+                  recent=[dict(id="g7", league_zh="NBA", chip="nba", day_tw="2026-10-13", time_tw="07:00", home="湖人", away="勇士", pick="home", pick_label="湖人", play="不讓分", confidence="高", dec=1.5, line=-3.5, hs=118, as_=104, ml="win", ats="win", ou="win", clv=1.0, total_lean="大"),
+                          dict(id="e1", league_zh="歐洲籃球", chip="eurobasket", day_tw="2026-10-12", time_tw="02:30", home="費內巴切", away="考納斯綠林", pick="home", pick_label="費內巴切", play="讓分", confidence="中", dec=1.23, line=-6.5, hs=80, as_=78, ml="win", ats="loss", ou=None, clv=-0.5, total_lean=None),
+                          dict(id="g2", league_zh="NBA", chip="nba", day_tw="2026-10-12", time_tw="10:00", home="雷霆", away="勇士", pick="home", pick_label="雷霆", play="不讓分", confidence="高", dec=1.2, line=-9.5, hs=101, as_=109, ml="loss", ats="loss", ou=None, clv=0.0, total_lean=None)])
+    out = dict(generated_at=now.astimezone(TW).isoformat(timespec="minutes"), generated_ts=int(now.timestamp()), record=record,
                today_tw=now.astimezone(TW).strftime("%Y-%m-%d"), sports=F.SPORTS,
                leagues={k: F.LEAGUE_ZH.get(k, k) for k in F.LEAGUES_BY_KEY}, games=games, injury_feed=feed, hot_players=hotp,
                standings=standings, source="範例資料（非即時）", errors=[], calls=0)

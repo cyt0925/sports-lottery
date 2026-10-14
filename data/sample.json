@@ -1,6 +1,165 @@
 {
- "generated_at": "2026-10-14T10:05+08:00",
- "generated_ts": 1791943549,
+ "generated_at": "2026-10-14T13:43+08:00",
+ "generated_ts": 1791956636,
+ "record": {
+  "days": 30,
+  "since": "2026-10-01",
+  "settled": 12,
+  "pending": 5,
+  "overall": {
+   "n": 12,
+   "ml_w": 8,
+   "ml_l": 4,
+   "ml_p": 0,
+   "ats_w": 6,
+   "ats_l": 5,
+   "ats_p": 1,
+   "ou_w": 3,
+   "ou_l": 2,
+   "clv_avg": 0.4,
+   "clv_n": 11,
+   "clv_dec_avg": 0.02,
+   "ml_rate": 67,
+   "ats_rate": 55
+  },
+  "by_league": {
+   "nba": {
+    "n": 7,
+    "ml_w": 5,
+    "ml_l": 2,
+    "ml_p": 0,
+    "ats_w": 4,
+    "ats_l": 3,
+    "ats_p": 0,
+    "ou_w": 2,
+    "ou_l": 1,
+    "clv_avg": 0.3,
+    "clv_n": 7,
+    "clv_dec_avg": 0.01,
+    "ml_rate": 71,
+    "ats_rate": 57
+   },
+   "eurobasket": {
+    "n": 5,
+    "ml_w": 3,
+    "ml_l": 2,
+    "ml_p": 0,
+    "ats_w": 2,
+    "ats_l": 2,
+    "ats_p": 1,
+    "ou_w": 1,
+    "ou_l": 1,
+    "clv_avg": 0.6,
+    "clv_n": 4,
+    "clv_dec_avg": 0.04,
+    "ml_rate": 60,
+    "ats_rate": 50
+   }
+  },
+  "by_conf": {
+   "高": {
+    "n": 6,
+    "ml_w": 5,
+    "ml_l": 1,
+    "ml_p": 0,
+    "ats_w": 4,
+    "ats_l": 2,
+    "ats_p": 0,
+    "ou_w": 1,
+    "ou_l": 1,
+    "clv_avg": 0.5,
+    "clv_n": 6,
+    "clv_dec_avg": 0.02,
+    "ml_rate": 83,
+    "ats_rate": 67
+   },
+   "中": {
+    "n": 6,
+    "ml_w": 3,
+    "ml_l": 3,
+    "ml_p": 0,
+    "ats_w": 2,
+    "ats_l": 3,
+    "ats_p": 1,
+    "ou_w": 2,
+    "ou_l": 1,
+    "clv_avg": 0.3,
+    "clv_n": 5,
+    "clv_dec_avg": 0.01,
+    "ml_rate": 50,
+    "ats_rate": 40
+   }
+  },
+  "by_play": {},
+  "recent": [
+   {
+    "id": "g7",
+    "league_zh": "NBA",
+    "chip": "nba",
+    "day_tw": "2026-10-13",
+    "time_tw": "07:00",
+    "home": "湖人",
+    "away": "勇士",
+    "pick": "home",
+    "pick_label": "湖人",
+    "play": "不讓分",
+    "confidence": "高",
+    "dec": 1.5,
+    "line": -3.5,
+    "hs": 118,
+    "as_": 104,
+    "ml": "win",
+    "ats": "win",
+    "ou": "win",
+    "clv": 1.0,
+    "total_lean": "大"
+   },
+   {
+    "id": "e1",
+    "league_zh": "歐洲籃球",
+    "chip": "eurobasket",
+    "day_tw": "2026-10-12",
+    "time_tw": "02:30",
+    "home": "費內巴切",
+    "away": "考納斯綠林",
+    "pick": "home",
+    "pick_label": "費內巴切",
+    "play": "讓分",
+    "confidence": "中",
+    "dec": 1.23,
+    "line": -6.5,
+    "hs": 80,
+    "as_": 78,
+    "ml": "win",
+    "ats": "loss",
+    "ou": null,
+    "clv": -0.5,
+    "total_lean": null
+   },
+   {
+    "id": "g2",
+    "league_zh": "NBA",
+    "chip": "nba",
+    "day_tw": "2026-10-12",
+    "time_tw": "10:00",
+    "home": "雷霆",
+    "away": "勇士",
+    "pick": "home",
+    "pick_label": "雷霆",
+    "play": "不讓分",
+    "confidence": "高",
+    "dec": 1.2,
+    "line": -9.5,
+    "hs": 101,
+    "as_": 109,
+    "ml": "loss",
+    "ats": "loss",
+    "ou": null,
+    "clv": 0.0,
+    "total_lean": null
+   }
+  ]
+ },
  "today_tw": "2026-10-14",
  "sports": [
   {
@@ -69,10 +228,10 @@
    "tournament": null,
    "round": null,
    "name": "LAL @ GS",
-   "start": "2026-10-13T19:05+00:00",
-   "start_tw": "2026-10-14T03:05+08:00",
+   "start": "2026-10-13T22:43+00:00",
+   "start_tw": "2026-10-14T06:43+08:00",
    "day_tw": "2026-10-14",
-   "time_tw": "03:05",
+   "time_tw": "06:43",
    "status": {
     "state": "post",
     "completed": true,
@@ -507,6 +666,24 @@
     "hot": "主力球員本季場次還不夠，暫時看不出手感冷熱",
     "news": "24 小時內沒有相關新聞",
     "tw": "台灣運彩還沒開這場，通常比賽前一天才會出現"
+   },
+   "analysis": {
+    "rating": {
+     "home": -1.9,
+     "away": 1.9,
+     "hca": 2.8,
+     "gp_home": 6,
+     "gp_away": 6,
+     "src_home": "form",
+     "src_away": "form",
+     "our_spread": 1.0,
+     "our_prob_home": 0.464,
+     "market_spread": null,
+     "weak": false,
+     "total": 222.8,
+     "exp_home": 107.0,
+     "exp_away": 115.8
+    }
    }
   },
   {
@@ -519,10 +696,10 @@
    "tournament": null,
    "round": null,
    "name": "OKC @ BOS",
-   "start": "2026-10-14T00:53+00:00",
-   "start_tw": "2026-10-14T08:53+08:00",
+   "start": "2026-10-14T04:31+00:00",
+   "start_tw": "2026-10-14T12:31+08:00",
    "day_tw": "2026-10-14",
-   "time_tw": "08:53",
+   "time_tw": "12:31",
    "status": {
     "state": "in",
     "completed": false,
@@ -620,7 +797,7 @@
       "pf": 115,
       "pa": 108,
       "result": "W",
-      "date_iso": "2026-10-13T06:05+00:00"
+      "date_iso": "2026-10-13T09:43+00:00"
      },
      {
       "date": "10/04",
@@ -631,7 +808,7 @@
       "pf": 99,
       "pa": 105,
       "result": "L",
-      "date_iso": "2026-10-13T06:05+00:00"
+      "date_iso": "2026-10-13T09:43+00:00"
      },
      {
       "date": "10/06",
@@ -642,7 +819,7 @@
       "pf": 120,
       "pa": 110,
       "result": "W",
-      "date_iso": "2026-10-13T06:05+00:00"
+      "date_iso": "2026-10-13T09:43+00:00"
      },
      {
       "date": "10/08",
@@ -653,7 +830,7 @@
       "pf": 104,
       "pa": 112,
       "result": "L",
-      "date_iso": "2026-10-13T06:05+00:00"
+      "date_iso": "2026-10-13T09:43+00:00"
      },
      {
       "date": "10/10",
@@ -664,7 +841,7 @@
       "pf": 118,
       "pa": 101,
       "result": "W",
-      "date_iso": "2026-10-13T06:05+00:00"
+      "date_iso": "2026-10-13T09:43+00:00"
      },
      {
       "date": "10/12",
@@ -675,7 +852,7 @@
       "pf": 108,
       "pa": 116,
       "result": "L",
-      "date_iso": "2026-10-13T06:05+00:00"
+      "date_iso": "2026-10-13T09:43+00:00"
      }
     ],
     "form_note": null,
@@ -848,7 +1025,7 @@
      "國際盤看好客隊 雷霆，勝率約 56%",
      "雷霆 近 6 場 6 勝，狀態好",
      "Shai Gilgeous-Alexander 近 5 場場均 34.8 PTS，比季平均高 16%",
-     "兩隊近 5 場平均總分 222.2，低於盤口 228.5，可考慮小分"
+     "照兩隊得分和失分算，這場大概 222 分，盤口 228.5，偏小分"
     ],
     "cautions": [
      "對手 Jayson Tatum 手感火燙，近 5 場場均 33.4 PTS"
@@ -856,7 +1033,8 @@
     "totals": {
      "lean": "小",
      "line": 228.5,
-     "expected": 222.2
+     "expected": 221.9,
+     "method": "評分"
     },
     "talk": {
      "verdict": "這場我會押雷霆，玩不讓分，信心中。",
@@ -897,8 +1075,33 @@
       "side": "home",
       "impact": -1,
       "text": "Jayson Tatum 火燙，近 5 場場均 33.4 PTS"
+     },
+     {
+      "label": "實力評分",
+      "side": null,
+      "impact": 0,
+      "text": "我們算主隊該讓 -2.5 分，跟盤口（-2.5）差不多"
      }
-    ]
+    ],
+    "rating": {
+     "home": 0.9,
+     "away": 6.1,
+     "hca": 2.8,
+     "gp_home": 6,
+     "gp_away": 6,
+     "src_home": "form",
+     "src_away": "form",
+     "our_spread": 2.5,
+     "our_prob_home": 0.413,
+     "market_spread": 2.5,
+     "weak": false,
+     "diff": 0.0,
+     "total": 221.9,
+     "exp_home": 105.0,
+     "exp_away": 116.9,
+     "market_total": 228.5,
+     "total_diff": -6.6
+    }
    },
    "notes": {
     "injuries": "ESPN 傷兵名單裡沒有這隊的人，表示目前沒有傷兵回報",
@@ -917,10 +1120,10 @@
    "tournament": null,
    "round": "歐冠 Round 5",
    "name": "ZAL @ FEN",
-   "start": "2026-10-14T07:35+00:00",
-   "start_tw": "2026-10-14T15:35+08:00",
+   "start": "2026-10-14T11:13+00:00",
+   "start_tw": "2026-10-14T19:13+08:00",
    "day_tw": "2026-10-14",
-   "time_tw": "15:35",
+   "time_tw": "19:13",
    "status": {
     "state": "pre",
     "completed": false,
@@ -954,7 +1157,7 @@
     "form": [
      {
       "date": "10/02",
-      "date_iso": "2026-10-02T02:05+00:00",
+      "date_iso": "2026-10-02T05:43+00:00",
       "opp": "皇家馬德里",
       "opp_zh": "皇家馬德里",
       "opp_logo": null,
@@ -966,7 +1169,7 @@
      },
      {
       "date": "10/05",
-      "date_iso": "2026-10-05T02:05+00:00",
+      "date_iso": "2026-10-05T05:43+00:00",
       "opp": "摩納哥",
       "opp_zh": "摩納哥",
       "opp_logo": null,
@@ -978,7 +1181,7 @@
      },
      {
       "date": "10/08",
-      "date_iso": "2026-10-08T02:05+00:00",
+      "date_iso": "2026-10-08T05:43+00:00",
       "opp": "奧林匹亞科斯",
       "opp_zh": "奧林匹亞科斯",
       "opp_logo": null,
@@ -990,7 +1193,7 @@
      },
      {
       "date": "10/11",
-      "date_iso": "2026-10-11T02:05+00:00",
+      "date_iso": "2026-10-11T05:43+00:00",
       "opp": "巴塞隆納",
       "opp_zh": "巴塞隆納",
       "opp_logo": null,
@@ -1046,7 +1249,7 @@
     "form": [
      {
       "date": "10/02",
-      "date_iso": "2026-10-02T02:05+00:00",
+      "date_iso": "2026-10-02T05:43+00:00",
       "opp": "巴黎",
       "opp_zh": "巴黎",
       "opp_logo": null,
@@ -1058,7 +1261,7 @@
      },
      {
       "date": "10/05",
-      "date_iso": "2026-10-05T02:05+00:00",
+      "date_iso": "2026-10-05T05:43+00:00",
       "opp": "米蘭",
       "opp_zh": "米蘭",
       "opp_logo": null,
@@ -1070,7 +1273,7 @@
      },
      {
       "date": "10/08",
-      "date_iso": "2026-10-08T02:05+00:00",
+      "date_iso": "2026-10-08T05:43+00:00",
       "opp": "拜仁",
       "opp_zh": "拜仁",
       "opp_logo": null,
@@ -1082,7 +1285,7 @@
      },
      {
       "date": "10/11",
-      "date_iso": "2026-10-11T02:05+00:00",
+      "date_iso": "2026-10-11T05:43+00:00",
       "opp": "帕納辛奈科斯",
       "opp_zh": "帕納辛奈科斯",
       "opp_logo": null,
@@ -1140,7 +1343,7 @@
     "summary": "押 費內巴切，玩不讓分，信心高",
     "reasons": [
      "依讓分盤推估主隊 費內巴切 勝率約 67%（無獨贏賠率）",
-     "兩隊近 5 場平均總分 170.8，高於盤口 164.0，可考慮大分"
+     "照兩隊得分和失分算，這場大概 171 分，盤口 164.0，偏大分"
     ],
     "cautions": [
      "台灣運彩不讓分賠率 1.23 偏低，期望值 -18%，比平常差，考慮改玩讓分或縮小注碼"
@@ -1148,7 +1351,8 @@
     "totals": {
      "lean": "大",
      "line": 164.0,
-     "expected": 170.8
+     "expected": 170.9,
+     "method": "評分"
     },
     "tw_ev": -18,
     "tw_dec": 1.23,
@@ -1159,7 +1363,7 @@
       "費內巴切在主場，盤口看好他，大概六成五會贏。",
       "費內巴切近 4 場 3 勝 1 敗，歐冠第4名。",
       "考納斯綠林近 4 場 3 勝 1 敗，歐冠第6名。",
-      "大小分看「大」：兩隊最近平均 171 分，盤口 164。"
+      "我們自己算的實力差距跟盤口差不多（主隊讓 5 分左右）。"
      ],
      "care": [
       "八成的人都押費內巴切，太一面倒的時候反而常翻車。",
@@ -1173,7 +1377,7 @@
      "費內巴切在主場，盤口看好他，大概六成五會贏。",
      "費內巴切近 4 場 3 勝 1 敗，歐冠第4名。",
      "考納斯綠林近 4 場 3 勝 1 敗，歐冠第6名。",
-     "大小分看「大」：兩隊最近平均 171 分，盤口 164。",
+     "我們自己算的實力差距跟盤口差不多（主隊讓 5 分左右）。",
      "八成的人都押費內巴切，太一面倒的時候反而常翻車。",
      "台灣運彩賠率 1.23 比平常差，注碼小一點。",
      "新聞有提到傷兵消息，點下面的新聞看是誰。",
@@ -1184,7 +1388,7 @@
    "tw": {
     "source": "玩運彩",
     "url": "https://www.playsport.cc/predict/scale?allianceid=8",
-    "updated": "2026-10-14T10:05+08:00",
+    "updated": "2026-10-14T13:43+08:00",
     "no": "306",
     "spread": {
      "line": "費內巴切 -6.5",
@@ -1233,8 +1437,33 @@
       "side": null,
       "impact": 0,
       "text": "玩運彩 82% 的玩家押費內巴切，太一面倒的時候反而要小心"
+     },
+     {
+      "label": "實力評分",
+      "side": null,
+      "impact": 0,
+      "text": "我們算主隊該讓 5 分，跟盤口（6.5）差不多"
      }
-    ]
+    ],
+    "rating": {
+     "home": 1.4,
+     "away": 0.0,
+     "hca": 3.5,
+     "gp_home": 4,
+     "gp_away": 4,
+     "src_home": "form",
+     "src_away": "form",
+     "our_spread": -5.0,
+     "our_prob_home": 0.673,
+     "market_spread": -6.5,
+     "weak": false,
+     "diff": -1.5,
+     "total": 170.9,
+     "exp_home": 87.6,
+     "exp_away": 83.3,
+     "market_total": 164.0,
+     "total_diff": 6.9
+    }
    },
    "notes": {
     "injuries": "這個聯盟沒有官方傷兵名單，改看新聞；賽前再確認一次",
@@ -1252,10 +1481,10 @@
    "tournament": null,
    "round": null,
    "name": "BOS @ LAL",
-   "start": "2026-10-14T08:35+00:00",
-   "start_tw": "2026-10-14T16:35+08:00",
+   "start": "2026-10-14T12:13+00:00",
+   "start_tw": "2026-10-14T20:13+08:00",
    "day_tw": "2026-10-14",
-   "time_tw": "16:35",
+   "time_tw": "20:13",
    "status": {
     "state": "pre",
     "completed": false,
@@ -1557,7 +1786,7 @@
       "pf": 115,
       "pa": 108,
       "result": "W",
-      "date_iso": "2026-10-13T06:05+00:00"
+      "date_iso": "2026-10-13T09:43+00:00"
      },
      {
       "date": "10/04",
@@ -1568,7 +1797,7 @@
       "pf": 99,
       "pa": 105,
       "result": "L",
-      "date_iso": "2026-10-13T06:05+00:00"
+      "date_iso": "2026-10-13T09:43+00:00"
      },
      {
       "date": "10/06",
@@ -1579,7 +1808,7 @@
       "pf": 120,
       "pa": 110,
       "result": "W",
-      "date_iso": "2026-10-13T06:05+00:00"
+      "date_iso": "2026-10-13T09:43+00:00"
      },
      {
       "date": "10/08",
@@ -1590,7 +1819,7 @@
       "pf": 104,
       "pa": 112,
       "result": "L",
-      "date_iso": "2026-10-13T06:05+00:00"
+      "date_iso": "2026-10-13T09:43+00:00"
      },
      {
       "date": "10/10",
@@ -1601,7 +1830,7 @@
       "pf": 118,
       "pa": 101,
       "result": "W",
-      "date_iso": "2026-10-13T06:05+00:00"
+      "date_iso": "2026-10-13T09:43+00:00"
      },
      {
       "date": "10/12",
@@ -1612,7 +1841,7 @@
       "pf": 108,
       "pa": 116,
       "result": "L",
-      "date_iso": "2026-10-13T06:05+00:00"
+      "date_iso": "2026-10-13T09:43+00:00"
      }
     ],
     "form_note": null,
@@ -1687,7 +1916,8 @@
     "totals": {
      "lean": "無明顯方向",
      "line": 224.5,
-     "expected": 221.2
+     "expected": 221.8,
+     "method": "評分"
     },
     "tw_ev": -10,
     "tw_dec": 1.5,
@@ -1826,13 +2056,38 @@
       "side": "home",
       "impact": 1,
       "text": "主隊讓分從 -2.5 變成 -3.5，市場資金往湖人"
+     },
+     {
+      "label": "實力評分",
+      "side": null,
+      "impact": 0,
+      "text": "我們算主隊該讓 4 分，跟盤口（3.5）差不多"
      }
-    ]
+    ],
+    "rating": {
+     "home": 1.9,
+     "away": 0.9,
+     "hca": 2.8,
+     "gp_home": 6,
+     "gp_away": 6,
+     "src_home": "form",
+     "src_away": "form",
+     "our_spread": -4.0,
+     "our_prob_home": 0.635,
+     "market_spread": -3.5,
+     "weak": false,
+     "diff": 0.5,
+     "total": 221.8,
+     "exp_home": 112.0,
+     "exp_away": 109.8,
+     "market_total": 224.5,
+     "total_diff": -2.7
+    }
    },
    "tw": {
     "source": "玩運彩",
     "url": "https://www.playsport.cc/predict/scale?allianceid=3",
-    "updated": "2026-10-14T10:05+08:00",
+    "updated": "2026-10-14T13:43+08:00",
     "no": "327",
     "spread": {
      "line": "湖人 -3.5",
@@ -1868,10 +2123,10 @@
    "tournament": null,
    "round": null,
    "name": "GS @ OKC",
-   "start": "2026-10-14T11:05+00:00",
-   "start_tw": "2026-10-14T19:05+08:00",
+   "start": "2026-10-14T14:43+00:00",
+   "start_tw": "2026-10-14T22:43+08:00",
    "day_tw": "2026-10-14",
-   "time_tw": "19:05",
+   "time_tw": "22:43",
    "status": {
     "state": "pre",
     "completed": false,
@@ -2215,7 +2470,8 @@
     "totals": {
      "lean": "無明顯方向",
      "line": 226.0,
-     "expected": 223.4
+     "expected": 223.2,
+     "method": "評分"
     },
     "talk": {
      "verdict": "這場我會押雷霆，玩讓分（讓 9.5 分），信心高。",
@@ -2259,8 +2515,33 @@
       "side": "home",
       "impact": 1,
       "text": "Shai Gilgeous-Alexander 火燙，近 5 場場均 34.8 PTS"
+     },
+     {
+      "label": "實力評分",
+      "side": null,
+      "impact": 0,
+      "text": "我們算主隊該讓 11 分，跟盤口（9.5）差不多"
      }
-    ]
+    ],
+    "rating": {
+     "home": 6.1,
+     "away": -1.9,
+     "hca": 2.8,
+     "gp_home": 6,
+     "gp_away": 6,
+     "src_home": "form",
+     "src_away": "form",
+     "our_spread": -11.0,
+     "our_prob_home": 0.837,
+     "market_spread": -9.5,
+     "weak": false,
+     "diff": 1.5,
+     "total": 223.2,
+     "exp_home": 120.9,
+     "exp_away": 102.3,
+     "market_total": 226.0,
+     "total_diff": -2.8
+    }
    },
    "notes": {
     "injuries": "ESPN 傷兵名單裡沒有這隊的人，表示目前沒有傷兵回報",
@@ -2279,10 +2560,10 @@
    "tournament": null,
    "round": null,
    "name": "TOR @ EDM",
-   "start": "2026-10-14T13:05+00:00",
-   "start_tw": "2026-10-14T21:05+08:00",
-   "day_tw": "2026-10-14",
-   "time_tw": "21:05",
+   "start": "2026-10-14T16:43+00:00",
+   "start_tw": "2026-10-15T00:43+08:00",
+   "day_tw": "2026-10-15",
+   "time_tw": "00:43",
    "status": {
     "state": "pre",
     "completed": false,
@@ -2541,13 +2822,16 @@
      "國際盤看好主隊 油人，勝率約 57%",
      "油人 近 5 場 4 勝，狀態好",
      "Connor McDavid 近 5 場場均 2.4 PTS，比季平均高 50%",
-     "兩隊近 5 場平均總分 5.8，低於盤口 6.5，可考慮小分"
+     "照兩隊得分和失分算，這場大概 6 分，盤口 6.5，偏小分"
     ],
-    "cautions": [],
+    "cautions": [
+     "實力評分：照兩隊實力算主隊大概只該讓 1 分，盤口開到 1.5，讓分盤偏向楓葉"
+    ],
     "totals": {
      "lean": "小",
      "line": 6.5,
-     "expected": 5.8
+     "expected": 5.8,
+     "method": "評分"
     },
     "talk": {
      "verdict": "這場我會押油人，玩不讓分，信心中。",
@@ -2557,7 +2841,9 @@
       "楓葉近 5 場 2 勝 3 敗。",
       "油人的 McDavid 最近手感很燙，近 5 場平均 2.4 PTS。"
      ],
-     "care": [],
+     "care": [
+      "照兩隊實力算，主隊大概只該讓 1 分，盤口開到 1.5，讓分盤反而是楓葉划算。"
+     ],
      "odds": "台灣運彩還沒開這場，通常前一天才會開。"
     },
     "story": [
@@ -2566,6 +2852,7 @@
      "油人近 5 場 4 勝 1 敗，連贏 2 場。",
      "楓葉近 5 場 2 勝 3 敗。",
      "油人的 McDavid 最近手感很燙，近 5 場平均 2.4 PTS。",
+     "照兩隊實力算，主隊大概只該讓 1 分，盤口開到 1.5，讓分盤反而是楓葉划算。",
      "台灣運彩還沒開這場，通常前一天才會開。"
     ]
    },
@@ -2582,8 +2869,33 @@
       "side": "home",
       "impact": 1,
       "text": "Connor McDavid 火燙，近 5 場場均 2.4 PTS"
+     },
+     {
+      "label": "實力評分",
+      "side": "away",
+      "impact": -1,
+      "text": "照兩隊實力算主隊大概只該讓 1 分，盤口開到 1.5，讓分盤偏向楓葉"
      }
-    ]
+    ],
+    "rating": {
+     "home": 0.5,
+     "away": -0.1,
+     "hca": 0.25,
+     "gp_home": 5,
+     "gp_away": 5,
+     "src_home": "form",
+     "src_away": "form",
+     "our_spread": -1.0,
+     "our_prob_home": 0.662,
+     "market_spread": -1.5,
+     "weak": false,
+     "diff": -0.5,
+     "total": 5.8,
+     "exp_home": 3.9,
+     "exp_away": 2.0,
+     "market_total": 6.5,
+     "total_diff": -0.7
+    }
    },
    "notes": {
     "injuries": "ESPN 傷兵名單裡沒有這隊的人，表示目前沒有傷兵回報",
@@ -2602,10 +2914,10 @@
    "tournament": null,
    "round": "女子",
    "name": "NEC @ SAG",
-   "start": "2026-10-14T16:05+00:00",
-   "start_tw": "2026-10-15T00:05+08:00",
+   "start": "2026-10-14T19:43+00:00",
+   "start_tw": "2026-10-15T03:43+08:00",
    "day_tw": "2026-10-15",
-   "time_tw": "00:05",
+   "time_tw": "03:43",
    "status": {
     "state": "pre",
     "completed": false,
@@ -2639,7 +2951,7 @@
     "form": [
      {
       "date": "10/02",
-      "date_iso": "2026-10-02T02:05+00:00",
+      "date_iso": "2026-10-02T05:43+00:00",
       "opp": "A愛知",
       "opp_zh": "A愛知",
       "opp_logo": null,
@@ -2651,7 +2963,7 @@
      },
      {
       "date": "10/05",
-      "date_iso": "2026-10-05T02:05+00:00",
+      "date_iso": "2026-10-05T05:43+00:00",
       "opp": "A愛知",
       "opp_zh": "A愛知",
       "opp_logo": null,
@@ -2663,7 +2975,7 @@
      },
      {
       "date": "10/08",
-      "date_iso": "2026-10-08T02:05+00:00",
+      "date_iso": "2026-10-08T05:43+00:00",
       "opp": "岡山",
       "opp_zh": "岡山",
       "opp_logo": null,
@@ -2675,7 +2987,7 @@
      },
      {
       "date": "10/11",
-      "date_iso": "2026-10-11T02:05+00:00",
+      "date_iso": "2026-10-11T05:43+00:00",
       "opp": "NEC川崎",
       "opp_zh": "NEC川崎",
       "opp_logo": null,
@@ -2725,7 +3037,7 @@
     "form": [
      {
       "date": "10/02",
-      "date_iso": "2026-10-02T02:05+00:00",
+      "date_iso": "2026-10-02T05:43+00:00",
       "opp": "佐賀久光",
       "opp_zh": "佐賀久光",
       "opp_logo": null,
@@ -2737,7 +3049,7 @@
      },
      {
       "date": "10/05",
-      "date_iso": "2026-10-05T02:05+00:00",
+      "date_iso": "2026-10-05T05:43+00:00",
       "opp": "デンソー",
       "opp_zh": "デンソー",
       "opp_logo": null,
@@ -2749,7 +3061,7 @@
      },
      {
       "date": "10/08",
-      "date_iso": "2026-10-08T02:05+00:00",
+      "date_iso": "2026-10-08T05:43+00:00",
       "opp": "大阪MV",
       "opp_zh": "大阪MV",
       "opp_logo": null,
@@ -2761,7 +3073,7 @@
      },
      {
       "date": "10/11",
-      "date_iso": "2026-10-11T02:05+00:00",
+      "date_iso": "2026-10-11T05:43+00:00",
       "opp": "PFU",
       "opp_zh": "PFU",
       "opp_logo": null,
@@ -2858,10 +3170,10 @@
    "tournament": null,
    "round": "B.LEAGUE",
    "name": "千葉ジ @ 富山グ",
-   "start": "2026-10-14T18:05+00:00",
-   "start_tw": "2026-10-15T02:05+08:00",
+   "start": "2026-10-14T21:43+00:00",
+   "start_tw": "2026-10-15T05:43+08:00",
    "day_tw": "2026-10-15",
-   "time_tw": "02:05",
+   "time_tw": "05:43",
    "status": {
     "state": "pre",
     "completed": false,
@@ -2895,7 +3207,7 @@
     "form": [
      {
       "date": "10/02",
-      "date_iso": "2026-10-02T02:05+00:00",
+      "date_iso": "2026-10-02T05:43+00:00",
       "opp": "千葉阿爾提里",
       "opp_zh": "千葉阿爾提里",
       "opp_logo": null,
@@ -2907,7 +3219,7 @@
      },
      {
       "date": "10/05",
-      "date_iso": "2026-10-05T02:05+00:00",
+      "date_iso": "2026-10-05T05:43+00:00",
       "opp": "京都創榮",
       "opp_zh": "京都創榮",
       "opp_logo": null,
@@ -2919,7 +3231,7 @@
      },
      {
       "date": "10/08",
-      "date_iso": "2026-10-08T02:05+00:00",
+      "date_iso": "2026-10-08T05:43+00:00",
       "opp": "信州勇士",
       "opp_zh": "信州勇士",
       "opp_logo": null,
@@ -2931,7 +3243,7 @@
      },
      {
       "date": "10/11",
-      "date_iso": "2026-10-11T02:05+00:00",
+      "date_iso": "2026-10-11T05:43+00:00",
       "opp": "茨城機器人",
       "opp_zh": "茨城機器人",
       "opp_logo": null,
@@ -2980,7 +3292,7 @@
     "form": [
      {
       "date": "10/02",
-      "date_iso": "2026-10-02T02:05+00:00",
+      "date_iso": "2026-10-02T05:43+00:00",
       "opp": "廣島飛龍",
       "opp_zh": "廣島飛龍",
       "opp_logo": null,
@@ -2992,7 +3304,7 @@
      },
      {
       "date": "10/05",
-      "date_iso": "2026-10-05T02:05+00:00",
+      "date_iso": "2026-10-05T05:43+00:00",
       "opp": "仙台89ers",
       "opp_zh": "仙台89ers",
       "opp_logo": null,
@@ -3004,7 +3316,7 @@
      },
      {
       "date": "10/08",
-      "date_iso": "2026-10-08T02:05+00:00",
+      "date_iso": "2026-10-08T05:43+00:00",
       "opp": "群馬雷霆",
       "opp_zh": "群馬雷霆",
       "opp_logo": null,
@@ -3016,7 +3328,7 @@
      },
      {
       "date": "10/11",
-      "date_iso": "2026-10-11T02:05+00:00",
+      "date_iso": "2026-10-11T05:43+00:00",
       "opp": "琉球黃金國王",
       "opp_zh": "琉球黃金國王",
       "opp_logo": null,
@@ -3070,20 +3382,23 @@
     "confidence": "中",
     "summary": "押 富山松雞，玩不讓分，信心中",
     "reasons": [
-     "依台灣運彩賠率換算，主隊 富山松雞 勝率約 60%"
+     "依台灣運彩賠率換算，主隊 富山松雞 勝率約 60%",
+     "實力評分：照兩隊實力算主隊該讓 7.5 分，盤口只開 3.5，讓分盤偏向富山松雞"
     ],
     "cautions": [],
     "totals": {
      "lean": "無明顯方向",
      "line": 168.5,
-     "expected": 168.4
+     "expected": 168.6,
+     "method": "評分"
     },
     "talk": {
      "verdict": "這場我會押富山松雞，玩不讓分，信心中。",
      "why": [
       "富山松雞在主場，盤口看好他，大概六成會贏。",
       "富山松雞近 4 場 3 勝 1 敗，B.LEAGUE 東區第4名，連贏 2 場。",
-      "千葉噴射機近 4 場 1 勝 3 敗，B.LEAGUE 東區第11名，連輸 2 場。"
+      "千葉噴射機近 4 場 1 勝 3 敗，B.LEAGUE 東區第11名，連輸 2 場。",
+      "照兩隊實力算，主隊該讓 7.5 分，盤口只開 3.5，讓分盤富山松雞划算。"
      ],
      "care": [
       "新聞有提到傷兵消息，點下面的新聞看是誰。"
@@ -3095,6 +3410,7 @@
      "富山松雞在主場，盤口看好他，大概六成會贏。",
      "富山松雞近 4 場 3 勝 1 敗，B.LEAGUE 東區第4名，連贏 2 場。",
      "千葉噴射機近 4 場 1 勝 3 敗，B.LEAGUE 東區第11名，連輸 2 場。",
+     "照兩隊實力算，主隊該讓 7.5 分，盤口只開 3.5，讓分盤富山松雞划算。",
      "新聞有提到傷兵消息，點下面的新聞看是誰。",
      "台灣運彩：不讓分 千葉噴射機 2.1、富山松雞 1.45，讓分 富山松雞 -3.5，大小 168.5。"
     ]
@@ -3103,7 +3419,7 @@
    "tw": {
     "source": "玩運彩",
     "url": "https://www.playsport.cc/predict/scale?allianceid=97",
-    "updated": "2026-10-14T10:05+08:00",
+    "updated": "2026-10-14T13:43+08:00",
     "no": "401",
     "spread": {
      "line": "富山松雞 -3.5",
@@ -3148,8 +3464,33 @@
       "side": null,
       "impact": 0,
       "text": "玩運彩 64% 的玩家押富山松雞"
+     },
+     {
+      "label": "實力評分",
+      "side": "home",
+      "impact": 1,
+      "text": "照兩隊實力算主隊該讓 7.5 分，盤口只開 3.5，讓分盤偏向富山松雞"
      }
-    ]
+    ],
+    "rating": {
+     "home": 2.4,
+     "away": -2.7,
+     "hca": 2.5,
+     "gp_home": 4,
+     "gp_away": 4,
+     "src_home": "form",
+     "src_away": "form",
+     "our_spread": -7.5,
+     "our_prob_home": 0.755,
+     "market_spread": -3.5,
+     "weak": false,
+     "diff": 4.0,
+     "total": 168.6,
+     "exp_home": 92.0,
+     "exp_away": 76.7,
+     "market_total": 168.5,
+     "total_diff": 0.1
+    }
    },
    "notes": {
     "injuries": "這個聯盟沒有官方傷兵名單，改看新聞；賽前再確認一次",
@@ -3167,10 +3508,10 @@
    "tournament": null,
    "round": null,
    "name": "ARS @ MCI",
-   "start": "2026-10-15T05:05+00:00",
-   "start_tw": "2026-10-15T13:05+08:00",
+   "start": "2026-10-15T08:43+00:00",
+   "start_tw": "2026-10-15T16:43+08:00",
    "day_tw": "2026-10-15",
-   "time_tw": "13:05",
+   "time_tw": "16:43",
    "status": {
     "state": "pre",
     "completed": false,
@@ -3423,22 +3764,25 @@
     "reasons": [
      "國際盤看好主隊 曼城，勝率約 46%",
      "和局機率約 27%",
-     "曼城 近 6 場 5 勝，狀態好"
+     "曼城 近 6 場 5 勝，狀態好",
+     "照兩隊得分和失分算，這場大概 2 分，盤口 2.5，偏小分"
     ],
     "cautions": [
      "兵工廠 近 6 場 5 勝，不弱"
     ],
     "totals": {
-     "lean": "無明顯方向",
+     "lean": "小",
      "line": 2.5,
-     "expected": 2.8
+     "expected": 1.9,
+     "method": "評分"
     },
     "talk": {
      "verdict": "這場看不出誰比較穩，我會先不下。",
      "why": [
       "曼城在主場，盤口看好他，大概四成五會贏。",
       "曼城近 6 場 5 勝 1 敗，連贏 3 場。",
-      "兵工廠近 6 場 5 勝 1 敗。"
+      "兵工廠近 6 場 5 勝 1 敗。",
+      "我們自己算的實力差距跟盤口差不多（主隊讓 0.5 分左右）。"
      ],
      "care": [],
      "odds": "台灣運彩還沒開這場，通常前一天才會開。"
@@ -3448,6 +3792,7 @@
      "曼城在主場，盤口看好他，大概四成五會贏。",
      "曼城近 6 場 5 勝 1 敗，連贏 3 場。",
      "兵工廠近 6 場 5 勝 1 敗。",
+     "我們自己算的實力差距跟盤口差不多（主隊讓 0.5 分左右）。",
      "台灣運彩還沒開這場，通常前一天才會開。"
     ]
    },
@@ -3458,8 +3803,33 @@
       "side": "home",
       "impact": 1,
       "text": "曼城 近 6 場 5 勝"
+     },
+     {
+      "label": "實力評分",
+      "side": null,
+      "impact": 0,
+      "text": "我們算主隊該讓 0.5 分，跟盤口（0.5）差不多"
      }
-    ]
+    ],
+    "rating": {
+     "home": 0.9,
+     "away": 0.5,
+     "hca": 0.3,
+     "gp_home": 6,
+     "gp_away": 6,
+     "src_home": "form",
+     "src_away": "form",
+     "our_spread": -0.5,
+     "our_prob_home": 0.693,
+     "market_spread": -0.5,
+     "weak": false,
+     "diff": 0.0,
+     "total": 1.9,
+     "exp_home": 1.2,
+     "exp_away": 0.7,
+     "market_total": 2.5,
+     "total_diff": -0.6
+    }
    },
    "notes": {
     "injuries": "ESPN 傷兵名單裡沒有這隊的人，表示目前沒有傷兵回報",
@@ -3478,10 +3848,10 @@
    "tournament": null,
    "round": null,
    "name": "TOT @ LIV",
-   "start": "2026-10-15T07:35+00:00",
-   "start_tw": "2026-10-15T15:35+08:00",
+   "start": "2026-10-15T11:13+00:00",
+   "start_tw": "2026-10-15T19:13+08:00",
    "day_tw": "2026-10-15",
-   "time_tw": "15:35",
+   "time_tw": "19:13",
    "status": {
     "state": "pre",
     "completed": false,
@@ -3707,7 +4077,8 @@
     "totals": {
      "lean": "無明顯方向",
      "line": 3.0,
-     "expected": 2.8
+     "expected": 2.7,
+     "method": "評分"
     },
     "talk": {
      "verdict": "這場我會押利物浦，玩不讓分，信心中。",
@@ -3730,7 +4101,25 @@
     ]
    },
    "analysis": {
-    "signals": []
+    "signals": [],
+    "rating": {
+     "home": 0.2,
+     "away": 0.0,
+     "hca": 0.3,
+     "gp_home": 6,
+     "gp_away": 6,
+     "src_home": "form",
+     "src_away": "form",
+     "our_spread": -0.5,
+     "our_prob_home": 0.654,
+     "market_spread": null,
+     "weak": false,
+     "total": 2.7,
+     "exp_home": 1.6,
+     "exp_away": 1.1,
+     "market_total": 3.0,
+     "total_diff": -0.3
+    }
    },
    "notes": {
     "injuries": "ESPN 傷兵名單裡沒有這隊的人，表示目前沒有傷兵回報",
@@ -3760,7 +4149,7 @@
    "return_date": null,
    "key": true,
    "official": false,
-   "time_tw": "19:05",
+   "time_tw": "22:43",
    "day_tw": "2026-10-14"
   },
   {
@@ -3782,7 +4171,7 @@
    "return_date": null,
    "key": false,
    "official": false,
-   "time_tw": "08:53",
+   "time_tw": "12:31",
    "day_tw": "2026-10-14"
   },
   {
@@ -3804,7 +4193,7 @@
    "return_date": null,
    "key": false,
    "official": false,
-   "time_tw": "16:35",
+   "time_tw": "20:13",
    "day_tw": "2026-10-14"
   },
   {
@@ -3826,8 +4215,8 @@
    "return_date": null,
    "key": false,
    "official": false,
-   "time_tw": "21:05",
-   "day_tw": "2026-10-14"
+   "time_tw": "00:43",
+   "day_tw": "2026-10-15"
   },
   {
    "game_id": "g1",
@@ -3848,7 +4237,7 @@
    "return_date": "2026-10-20",
    "key": false,
    "official": false,
-   "time_tw": "16:35",
+   "time_tw": "20:13",
    "day_tw": "2026-10-14"
   },
   {
@@ -3870,7 +4259,7 @@
    "return_date": null,
    "key": false,
    "official": false,
-   "time_tw": "19:05",
+   "time_tw": "22:43",
    "day_tw": "2026-10-14"
   },
   {
@@ -3892,7 +4281,7 @@
    "return_date": null,
    "key": false,
    "official": false,
-   "time_tw": "13:05",
+   "time_tw": "16:43",
    "day_tw": "2026-10-15"
   },
   {
@@ -3914,7 +4303,7 @@
    "return_date": null,
    "key": false,
    "official": false,
-   "time_tw": "13:05",
+   "time_tw": "16:43",
    "day_tw": "2026-10-15"
   },
   {
@@ -3937,7 +4326,7 @@
    "url": "https://news.google.com/",
    "key": false,
    "official": false,
-   "time_tw": "15:35",
+   "time_tw": "19:13",
    "day_tw": "2026-10-14"
   },
   {
@@ -3960,7 +4349,7 @@
    "url": "https://news.google.com/",
    "key": false,
    "official": false,
-   "time_tw": "02:05",
+   "time_tw": "05:43",
    "day_tw": "2026-10-15"
   }
  ],

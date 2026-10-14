@@ -169,7 +169,42 @@
     renderInjuries();
     renderHot();
     renderStandings();
+    renderRecord();
     renderSheet();
+  }
+
+  // ---------- 成績單 ----------
+  function renderRecord() {
+    const el = $("#record");
+    const rec = state.data.record;
+    if (!rec || !rec.settled) {
+      el.innerHTML = `<div class="empty">還沒有對過答案的建議。從 ${esc((rec && rec.since) || "今天")} 開始記，比賽打完就會出現在這裡。${rec && rec.pending ? `目前有 ${rec.pending} 場等結果。` : ""}</div>`;
+      return;
+    }
+    const o = rec.overall;
+    const hid = hiddenSportKeys();
+    const conf = rec.by_conf || {};
+    const hi = conf["高"];
+    const tiles = [
+      `<div class="stat"><div class="sl">近 ${rec.days} 天建議（已結算）</div><b>${o.n} 場</b><small>還有 ${rec.pending} 場等結果</small></div>`,
+      `<div class="stat"><div class="sl">不讓分 押對幾場</div><b>${o.ml_w} 勝 ${o.ml_l} 敗</b><small>${o.ml_rate != null ? "命中 " + o.ml_rate + "%" : ""}</small></div>`,
+      `<div class="stat"><div class="sl">讓分 過盤</div><b>${o.ats_w} 過 ${o.ats_l} 沒過</b><small>${o.ats_rate != null ? "過盤率 " + o.ats_rate + "%（52.4% 以上才算贏錢）" : "還沒有讓分資料"}</small></div>`,
+      `<div class="stat"><div class="sl">跟收盤線比</div><b>${o.clv_avg != null ? (o.clv_avg > 0 ? "+" : "") + o.clv_avg + " 分" : "–"}</b><small>${o.clv_avg != null ? (o.clv_avg > 0 ? "我們推薦時的線比收盤好，長期這樣才會贏" : "推薦時的線比收盤差，要再早一點") : "等比賽多一點"}</small></div>`,
+    ];
+    if (hi) tiles.push(`<div class="stat"><div class="sl">信心「高」的建議</div><b>${hi.ml_w} 勝 ${hi.ml_l} 敗</b><small>${hi.ats_w + hi.ats_l ? "讓分過盤 " + hi.ats_w + "-" + hi.ats_l : ""}</small></div>`);
+    const leagues = Object.keys(rec.by_league || {}).filter((k) => !hid.has(k));
+    const lgRows = leagues.map((k) => { const b = rec.by_league[k]; const label = (state.data.sports || []).find((s) => s.key === k)?.label || k; return `<div class="stat"><div class="sl">${esc(label)}</div><b>${b.ml_w} 勝 ${b.ml_l} 敗</b><small>${b.ats_w + b.ats_l ? "讓分 " + b.ats_w + "-" + b.ats_l : ""}${b.ou_w + b.ou_l ? " · 大小 " + b.ou_w + "-" + b.ou_l : ""}</small></div>`; }).join("");
+    const list = (rec.recent || []).filter((r) => state.sport === "all" ? !hid.has(r.chip) : r.chip === state.sport).map((r) => {
+      const cls = r.ml === "win" ? "win" : r.ml === "loss" ? "loss" : "push";
+      const mark = r.ml === "win" ? "對" : r.ml === "loss" ? "錯" : "平";
+      const bits = [];
+      if (r.ats) bits.push(`讓分${r.line != null ? "（" + (r.line > 0 ? "+" : "") + r.line + "）" : ""}${r.ats === "win" ? "過" : r.ats === "loss" ? "沒過" : "平"}`);
+      if (r.ou) bits.push(`大小看${esc(r.total_lean)} ${r.ou === "win" ? "對" : "錯"}`);
+      return `<button class="rec" data-goto="${esc(r.id)}"><span class="mark ${cls}">${mark}</span><div><div class="t1">押 ${esc(r.pick_label)} · ${esc(r.play)}${r.confidence ? " · 信心" + esc(r.confidence) : ""}</div><div class="t2">${esc(r.league_zh)} ${esc(r.day_tw.slice(5))} · ${esc(r.away)} 對 ${esc(r.home)}${bits.length ? " · " + bits.join("，") : ""}</div></div><div class="sc">${r.as_}:${r.hs}<small>${r.dec ? "賠 " + Number(r.dec).toFixed(2) : ""}</small></div></button>`;
+    }).join("");
+    el.innerHTML = `<div class="explain">每次建議都先記下來，比賽打完對答案，不改分。「跟收盤線比」是看我們推薦時拿到的讓分，比開賽前最後的讓分好還是差。</div>
+      <div class="stat-grid">${tiles.join("")}</div>${lgRows ? `<div class="grp">各聯盟</div><div class="stat-grid">${lgRows}</div>` : ""}
+      <div class="grp">最近對過答案的</div><div class="list">${list || `<div class="empty">這個球種還沒有結算的建議。</div>`}</div>`;
   }
 
   function renderChips() {
@@ -332,6 +367,10 @@
     const kv = [];
     const o = g.odds || {};
     if (o.prob_home != null && o.prob_source !== "form") kv.push(`<div class="kv"><div class="kl">盤口換算的勝率</div><div class="kbar"><span class="ka" style="width:${Math.round(o.prob_away * 100)}%">${esc(A)} ${Math.round(o.prob_away * 100)}%</span><span class="kh" style="width:${Math.round(o.prob_home * 100)}%">${esc(H)} ${Math.round(o.prob_home * 100)}%</span></div>${o.spread != null ? `<div class="kval">國際盤讓分 ${esc(o.details || o.spread)}${o.total != null ? " · 大小 " + o.total : ""}</div>` : ""}</div>`);
+    if (a.rating) {
+      const r = a.rating;
+      kv.push(`<div class="kv"><div class="kl">我們的實力評分（每場淨勝分，已考慮場數）</div><div class="kval">${esc(A)} ${r.away > 0 ? "+" : ""}${r.away}（${r.gp_away} 場）　${esc(H)} ${r.home > 0 ? "+" : ""}${r.home}（${r.gp_home} 場）<br>我們算主隊讓 ${-r.our_spread > 0 ? "" : ""}${(-r.our_spread).toFixed(1)} 分${r.market_spread != null ? "，盤口 " + (-r.market_spread).toFixed(1) : ""}${r.total != null ? "<br>我們算總分 " + r.total + (r.market_total != null ? "，盤口 " + r.market_total : "") : ""}${r.weak ? "<br><span style=\"color:var(--warn)\">場數太少，評分還不準</span>" : ""}</div></div>`);
+    }
     if (a.predictor) kv.push(`<div class="kv"><div class="kl">ESPN 模型勝率</div><div class="kbar"><span class="ka" style="width:${Math.round(a.predictor.away * 100)}%">${esc(A)} ${Math.round(a.predictor.away * 100)}%</span><span class="kh" style="width:${Math.round(a.predictor.home * 100)}%">${esc(H)} ${Math.round(a.predictor.home * 100)}%</span></div></div>`);
     if (a.crowd && a.crowd.ml_home != null) kv.push(`<div class="kv"><div class="kl">玩運彩的人押誰（不讓分）</div><div class="kbar"><span class="ka" style="width:${a.crowd.ml_away || 0}%">${esc(A)} ${a.crowd.ml_away}%</span><span class="kh" style="width:${a.crowd.ml_home || 0}%">${esc(H)} ${a.crowd.ml_home}%</span></div>${a.crowd.n ? `<div class="kval">約 ${a.crowd.n} 人預測</div>` : ""}</div>`);
     if (a.line_move && a.line_move.spread_open != null && a.line_move.spread_now != null) kv.push(`<div class="kv"><div class="kl">盤口變動（主隊讓分，開盤 → 現在）</div><div class="kval">${a.line_move.spread_open > 0 ? "+" : ""}${a.line_move.spread_open} → ${a.line_move.spread_now > 0 ? "+" : ""}${a.line_move.spread_now}${a.line_move.total_open != null ? `　大小 ${a.line_move.total_open} → ${a.line_move.total_now}` : ""}</div></div>`);

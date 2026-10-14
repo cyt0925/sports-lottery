@@ -202,7 +202,7 @@ class EuroLeague:
                     name_zh=club.get("abbr") or tx("name"), logo=club.get("crest"),
                     w=w, l=l, d=None, otl=None, pct=f"{(w / (w + l)):.3f}".lstrip("0") if w + l else "", gb=None,
                     streak=None, points=None, gp=int(tx("totalgames") or 0), rank=int(tx("ranking") or 0),
-                    pf=int(tx("ptsfavour") or 0), pa=int(tx("ptsagainst") or 0), diff=int(tx("difference") or 0),
+                    pf=round(int(tx("ptsfavour") or 0) / max(1, int(tx("totalgames") or 0)), 1), pa=round(int(tx("ptsagainst") or 0) / max(1, int(tx("totalgames") or 0)), 1), diff=int(tx("difference") or 0),
                 ))
             rows.sort(key=lambda r: (r["rank"] or 99))
             for i, r in enumerate(rows, 1):

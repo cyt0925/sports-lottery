@@ -60,7 +60,7 @@ svg{fill:none}
 /* 版面與分頁 */
 .page{padding:0 16px;max-width:720px;margin:0 auto}
 .view{display:none}
-body[data-view="today"] .view[data-for="today"],body[data-view="injuries"] .view[data-for="injuries"],body[data-view="standings"] .view[data-for="standings"]{display:block}
+body[data-view="today"] .view[data-for="today"],body[data-view="injuries"] .view[data-for="injuries"],body[data-view="standings"] .view[data-for="standings"],body[data-view="record"] .view[data-for="record"]{display:block}
 .sec-title{display:flex;align-items:center;gap:8px;font-size:1.25rem;font-weight:900;margin:10px 0 12px}
 .sec-title svg{width:24px;height:24px;color:var(--violet-2)}
 .day-title{display:flex;align-items:baseline;gap:10px;margin:22px 0 10px;font-weight:900;font-size:1.25rem}
@@ -206,10 +206,25 @@ body[data-view="today"] .view[data-for="today"],body[data-view="injuries"] .view
 .kbar .ka{background:var(--violet-2);display:flex;align-items:center;padding:0 8px;white-space:nowrap;overflow:hidden}
 .kbar .kh{background:var(--lime);display:flex;align-items:center;justify-content:flex-end;padding:0 8px;white-space:nowrap;overflow:hidden}
 .foot{color:var(--muted);font-size:.85rem;padding:24px 0 10px;line-height:1.5}
+/* 成績單 */
+.stat-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-bottom:14px}
+.stat{background:var(--card);border:1px solid var(--line);border-radius:var(--radius-s);padding:14px}
+.stat .sl{color:var(--muted);font-size:.85rem}
+.stat b{display:block;font-family:var(--num);font-size:1.5rem;line-height:1.2;margin-top:4px}
+.stat small{display:block;color:var(--ink-2);font-size:.85rem;margin-top:2px}
+.rec{width:100%;text-align:left;display:grid;grid-template-columns:44px minmax(0,1fr) auto;align-items:center;gap:10px;padding:12px 14px;background:var(--card);border:1px solid var(--line);border-radius:var(--radius-s)}
+.rec .mark{width:44px;height:44px;border-radius:50%;display:grid;place-items:center;font-weight:900;font-size:1.1rem;color:#0b0a14}
+.rec .mark.win{background:var(--good)}.rec .mark.loss{background:var(--bad)}.rec .mark.push{background:var(--muted)}
+:root[data-theme="light"] .rec .mark{color:#fff}
+.rec .t1{font-weight:800}
+.rec .t2{color:var(--muted);font-size:.86rem}
+.rec .sc{font-family:var(--num);font-weight:800;text-align:right}
+.rec .sc small{display:block;color:var(--muted);font-weight:500;font-size:.8rem}
+.explain{color:var(--muted);font-size:.9rem;line-height:1.5;margin:6px 0 14px}
 .foot-note{margin-top:8px}
 
 /* 底部三顆大按鈕 */
-.bottom-nav{position:fixed;left:0;right:0;bottom:0;z-index:40;display:grid;grid-template-columns:repeat(3,1fr);
+.bottom-nav{position:fixed;left:0;right:0;bottom:0;z-index:40;display:grid;grid-template-columns:repeat(4,1fr);
   background:var(--bg-2);border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom);height:calc(var(--nav-h) + env(safe-area-inset-bottom))}
 .bottom-nav button{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;color:var(--muted);font-weight:800;font-size:.95rem}
 .bottom-nav button svg{width:26px;height:26px}

@@ -118,6 +118,21 @@ def build_story(g, sport):
     if lm and lm.get("spread_open") is not None and lm.get("spread_now") is not None and abs(lm["spread_now"] - lm["spread_open"]) >= 1:
         who = hn if lm["spread_now"] < lm["spread_open"] else an
         why.append(f"盤口往{who}那邊移，錢在押他。")
+    # 實力評分 vs 盤口
+    r = a.get("rating") or {}
+    if r and not r.get("weak") and r.get("diff") is not None and r.get("market_spread") is not None:
+        ours, mk = -r["our_spread"], -r["market_spread"]
+        th = 3.0 if sport == "basketball" else 0.45 if sport == "hockey" else 3.0
+        if r["diff"] <= -th:
+            line = f"照兩隊實力算，主隊大概只該讓 {ours:g} 分，盤口開到 {mk:g}，讓分盤反而是{an}划算。"
+            (why if pick == "away" else care).append(line)
+        elif r["diff"] >= th:
+            line = f"照兩隊實力算，主隊該讓 {ours:g} 分，盤口只開 {mk:g}，讓分盤{hn}划算。"
+            (why if pick == "home" else care).append(line)
+        else:
+            why.append(f"我們自己算的實力差距跟盤口差不多（主隊讓 {ours:g} 分左右）。")
+    elif r and r.get("weak"):
+        care.append(f"兩隊才打 {min(r['gp_home'], r['gp_away'])} 場，實力評分還不準，盤口為主。")
     # 玩家一面倒
     crowd = a.get("crowd") or {}
     if crowd.get("ml_home") is not None and crowd.get("ml_away") is not None:
@@ -136,7 +151,8 @@ def build_story(g, sport):
     # 大小分
     tot = s.get("totals")
     if tot and tot.get("lean") in ("大", "小"):
-        why.append(f"大小分看「{tot['lean']}」：兩隊最近平均 {tot['expected']:.0f} 分，盤口 {tot['line']:g}。")
+        how = "照兩隊得分和失分算" if tot.get("method") == "評分" else "兩隊最近平均"
+        why.append(f"大小分看「{tot['lean']}」：{how}這場大概 {tot['expected']:.0f} 分，盤口 {tot['line']:g}。")
     # 沒資料的時候也要講
     if not why:
         why.append(notes.get("form") or "兩隊資料還不多，先看賽前消息。")
