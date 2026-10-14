@@ -22,12 +22,19 @@ UA = {
 GN = "https://news.google.com/rss/search?q={q}&hl=en-US&gl=US&ceid=US:en"
 QUERIES = [
     'euroleague "injury report" when:8d',
+    '"injury report" site:euroleaguebasketball.net when:10d',
     'euroleague (absences OR "will miss" OR "ruled out") when:6d',
     'eurocup (injury OR "will miss" OR "ruled out") when:6d',
 ]
 TITLE_OK = re.compile(r"injur|absen|will miss|miss |ruled out|sidelined|out for|key players", re.I)
 TITLE_BAD = re.compile(r"soccer|football|NBA|NFL|Spurs|Wembanyama|UEFA|Champions League", re.I)
-MAX_ARTICLES = 5
+# 整輪的傷兵報告（team-by-team）最有用，優先抓；單一球員的新聞排後面
+REPORT_TITLE = re.compile(r"injury report|absences|will miss|key players who will miss|team-by-team", re.I)
+MAX_ARTICLES = 6
+
+
+def _title_key(title):
+    return re.sub(r"\s+", " ", (title or "").split(" - ")[0].strip().lower())
 
 
 def _rss(q):
@@ -130,20 +137,27 @@ def fetch_reports(log, errors, limit=MAX_ARTICLES):
     seen, cands = set(), []
     for q in QUERIES:
         for it in _rss(q):
-            if it["url"] in seen:
+            tk = _title_key(it["title"])
+            if it["url"] in seen or tk in seen:
                 continue
             seen.add(it["url"])
+            seen.add(tk)
             if not TITLE_OK.search(it["title"]) or TITLE_BAD.search(it["title"]):
                 continue
             cands.append(it)
+    # 新的在前，但整輪傷兵報告永遠排最前面
     cands.sort(key=lambda x: x.get("published") or "", reverse=True)
+    cands.sort(key=lambda x: 0 if REPORT_TITLE.search(x["title"]) else 1)
+    log(f"[elreport] 候選 {len(cands)} 篇：" + "；".join(x["title"][:50] for x in cands[:8]))
     out = []
+    seen_real = set()
     for it in cands[: limit * 2]:
         if len(out) >= limit:
             break
         real = decode_gnews(it["url"], log)
-        if not real or "news.google.com" in real:
+        if not real or "news.google.com" in real or real in seen_real:
             continue
+        seen_real.add(real)
         host = urlparse(real).hostname or ""
         try:
             text, code = _article_text(real)
