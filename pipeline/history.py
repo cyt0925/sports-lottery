@@ -95,11 +95,77 @@ def settle(e, g):
     return True
 
 
+RESULT_DAYS = 60
+
+
+def _lines(g):
+    """開賽前最後的線（台灣盤優先，沒有就國際盤）。"""
+    o = g.get("odds") or {}
+    tw = g.get("tw") or {}
+    ml, sp, tt = tw.get("ml") or {}, tw.get("spread") or {}, tw.get("total") or {}
+    return dict(
+        spread_home=sp.get("line_home") if sp.get("line_home") is not None else o.get("spread"),
+        total=tt.get("line") if tt.get("line") is not None else o.get("total"),
+        dec_home=ml.get("home") or o.get("dec_home"), dec_away=ml.get("away") or o.get("dec_away"),
+        prob_home=o.get("prob_home") if o.get("prob_source") != "form" else None,
+    )
+
+
+def _track_all(hist, g, now):
+    """每一場都記：賽前最後的線（lines），打完的比分（results）。給「爸爸的預測」賽後對答案用。"""
+    gid = g["id"]
+    state = g["status"]["state"]
+    lines = hist.setdefault("lines", {})
+    results = hist.setdefault("results", {})
+    if state == "pre":
+        ln = _lines(g)
+        ln["t"] = now.isoformat(timespec="minutes")
+        ln["day"] = g["day_tw"]
+        lines[gid] = ln
+        return
+    if state == "post" and gid not in results:
+        hs, as_ = _score(g["home"]), _score(g["away"])
+        if hs is None or as_ is None:
+            return
+        ln = lines.pop(gid, None) or _lines(g)
+        results[gid] = dict(day=g["day_tw"], hs=hs, as_=as_, spread_home=ln.get("spread_home"), total=ln.get("total"),
+                            dec_home=ln.get("dec_home"), dec_away=ln.get("dec_away"), prob_home=ln.get("prob_home"))
+
+
+def _track_model(hist, g, now):
+    """純模型（只用實力評分，不看賠率）跟盤口各自說誰會贏，賽後比誰準。"""
+    s = g.get("suggestion") or {}
+    m = s.get("model") or {}
+    gid = g["id"]
+    models = hist.setdefault("model", {})
+    state = g["status"]["state"]
+    o = g.get("odds") or {}
+    if state == "pre" and m.get("prob_home") is not None and o.get("prob_home") is not None and o.get("prob_source") != "form":
+        e = models.get(gid) or dict(day=g["day_tw"], league=g["league"], chip=g.get("chip") or g["sport"])
+        e.update(model_home=m["prob_home"], mkt_home=o["prob_home"], weak=bool(m.get("weak")))
+        models[gid] = e
+    elif state == "post" and gid in models and "res" not in models[gid]:
+        hs, as_ = _score(g["home"]), _score(g["away"])
+        if hs is None or as_ is None or hs == as_:
+            return
+        e = models[gid]
+        home_won = hs > as_
+        e["res"] = dict(home_won=home_won,
+                        model_hit=(e["model_home"] >= 0.5) == home_won, mkt_hit=(e["mkt_home"] >= 0.5) == home_won,
+                        model_brier=round((e["model_home"] - (1 if home_won else 0)) ** 2, 4),
+                        mkt_brier=round((e["mkt_home"] - (1 if home_won else 0)) ** 2, 4))
+
+
 def update(hist, games, now=None):
     now = now or datetime.now(TW)
     entries = hist.setdefault("entries", {})
     n_new = n_upd = n_set = 0
     for g in games:
+        try:
+            _track_all(hist, g, now)
+            _track_model(hist, g, now)
+        except Exception:  # noqa: BLE001
+            pass
         s = g.get("suggestion") or {}
         e = entries.get(g["id"])
         state = g["status"]["state"]
@@ -128,8 +194,53 @@ def update(hist, games, now=None):
     cutoff = (now - timedelta(days=KEEP_DAYS)).strftime("%Y-%m-%d")
     for k in [k for k, v in entries.items() if v.get("day_tw", "") < cutoff]:
         entries.pop(k, None)
+    cut_r = (now - timedelta(days=RESULT_DAYS)).strftime("%Y-%m-%d")
+    for key in ("results", "model"):
+        d = hist.get(key) or {}
+        for k in [k for k, v in d.items() if v.get("day", "") < cut_r]:
+            d.pop(k, None)
+    cut_l = (now - timedelta(days=7)).strftime("%Y-%m-%d")
+    for k in [k for k, v in (hist.get("lines") or {}).items() if v.get("day", "") < cut_l]:
+        hist["lines"].pop(k, None)
     hist["updated"] = now.isoformat(timespec="minutes")
     return n_new, n_upd, n_set
+
+
+def results_payload(hist, now=None, days=RESULT_DAYS):
+    """給前端對答案用的精簡版：{id: [日期, 主隊分, 客隊分, 主隊讓分, 大小線, 主賠, 客賠]}。"""
+    now = now or datetime.now(TW)
+    cutoff = (now - timedelta(days=days)).strftime("%Y-%m-%d")
+    out = {}
+    for k, v in (hist.get("results") or {}).items():
+        if v.get("day", "") >= cutoff:
+            out[k] = [v["day"], v["hs"], v["as_"], v.get("spread_home"), v.get("total"), v.get("dec_home"), v.get("dec_away")]
+    return dict(updated=now.isoformat(timespec="minutes"), days=days, results=out)
+
+
+def model_summary(hist, now=None, days=30):
+    """純模型 vs 盤口：命中率、Brier（越低越準），整體與各球種；意見不同的場次誰對。"""
+    now = now or datetime.now(TW)
+    cutoff = (now - timedelta(days=days)).strftime("%Y-%m-%d")
+    rows = [e for e in (hist.get("model") or {}).values() if e.get("res") and e.get("day", "") >= cutoff]
+
+    def bucket(lst):
+        n = len(lst)
+        if not n:
+            return dict(n=0)
+        mh = sum(1 for e in lst if e["res"]["model_hit"])
+        kh = sum(1 for e in lst if e["res"]["mkt_hit"])
+        dis = [e for e in lst if (e["model_home"] >= 0.5) != (e["mkt_home"] >= 0.5)]
+        return dict(
+            n=n, model_rate=round(mh / n * 100), mkt_rate=round(kh / n * 100),
+            model_brier=round(sum(e["res"]["model_brier"] for e in lst) / n, 3), mkt_brier=round(sum(e["res"]["mkt_brier"] for e in lst) / n, 3),
+            disagree=len(dis), disagree_model_right=sum(1 for e in dis if e["res"]["model_hit"]),
+            disagree_mkt_right=sum(1 for e in dis if e["res"]["mkt_hit"]),
+        )
+    by = {}
+    for e in rows:
+        by.setdefault(e.get("chip") or e["league"], []).append(e)
+    pending = sum(1 for e in (hist.get("model") or {}).values() if not e.get("res"))
+    return dict(days=days, pending=pending, overall=bucket(rows), by_league={k: bucket(v) for k, v in by.items()})
 
 
 def _bucket():

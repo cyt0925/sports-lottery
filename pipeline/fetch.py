@@ -1255,6 +1255,15 @@ def main():
             ERRORS.append(f"{lg['key']} 建議 {g['id']} 失敗: {e!r}")
             g["suggestion"] = dict(pick=None, pick_label=None, play="觀望", confidence="低",
                                    summary="資料不夠，先不下", reasons=[], cautions=[], totals=None)
+        # 純模型預測（只看實力評分、主場、傷兵，不看賠率）：另外記一條線跟盤口比
+        try:
+            rt = ((g.get("analysis") or {}).get("rating") or {}) if isinstance(g.get("analysis"), dict) else {}
+            if rt.get("our_prob_home") is not None:
+                ph = rt["our_prob_home"]
+                g["suggestion"]["model"] = dict(pick="home" if ph >= 0.5 else "away", prob_home=round(ph, 3),
+                                                spread=rt.get("our_spread"), weak=bool(rt.get("weak")))
+        except Exception as e:  # noqa: BLE001
+            ERRORS.append(f"{lg['key']} 純模型 {g['id']} 失敗: {e!r}")
         try:
             from story import build_story
             talk = build_story(g, lg["sport"])
@@ -1273,7 +1282,12 @@ def main():
         n_new, n_upd, n_set = history.update(hist, all_games, now_tw)
         history.save(hpath, hist)
         record = history.summarize(hist, now_tw)
-        log(f"成績單：新記 {n_new} 場、更新 {n_upd} 場、結算 {n_set} 場；近 30 天已結算 {record['settled']} 場、待結算 {record['pending']} 場")
+        record["model"] = history.model_summary(hist, now_tw)
+        rpath = os.path.join(os.path.dirname(os.path.abspath(args.out)), "results.json")
+        with open(rpath, "w", encoding="utf-8") as f:
+            json.dump(history.results_payload(hist, now_tw), f, ensure_ascii=False, separators=(",", ":"))
+        log(f"成績單：新記 {n_new} 場、更新 {n_upd} 場、結算 {n_set} 場；近 30 天已結算 {record['settled']} 場、待結算 {record['pending']} 場；"
+            f"賽果庫 {len(hist.get('results') or {})} 場、純模型 {len(hist.get('model') or {})} 場（已結算 {record['model']['overall'].get('n', 0)}）")
     except Exception as e:  # noqa: BLE001
         import traceback
         ERRORS.append(f"成績單失敗: {e!r}")

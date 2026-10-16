@@ -60,13 +60,15 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           cp data/today.json /tmp/today.json
           cp data/history.json /tmp/history.json 2>/dev/null || true
+          cp data/results.json /tmp/results.json 2>/dev/null || true
           BRANCH="${GITHUB_REF_NAME}"
           for i in 1 2 3 4; do
             git fetch -q origin "$BRANCH"
             git reset -q --hard "origin/$BRANCH"
             cp /tmp/today.json data/today.json
             [ -f /tmp/history.json ] && cp /tmp/history.json data/history.json
-            git add data/today.json data/history.json
+            [ -f /tmp/results.json ] && cp /tmp/results.json data/results.json
+            git add data/today.json data/history.json data/results.json
             if git diff --cached --quiet; then
               echo "資料沒有變化，不提交"
               exit 0

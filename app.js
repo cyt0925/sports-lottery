@@ -18,6 +18,10 @@
     showAllHot: false,
     standingsLeague: localStorage.getItem("standingsLeague") || null,
     numbersOpen: false,
+    picks: {},
+    recTab: "site",
+    results: null,
+    resultsAt: 0,
   };
 
   // ---------- 小工具 ----------
@@ -87,8 +91,103 @@
       showLoader(false);
       return;
     }
+    settlePicks();
     render();
     if (visible) setTimeout(() => showLoader(false), Math.max(0, 700 - (Date.now() - t0)));
+    // 還沒對到答案、又已經不在今天名單裡的，去賽果庫找
+    const ids = new Set((state.data.games || []).map((g) => g.id));
+    if (Object.entries(state.picks).some(([id, p]) => !p.result && !ids.has(id) && Date.parse(p.start) < Date.now())) {
+      ensureResults().then(() => { if (settlePicks()) renderRecord(); });
+    }
+  }
+
+  // ---------- 爸爸的預測（存在這支手機的瀏覽器裡） ----------
+  const PICK_KEY = "mypicks.v1";
+  function loadPicks() { try { return JSON.parse(localStorage.getItem(PICK_KEY) || "{}") || {}; } catch (_) { return {}; } }
+  function savePicks() { try { localStorage.setItem(PICK_KEY, JSON.stringify(state.picks)); } catch (_) { /* ignore */ } }
+  state.picks = loadPicks();
+  const gameStarted = (g) => g.status.state !== "pre" || (Date.parse(g.start) || 0) <= Date.now();
+  const sideLabel = (p) => p.side === "home" ? p.home : p.side === "away" ? p.away : p.side === "over" ? "大分" : "小分";
+  function snapshotPick(g, side) {
+    const o = g.odds || {}, tw = g.tw || {}, ml = tw.ml || {}, sp = tw.spread || {}, tt = tw.total || {}, s = g.suggestion || {};
+    const isSide = side === "home" || side === "away";
+    const dec = isSide ? (ml[side] || o["dec_" + side] || null) : ((side === "over" ? tt.over : tt.under) || null);
+    return {
+      side, at: new Date().toISOString(), start: g.start, day_tw: g.day_tw, time_tw: g.time_tw, league: g.league, league_zh: g.league_zh, chip: chipOf(g),
+      home: tname(g.home), away: tname(g.away), dec, prob: isSide && o.prob_source !== "form" ? (o["prob_" + side] ?? null) : null,
+      spread_home: sp.line_home ?? o.spread ?? null, total: tt.line ?? o.total ?? null,
+      site_pick: s.pick || null, site_label: s.pick_label || null, site_play: s.play || null, site_conf: s.confidence || null,
+      model_pick: (s.model && s.model.pick) || null,
+    };
+  }
+  function judge(side, hs, as, total) {
+    if (side === "home" || side === "away") return hs === as ? "push" : ((hs > as) === (side === "home") ? "win" : "loss");
+    if (total == null) return null;
+    const t = hs + as;
+    return t === total ? "push" : ((t > total) === (side === "over") ? "win" : "loss");
+  }
+  function settleOne(p, hs, as) {
+    if (!Number.isFinite(hs) || !Number.isFinite(as)) return null;
+    const r = judge(p.side, hs, as, p.total);
+    if (!r) return null;
+    return { hs, as, r, site: p.site_pick ? judge(p.site_pick, hs, as, p.total) : null, model: p.model_pick ? judge(p.model_pick, hs, as, null) : null, settled_at: new Date().toISOString() };
+  }
+  function settlePicks() {
+    let changed = false;
+    const byId = {};
+    (state.data && state.data.games || []).forEach((g) => { byId[g.id] = g; });
+    for (const [gid, p] of Object.entries(state.picks)) {
+      if (p.result) continue;
+      const g = byId[gid];
+      if (g && g.status.state === "post") {
+        const res = settleOne(p, Number(g.home.score), Number(g.away.score));
+        if (res) { p.result = res; changed = true; continue; }
+      }
+      const rr = state.results && state.results.results && state.results.results[gid];
+      if (rr) { const res = settleOne(p, Number(rr[1]), Number(rr[2])); if (res) { p.result = res; changed = true; } }
+    }
+    if (changed) savePicks();
+    return changed;
+  }
+  async function ensureResults() {
+    if (state.results && Date.now() - state.resultsAt < 30 * 60 * 1000) return;
+    try {
+      const r = await fetch(`data/results.json?t=${Date.now()}`, { cache: "no-store" });
+      if (r.ok) { state.results = await r.json(); state.resultsAt = Date.now(); }
+    } catch (_) { /* ignore */ }
+  }
+  function setPick(gid, side) {
+    const g = findGame(gid);
+    if (!g || gameStarted(g)) return;
+    const cur = state.picks[gid];
+    if (cur && cur.side === side) delete state.picks[gid];
+    else state.picks[gid] = snapshotPick(g, side);
+    savePicks();
+    document.querySelectorAll(`[data-pickrow="${CSS.escape(gid)}"]`).forEach((el) => { el.outerHTML = pickButtons(g, el.dataset.compact === "1"); });
+    const box = $("#mypick");
+    if (box) box.innerHTML = pickButtons(g, false);
+    if (state.recTab === "mine") renderRecord();
+  }
+  function pickButtons(g, compact) {
+    const p = state.picks[g.id];
+    const locked = gameStarted(g), post = g.status.state === "post";
+    if (compact && !p && locked) return "";
+    const btn = (side, label) => {
+      const on = p && p.side === side;
+      const res = on && p.result ? p.result.r : "";
+      return `<button class="pbtn ${on ? "on" : ""} ${res}" data-pick="${side}" data-pick-game="${esc(g.id)}" ${locked ? "disabled" : ""}>${on ? icon("i-check") : ""}<span>${esc(label)}</span>${res ? `<b>${res === "win" ? "對" : res === "loss" ? "錯" : "平"}</b>` : ""}</button>`;
+    };
+    const tt = (g.tw && g.tw.total) || {};
+    const line = tt.line ?? (g.odds && g.odds.total) ?? null;
+    const sideBtns = btn("away", (compact ? "押 " : "我押 ") + tname(g.away)) + btn("home", (compact ? "押 " : "我押 ") + tname(g.home));
+    const totBtns = !compact && line != null && (!p || p.side === "over" || p.side === "under" || !locked) ? btn("over", "大分 " + line) + btn("under", "小分 " + line) : "";
+    let note = "";
+    if (!compact) {
+      note = post && p ? (p.result ? (p.result.r === "win" ? "你押對了！" : p.result.r === "loss" ? "這場沒中。" : "平手，不算。") : "打完了，等比分進來對答案。")
+        : locked ? (p ? `已開打，鎖定你押的 ${sideLabel(p)}。` : "已開打，不能再選了。")
+          : (p ? `你押 ${sideLabel(p)}，開打前都可以改，再點一次取消。` : "你覺得誰會贏？點一下記下來，打完自動對答案。");
+    }
+    return `<div class="pickrow ${compact ? "compact" : ""}" data-pickrow="${esc(g.id)}" data-compact="${compact ? 1 : 0}"><div class="pick-grid">${sideBtns}${totBtns}</div>${note ? `<div class="pick-note">${esc(note)}</div>` : ""}</div>`;
   }
   const hiddenSportKeys = () => new Set((state.data.sports || []).filter((s) => s.hidden).map((s) => s.key));
   function gamesForSport() {
@@ -148,14 +247,14 @@
     const s = g.suggestion || {};
     const t = talkOf(g);
     const strong = s.pick && s.confidence === "高" && !post;
-    return `<button class="g ${live ? "is-live" : ""} ${post ? "is-post" : ""} ${strong ? "strong" : ""}" data-goto="${esc(g.id)}">
+    return `<div class="g-wrap"><button class="g ${live ? "is-live" : ""} ${post ? "is-post" : ""} ${strong ? "strong" : ""}" data-goto="${esc(g.id)}">
       <div class="g-top"><span>${icon(SPORT_ICON[chipOf(g)] || "i-grid")} <b>${esc(g.league_zh)}</b>${g.round ? " · " + esc(g.round) : ""}</span>${whenText(g)}</div>
       <div class="g-teams">${teamCol(g.away, "away", g)}${midCol(g)}${teamCol(g.home, "home", g)}</div>
       <div class="g-verdict">${verdictPill(g)}</div>
       ${!post ? `<div class="g-why">${esc((t.why || [])[0] || t.verdict)}</div>` : ""}
       ${twLine(g) ? `<div class="g-odds">${twLine(g)}</div>` : ""}
       <div class="g-tap">點一下看詳細 ${icon("i-chev")}</div>
-    </button>`;
+    </button>${pickButtons(g, true)}</div>`;
   }
 
   // ---------- 畫面 ----------
@@ -175,11 +274,27 @@
   }
 
   // ---------- 成績單 ----------
+  function segTabs() {
+    const n = Object.keys(state.picks).length;
+    return `<div class="seg"><button data-rec="site" class="${state.recTab === "site" ? "on" : ""}">網站的建議</button><button data-rec="mine" class="${state.recTab === "mine" ? "on" : ""}">我的預測${n ? ` <span class="n">${n}</span>` : ""}</button></div>`;
+  }
+  function modelBlock(rec) {
+    const m = rec && rec.model;
+    if (!m) return "";
+    const hid = hiddenSportKeys();
+    const o = m.overall || {};
+    const tile = (label, b) => `<div class="stat"><div class="sl">${esc(label)}</div><b>${b.n ? `模型 ${b.model_rate}%　盤口 ${b.mkt_rate}%` : "還沒有"}</b><small>${b.n ? `${b.n} 場 · Brier 模型 ${b.model_brier} / 盤口 ${b.mkt_brier}${b.disagree ? ` · 意見不同 ${b.disagree} 場：模型對 ${b.disagree_model_right}、盤口對 ${b.disagree_mkt_right}` : ""}` : (m.pending ? `${m.pending} 場等結果` : "等比賽打完")}</small></div>`;
+    const leagues = Object.keys(m.by_league || {}).filter((k) => !hid.has(k));
+    return `<div class="grp">純模型 vs 盤口（近 ${m.days} 天，誰說對的場數比較多）</div>
+      <div class="explain">純模型只看兩隊實力評分、主場和傷兵，完全不看賠率；盤口是市場的看法。Brier 分數越低越準，0.25 等於丟銅板。</div>
+      <div class="stat-grid">${tile("全部", o)}${leagues.map((k) => tile((state.data.sports || []).find((s) => s.key === k)?.label || k, m.by_league[k])).join("")}</div>`;
+  }
   function renderRecord() {
     const el = $("#record");
+    if (state.recTab === "mine") { el.innerHTML = segTabs() + renderMine(); return; }
     const rec = state.data.record;
     if (!rec || !rec.settled) {
-      el.innerHTML = `<div class="empty">還沒有對過答案的建議。從 ${esc((rec && rec.since) || "今天")} 開始記，比賽打完就會出現在這裡。${rec && rec.pending ? `目前有 ${rec.pending} 場等結果。` : ""}</div>`;
+      el.innerHTML = segTabs() + `<div class="empty">還沒有對過答案的建議。從 ${esc((rec && rec.since) || "今天")} 開始記，比賽打完就會出現在這裡。${rec && rec.pending ? `目前有 ${rec.pending} 場等結果。` : ""}</div>` + modelBlock(rec);
       return;
     }
     const o = rec.overall;
@@ -207,9 +322,62 @@
       if (totalsMain && r.total_line != null) bits.push(`盤口 ${r.total_line}，打了 ${r.as_ + r.hs} 分`);
       return `<button class="rec" data-goto="${esc(r.id)}"><span class="mark ${cls}">${mark}</span><div><div class="t1">${totalsMain ? "玩 " + esc(r.pick_label) : "押 " + esc(r.pick_label) + " · " + esc(r.play)}${r.confidence ? " · 信心" + esc(r.confidence) : ""}</div><div class="t2">${esc(r.league_zh)} ${esc(r.day_tw.slice(5))} · ${esc(r.away)} 對 ${esc(r.home)}${bits.length ? " · " + bits.join("，") : ""}</div></div><div class="sc">${r.as_}:${r.hs}<small>${r.dec ? "賠 " + Number(r.dec).toFixed(2) : ""}</small></div></button>`;
     }).join("");
-    el.innerHTML = `<div class="explain">每次建議都先記下來，比賽打完對答案，不改分。「跟收盤線比」是看我們推薦時拿到的讓分，比開賽前最後的讓分好還是差。</div>
+    el.innerHTML = segTabs() + `<div class="explain">每次建議都先記下來，比賽打完對答案，不改分。「跟收盤線比」是看我們推薦時拿到的讓分，比開賽前最後的讓分好還是差。</div>
       <div class="stat-grid">${tiles.join("")}</div>${lgRows ? `<div class="grp">各聯盟</div><div class="stat-grid">${lgRows}</div>` : ""}
+      ${modelBlock(rec)}
       <div class="grp">最近對過答案的</div><div class="list">${list || `<div class="empty">這個球種還沒有結算的建議。</div>`}</div>`;
+  }
+  function renderMine() {
+    const hid = hiddenSportKeys();
+    const all = Object.entries(state.picks).map(([id, p]) => ({ id, ...p })).filter((p) => state.sport === "all" ? !hid.has(p.chip) : p.chip === state.sport);
+    const tools = `<div class="tools"><button class="more" data-export>備份（下載檔案）</button><label class="more">匯入備份<input type="file" id="pick-import" accept="application/json,.json" hidden></label>${all.length ? `<button class="more danger" data-clear-picks>清掉全部</button>` : ""}</div>
+      <div class="explain">預測記在這支手機的瀏覽器裡，換手機或清資料會不見，記得偶爾備份。</div>`;
+    if (!all.length) return `<div class="empty">還沒有預測。到「今天」隨便點一場，按「押 某隊」就記下來了，打完會自動對答案。</div>` + tools;
+    const settled = all.filter((p) => p.result && p.result.r !== "push").sort((a, b) => b.start.localeCompare(a.start));
+    const pending = all.filter((p) => !p.result).sort((a, b) => a.start.localeCompare(b.start));
+    const w = settled.filter((p) => p.result.r === "win").length, l = settled.length - w;
+    const rate = settled.length ? Math.round(w / settled.length * 100) : null;
+    // 連中
+    const asc = settled.slice().sort((a, b) => a.start.localeCompare(b.start));
+    let cur = 0, best = 0, run = 0;
+    asc.forEach((p) => { if (p.result.r === "win") { run++; best = Math.max(best, run); } else run = 0; });
+    cur = run;
+    // 每場 100 元
+    const withDec = settled.filter((p) => p.dec);
+    const money = withDec.reduce((acc, p) => acc + (p.result.r === "win" ? (p.dec - 1) * 100 : -100), 0);
+    // 跟網站比
+    const both = settled.filter((p) => p.result.site && p.result.site !== "push");
+    const agree = both.filter((p) => p.side === p.site_pick);
+    const dis = both.filter((p) => p.side !== p.site_pick);
+    const youRight = dis.filter((p) => p.result.r === "win").length, siteRight = dis.filter((p) => p.result.site === "win").length;
+    const agreeHit = agree.filter((p) => p.result.r === "win").length;
+    // 習慣
+    const sides = settled.filter((p) => p.side === "home" || p.side === "away");
+    const homeP = sides.filter((p) => p.side === "home"), awayP = sides.filter((p) => p.side === "away");
+    const hitOf = (lst) => lst.length ? `${lst.filter((p) => p.result.r === "win").length}/${lst.length}` : "–";
+    const favP = sides.filter((p) => p.prob != null && p.prob >= 0.5), dogP = sides.filter((p) => p.prob != null && p.prob < 0.5);
+    const tiles = [
+      `<div class="stat"><div class="sl">對過答案的</div><b>${w} 對 ${l} 錯</b><small>${rate != null ? `命中 ${rate}%` : ""}${pending.length ? ` · 還有 ${pending.length} 場等結果` : ""}</small></div>`,
+      `<div class="stat"><div class="sl">連中</div><b>現在 ${cur} 場</b><small>最長 ${best} 場</small></div>`,
+      `<div class="stat"><div class="sl">如果每場下 100 元</div><b class="${money >= 0 ? "good" : "bad"}">${money >= 0 ? "+" : ""}${Math.round(money)} 元</b><small>${withDec.length ? `照你押的時候的賠率算，${withDec.length} 場` : "要有賠率才算得出來"}</small></div>`,
+      `<div class="stat"><div class="sl">跟網站意見不同時</div><b>你對 ${youRight}　網站對 ${siteRight}</b><small>${dis.length ? `${dis.length} 場意見不同` : "還沒有意見不同的場次"}${agree.length ? ` · 一致的 ${agree.length} 場中 ${agreeHit}` : ""}</small></div>`,
+      `<div class="stat"><div class="sl">押主隊 / 押客隊</div><b>${hitOf(homeP)} / ${hitOf(awayP)}</b><small>你押主隊 ${homeP.length} 次、客隊 ${awayP.length} 次</small></div>`,
+      `<div class="stat"><div class="sl">押熱門 / 押冷門</div><b>${hitOf(favP)} / ${hitOf(dogP)}</b><small>熱門是盤口看好那隊</small></div>`,
+    ];
+    const byLg = {};
+    settled.forEach((p) => { (byLg[p.league_zh] = byLg[p.league_zh] || []).push(p); });
+    const lgRows = Object.entries(byLg).map(([k, lst]) => `<div class="stat"><div class="sl">${esc(k)}</div><b>${hitOf(lst)}</b><small>命中 ${Math.round(lst.filter((p) => p.result.r === "win").length / lst.length * 100)}%</small></div>`).join("");
+    const row = (p, kind) => {
+      const r = p.result;
+      const cls = !r ? "push" : r.r === "win" ? "win" : r.r === "loss" ? "loss" : "push";
+      const mark = !r ? "等" : r.r === "win" ? "對" : r.r === "loss" ? "錯" : "平";
+      const site = p.site_label ? `網站${p.site_play === "大小分" ? "玩" : "押"} ${esc(p.site_label)}${r && r.site ? (r.site === "win" ? " 對" : r.site === "loss" ? " 錯" : " 平") : ""}` : "網站沒建議";
+      return `<button class="rec" data-goto="${esc(p.id)}"><span class="mark ${cls}">${mark}</span><div><div class="t1">你押 ${esc(sideLabel(p))}${p.dec ? ` <small>賠 ${Number(p.dec).toFixed(2)}</small>` : ""}</div><div class="t2">${esc(p.league_zh)} ${esc(p.day_tw.slice(5))} ${esc(p.time_tw)} · ${esc(p.away)} 對 ${esc(p.home)} · ${site}</div></div><div class="sc">${r ? `${r.as}:${r.hs}` : (kind === "pending" && Date.parse(p.start) > Date.now() ? "還沒打" : "等比分")}</div></button>`;
+    };
+    return `<div class="stat-grid">${tiles.join("")}</div>${lgRows ? `<div class="grp">各聯盟</div><div class="stat-grid">${lgRows}</div>` : ""}
+      ${pending.length ? `<div class="grp">等結果的（${pending.length}）</div><div class="list">${pending.slice(0, 20).map((p) => row(p, "pending")).join("")}</div>` : ""}
+      ${settled.length ? `<div class="grp">對過答案的</div><div class="list">${settled.slice(0, 40).map((p) => row(p, "done")).join("")}</div>` : ""}
+      ${tools}`;
   }
 
   function renderChips() {
@@ -422,6 +590,7 @@
         <div class="g-top"><span></span>${whenText(g)}</div>
         <div class="g-teams">${teamCol(g.away, "away", g)}${midCol(g)}${teamCol(g.home, "home", g)}</div>
         <div class="verdict ${wait ? "wait" : ""}">${esc(t.verdict)}${g.status.state === "pre" ? `<small>${esc(dayLabel(g.day_tw).name)} ${esc(g.time_tw)} 開打${g.venue ? " · " + esc(g.venue) : ""}</small>` : ""}</div>
+        <div class="h">${icon("i-star")}你的預測</div><div id="mypick">${pickButtons(g, false)}</div>
         ${t.why && t.why.length ? `<div class="h">${icon("i-check")}為什麼</div>${pts(t.why, "plus", "i-check")}` : ""}
         ${t.care && t.care.length ? `<div class="h">${icon("i-warn")}要小心</div>${pts(t.care, "minus", "i-warn")}` : ""}
         <div class="h">${icon("i-star")}台灣運彩賠率</div>${twTiles(g)}
@@ -465,6 +634,12 @@
     if (e.target.closest("[data-more-sports]")) { state.showMore = !state.showMore; renderChips(); return; }
     const chip = e.target.closest(".chip");
     if (chip) { state.sport = chip.dataset.sport; localStorage.setItem("sport", state.sport); render(); return; }
+    const pb = e.target.closest("[data-pick]");
+    if (pb) { setPick(pb.dataset.pickGame, pb.dataset.pick); return; }
+    const rt = e.target.closest("[data-rec]");
+    if (rt) { state.recTab = rt.dataset.rec; renderRecord(); return; }
+    if (e.target.closest("[data-export]")) { exportPicks(); return; }
+    if (e.target.closest("[data-clear-picks]")) { if (confirm("確定要清掉全部預測紀錄？建議先備份。")) { state.picks = {}; savePicks(); renderRecord(); renderGames(); renderPicks(); } return; }
     const go = e.target.closest("[data-goto]");
     if (go) { openSheet(go.dataset.goto); return; }
     const more = e.target.closest("[data-more]");
@@ -475,7 +650,30 @@
   document.addEventListener("keydown", (e) => { if (e.key === "Escape" && state.detail) closeSheet(false); });
   document.addEventListener("change", (e) => {
     if (e.target.id === "st-sel") { state.standingsLeague = e.target.value; localStorage.setItem("standingsLeague", e.target.value); renderStandings(); }
+    if (e.target.id === "pick-import" && e.target.files && e.target.files[0]) importPicks(e.target.files[0]);
   });
+  function exportPicks() {
+    const blob = new Blob([JSON.stringify({ version: 1, exported: new Date().toISOString(), picks: state.picks }, null, 1)], { type: "application/json" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = `我的預測-${todayTW()}.json`;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+  }
+  function importPicks(file) {
+    const rd = new FileReader();
+    rd.onload = () => {
+      try {
+        const d = JSON.parse(rd.result);
+        const picks = d && d.picks && typeof d.picks === "object" ? d.picks : (d && typeof d === "object" ? d : {});
+        let n = 0;
+        for (const [id, p] of Object.entries(picks)) { if (p && p.side && p.start && !state.picks[id]) { state.picks[id] = p; n++; } }
+        savePicks(); settlePicks(); renderRecord(); renderGames(); renderPicks();
+        alert(`匯入了 ${n} 筆。`);
+      } catch (err) { alert("這個檔案讀不出來：" + err.message); }
+    };
+    rd.readAsText(file);
+  }
   $("#btn-refresh").addEventListener("click", () => load());
   $("#btn-theme").addEventListener("click", () => {
     const cur = document.documentElement.dataset.theme === "light" ? "dark" : "light";
