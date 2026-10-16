@@ -11,4 +11,4 @@ jobs:
         with:
           python-version: "3.12"
       - run: pip install -r pipeline/requirements.txt
-      - run: python pipeline/jpprobe.py
+      - run: python pipeline/liveprobe.py
