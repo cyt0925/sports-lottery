@@ -18,6 +18,7 @@ MIN_PARLAY_DEC = 1.80  # 押 100 元至少要拿回 180 元
 KEEP_GAP = 0.03        # 原本的組合只差一點點就不換，免得一直變
 VOID_AFTER_H = 36      # 開打 36 小時還沒有比分，當取消算（賠率 1）
 KEEP_DAYS = 60
+VERSION = 2            # 估法改了就加 1：還沒鎖定的舊推薦直接重挑
 TOTAL_TRUST = 0.5      # 大小分：我們算的總分跟盤口的差距只信一半
 LINE_P_CAP = 0.70      # 讓分、大小分本來就接近五五波，再有把握也不超過七成
 TOTALS_PROVE_N = 20    # 網站的大小分建議至少對過 20 場、命中 55% 以上，才拿來串
@@ -258,6 +259,9 @@ def track(hist, games, now, hidden=()):
     P = hist.setdefault("parlays", [])
     byid = {g["id"]: g for g in games}
     cur = P[-1] if P and "res" not in P[-1] else None
+    if cur and not cur.get("locked") and cur.get("v") != VERSION and not _locked(cur, byid, now):
+        P.pop()
+        cur = None
     if cur and (cur.get("locked") or _locked(cur, byid, now)):
         cur["locked"] = True
         if not _settle(cur, hist, byid, now):
@@ -269,7 +273,7 @@ def track(hist, games, now, hidden=()):
     elif cur and rec:
         cur.update(rec, updated=now.isoformat(timespec="minutes"))
     elif rec:
-        P.append(dict(id=now.strftime("%Y%m%d%H%M"), made=now.isoformat(timespec="minutes"),
+        P.append(dict(id=now.strftime("%Y%m%d%H%M"), v=VERSION, made=now.isoformat(timespec="minutes"),
                       updated=now.isoformat(timespec="minutes"), locked=False, **rec))
     cutoff = (now - timedelta(days=KEEP_DAYS)).strftime("%Y%m%d")
     hist["parlays"] = [e for e in P if e["id"][:8] >= cutoff]

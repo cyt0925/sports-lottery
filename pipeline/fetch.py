@@ -1039,8 +1039,8 @@ def build_suggestion(g, lg):
     else:
         hi, mid = 0.66, 0.56
     adj = pf + score * 0.05
-    # 網站估的勝率（盤口＋傷兵、近況等調整），串關算機率用
-    res["fav"], res["p_est"] = fav, round(min(0.97, max(0.03, adj)), 3)
+    # 網站估的勝率，串關算機率用：以盤口為主，網站的調整（傷兵、近況…）還沒證明準不準，只算一半、最多加減 5%
+    res["fav"], res["p_est"] = fav, round(min(0.97, max(0.03, pf + max(-0.05, min(0.05, score * 0.025)))), 3)
     if adj >= hi and score >= 0:
         conf = "高"
     elif adj >= mid:
