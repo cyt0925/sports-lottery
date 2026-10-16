@@ -14,7 +14,7 @@ import time
 from datetime import datetime, timedelta, timezone
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from taiwan_odds import fetch_livescore_ids, TW  # noqa: E402
+from taiwan_odds import fetch_livescore_ids, TW, fetch, parse_scale_page, attach_taiwan_odds, BASE  # noqa: E402
 from playsport import _state_for  # noqa: E402
 
 UTC = timezone.utc
@@ -85,6 +85,51 @@ def sv_scores(now):
     return res
 
 
+def refresh_odds(now):
+    """台灣運彩的線：開打前的比賽重新抓一次（NBA、歐洲籃球、日本籃球）。台灣運彩通常比賽前一天下午才開盤。"""
+    import copy
+    try:
+        d = json.load(open(os.path.join(ROOT, "data", "today.json"), encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}
+    games = []
+    for g in d.get("games") or []:
+        st = _dt(g.get("start"))
+        if g["status"]["state"] == "pre" and st and now - timedelta(minutes=10) <= st <= now + timedelta(hours=40):
+            games.append(g)
+    out = {}
+    # 玩運彩當主幹的聯盟：直接用 gameid 對
+    for key, aid in ALLIANCE.items():
+        want = {g["id"] for g in games if g["league"] == key}
+        for day in sorted({g["day_tw"].replace("-", "") for g in games if g["league"] == key}):
+            text = fetch(f"{BASE}/predict/scale?allianceid={aid}&gametime={day}")
+            if not text:
+                continue
+            try:
+                rows = parse_scale_page(text)
+            except Exception as e:  # noqa: BLE001
+                log(f"{key} {day} 盤口解析失敗：{e!r}")
+                continue
+            for r in rows:
+                gid = f"ps{r.get('gameid')}"
+                if gid in want and (r.get("ml") or r.get("spread") or r.get("total")):
+                    out[gid] = dict(ml=r.get("ml"), spread=r.get("spread"), total=r.get("total"))
+    # NBA：跟 ESPN 的比賽配對（沿用主程式的配對規則）
+    nba = [copy.deepcopy(g) for g in games if g["league"] == "nba"]
+    for g in nba:
+        g.pop("tw", None)
+    if nba:
+        try:
+            attach_taiwan_odds(nba, [], lambda *_: None)
+        except Exception as e:  # noqa: BLE001
+            log(f"NBA 台灣盤口失敗：{e!r}")
+        for g in nba:
+            tw = g.get("tw") or {}
+            if tw.get("ml") or tw.get("spread") or tw.get("total"):
+                out[g["id"]] = dict(ml=tw.get("ml"), spread=tw.get("spread"), total=tw.get("total"))
+    return out
+
+
 def git(*args, inp=None):
     env = dict(os.environ, GIT_AUTHOR_NAME="github-actions[bot]", GIT_AUTHOR_EMAIL="41898282+github-actions[bot]@users.noreply.github.com",
                GIT_COMMITTER_NAME="github-actions[bot]", GIT_COMMITTER_EMAIL="41898282+github-actions[bot]@users.noreply.github.com")
@@ -118,10 +163,31 @@ def main():
     last = None
     loops = 0
     scores = {}
+    t0 = datetime.now(UTC)
+    try:
+        odds = refresh_odds(t0)
+    except Exception as e:  # noqa: BLE001
+        log(f"台灣盤口更新失敗：{e!r}")
+        odds = {}
+    odds_at = t0.astimezone(TW).isoformat(timespec="minutes")
+    n_tw = sum(1 for v in odds.values() if v.get("spread") or v.get("total"))
+    log(f"台灣盤口：{len(odds)} 場有盤，其中 {n_tw} 場有讓分或大小")
+
+    def payload(games, now):
+        return json.dumps(dict(updated=now.astimezone(TW).isoformat(timespec="seconds"), games=games, odds=odds, odds_at=odds_at),
+                          ensure_ascii=False, separators=(",", ":"))
     while True:
         now = datetime.now(UTC)
         tg = targets(now)
         if not tg:
+            if odds and loops == 0 and not args.dry:
+                try:
+                    push(payload({}, now))
+                    log("沒有比賽在打，只更新台灣盤口。")
+                except Exception as e:  # noqa: BLE001
+                    log(f"推送失敗：{e!r}")
+            elif args.dry:
+                log(payload({}, now)[:800])
             log("沒有正在打或快開打的比賽，結束。")
             break
         try:
@@ -134,13 +200,13 @@ def main():
         want = {t["id"] for t in tg}
         games = {k: v for k, v in scores.items() if k in want}
         body = json.dumps(games, ensure_ascii=False, sort_keys=True)
-        if body != last and games:
-            payload = json.dumps(dict(updated=now.astimezone(TW).isoformat(timespec="seconds"), games=games), ensure_ascii=False, separators=(",", ":"))
+        if body != last and (games or loops == 0):
+            pl = payload(games, now)
             if args.dry:
-                log(payload[:600])
+                log(pl[:600])
             else:
                 try:
-                    push(payload)
+                    push(pl)
                     log(f"{now.astimezone(TW):%H:%M:%S} 更新 {len(games)} 場：" + "；".join(f"{k} {v['a']}:{v['h']} {v['d']}" for k, v in list(games.items())[:4]))
                 except Exception as e:  # noqa: BLE001
                     log(f"推送失敗：{e!r}")

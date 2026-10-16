@@ -351,7 +351,7 @@ def build_story(g, sport):
     # 大小分
     tot = s.get("totals")
     if tot and tot.get("lean") in ("大", "小"):
-        how = "照兩隊得分和失分算，這場大概" if tot.get("method") == "評分" else "兩隊最近一場平均"
+        how = "照兩隊得分和失分算，這場大概" if tot.get("method") == "評分" else "兩隊最近 5 場平均總分"
         line_ = tot.get("line_tw") if tot.get("line_tw") is not None else tot.get("line")
         lead = "" if tot.get("main") else f"大小分看「{tot['lean']}」："
         why.insert(0 if tot.get("main") else len(why), f"{lead}{how} {tot['expected']:.0f} 分，盤口 {line_:g}，差了 {abs(tot['expected'] - line_):.0f} 分。")

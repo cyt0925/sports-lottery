@@ -281,3 +281,10 @@ body[data-view="today"] .view[data-for="today"],body[data-view="injuries"] .view
 .badge.limited{background:var(--warn-wash);color:var(--warn);border:1px dashed var(--warn)}
 .pts li.info svg{transform:rotate(-90deg);color:var(--violet-2)}
 .g-mid.is-live .score{color:var(--bad)}
+/* 你的預測：分玩法、標清楚盤口來源 */
+.pick-label{font-weight:800;font-size:.95rem;color:var(--ink-2);margin:12px 0 8px;display:flex;align-items:center;gap:8px}
+.pick-label:first-child{margin-top:0}
+.pick-label .src{font-size:.78rem;font-weight:700;padding:2px 8px;border-radius:999px}
+.pick-label .src.tw{background:var(--good-wash);color:var(--good)}
+.pick-label .src.intl{background:var(--warn-wash);color:var(--warn)}
+.pick-note.warn{color:var(--warn);font-size:.9rem}

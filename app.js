@@ -151,8 +151,30 @@
       if (r.status === 403 || r.status === 429) { live.useRaw = true; return {}; }
       if (!r.ok) return {};
       const js = await r.json();
+      if (js.odds && js.odds_at) applyOdds(js.odds, js.odds_at);
       return js.games || {};
     } catch (_) { return {}; }
+  }
+  function applyOdds(odds, at) {
+    let changed = false;
+    (state.data.games || []).forEach((g) => {
+      const x = odds[g.id];
+      if (!x || g.status.state !== "pre") return;
+      const cur = (g.tw && g.tw.updated) || "";
+      if (cur && cur >= at) return;
+      g.tw = Object.assign({}, g.tw || { source: "玩運彩" }, { ml: x.ml || (g.tw || {}).ml, spread: x.spread || (g.tw || {}).spread, total: x.total || (g.tw || {}).total, updated: at });
+      changed = true;
+    });
+    live.odds = { odds, at };
+    if (changed) {
+      renderKeepScroll(() => { renderPicks(); renderGames(); });
+      if (state.detail) renderSheetKeep();
+    }
+  }
+  function renderSheetKeep() {
+    const sh = $("#sheet"), top = sh.scrollTop;
+    renderSheet();
+    sh.scrollTop = top;
   }
   function applyLive(g, u) {
     const before = g.status.state + "|" + g.status.detail + "|" + g.home.score + "|" + g.away.score;
@@ -220,10 +242,25 @@
       }
     } finally { live.busy = false; }
   }
+  async function oddsTick() {
+    // 沒有比賽在打的時候，也每 10 分鐘去看一次台灣運彩有沒有新的線
+    if (!state.data || live.busy || document.hidden || Date.now() - live.fileAt < 10 * 60000) return;
+    live.busy = true;
+    try {
+      live.fileAt = Date.now();
+      useUpdates(await pollFile(), Date.now());
+    } finally { live.busy = false; }
+  }
   function reapplyLive() {
-    // 背景重新載入的資料比即時比分舊，把剛剛抓到的比分蓋回去
+    // 背景重新載入的資料比即時比分舊，把剛剛抓到的比分、台灣盤口蓋回去
     const gen = (state.data.generated_ts || 0) * 1000;
     (state.data.games || []).forEach((g) => { const x = live.last[g.id]; if (x && x.at > gen) applyLive(g, x.u); });
+    if (live.odds) {
+      (state.data.games || []).forEach((g) => {
+        const x = live.odds.odds[g.id];
+        if (x && g.status.state === "pre" && (!g.tw || !g.tw.updated || g.tw.updated < live.odds.at)) g.tw = Object.assign({}, g.tw || { source: "玩運彩" }, { ml: x.ml || (g.tw || {}).ml, spread: x.spread || (g.tw || {}).spread, total: x.total || (g.tw || {}).total, updated: live.odds.at });
+      });
+    }
   }
 
   // ---------- 爸爸的預測（存在這支手機的瀏覽器裡） ----------
@@ -232,30 +269,58 @@
   function savePicks() { try { localStorage.setItem(PICK_KEY, JSON.stringify(state.picks)); } catch (_) { /* ignore */ } }
   state.picks = loadPicks();
   const gameStarted = (g) => g.status.state !== "pre" || (Date.parse(g.start) || 0) <= Date.now();
-  const sideLabel = (p) => p.side === "home" ? p.home : p.side === "away" ? p.away : p.side === "over" ? "大分" : "小分";
+  const fmtLine = (v) => (v > 0 ? "+" : v < 0 ? "−" : "") + Math.abs(v);
+  function lineOf(p) {
+    if (p.side === "ats_home") return p.spread_home;
+    if (p.side === "ats_away") return p.spread_home == null ? null : -p.spread_home;
+    return null;
+  }
+  const sideLabel = (p) => p.side === "home" ? p.home : p.side === "away" ? p.away
+    : p.side === "ats_home" ? `${p.home} ${fmtLine(lineOf(p))}` : p.side === "ats_away" ? `${p.away} ${fmtLine(lineOf(p))}`
+      : (p.side === "over" ? "大分" : "小分") + (p.total != null ? " " + p.total : "");
+  function marketOf(g) {
+    // 台灣運彩有開就用台灣運彩的線，沒有就先用國際盤
+    const o = g.odds || {}, tw = g.tw || {}, sp = tw.spread || {}, tt = tw.total || {};
+    const twSpread = sp.line_home != null, twTotal = tt.line != null;
+    return {
+      spread: twSpread ? sp.line_home : (o.spread ?? null), spreadTw: twSpread,
+      total: twTotal ? tt.line : (o.total ?? null), totalTw: twTotal,
+      mlTw: !!(tw.ml && (tw.ml.home || tw.ml.away)),
+    };
+  }
   function snapshotPick(g, side) {
     const o = g.odds || {}, tw = g.tw || {}, ml = tw.ml || {}, sp = tw.spread || {}, tt = tw.total || {}, s = g.suggestion || {};
+    const mk = marketOf(g);
     const isSide = side === "home" || side === "away";
-    const dec = isSide ? (ml[side] || o["dec_" + side] || null) : ((side === "over" ? tt.over : tt.under) || null);
+    const isAts = side === "ats_home" || side === "ats_away";
+    const dec = isSide ? (ml[side] || o["dec_" + side] || null)
+      : isAts ? ((mk.spreadTw ? (side === "ats_home" ? sp.home : sp.away) : null) || null)
+        : ((mk.totalTw ? (side === "over" ? tt.over : tt.under) : null) || null);
     return {
       side, at: new Date().toISOString(), start: g.start, day_tw: g.day_tw, time_tw: g.time_tw, league: g.league, league_zh: g.league_zh, chip: chipOf(g),
       home: tname(g.home), away: tname(g.away), dec, prob: isSide && o.prob_source !== "form" ? (o["prob_" + side] ?? null) : null,
-      spread_home: sp.line_home ?? o.spread ?? null, total: tt.line ?? o.total ?? null,
+      spread_home: mk.spread, total: mk.total, line_src: (isAts ? mk.spreadTw : side === "over" || side === "under" ? mk.totalTw : mk.mlTw) ? "台灣運彩" : "國際盤",
       site_pick: s.pick || null, site_label: s.pick_label || null, site_play: s.play || null, site_conf: s.confidence || null,
       model_pick: (s.model && s.model.pick) || null,
     };
   }
-  function judge(side, hs, as, total) {
+  function judge(side, hs, as, total, spreadHome) {
     if (side === "home" || side === "away") return hs === as ? "push" : ((hs > as) === (side === "home") ? "win" : "loss");
+    if (side === "ats_home" || side === "ats_away") {
+      if (spreadHome == null) return null;
+      const v = (hs - as) + spreadHome;          // 主隊加上讓分之後贏幾分
+      if (v === 0) return "push";
+      return (v > 0) === (side === "ats_home") ? "win" : "loss";
+    }
     if (total == null) return null;
     const t = hs + as;
     return t === total ? "push" : ((t > total) === (side === "over") ? "win" : "loss");
   }
   function settleOne(p, hs, as) {
     if (!Number.isFinite(hs) || !Number.isFinite(as)) return null;
-    const r = judge(p.side, hs, as, p.total);
+    const r = judge(p.side, hs, as, p.total, p.spread_home);
     if (!r) return null;
-    return { hs, as, r, site: p.site_pick ? judge(p.site_pick, hs, as, p.total) : null, model: p.model_pick ? judge(p.model_pick, hs, as, null) : null, settled_at: new Date().toISOString() };
+    return { hs, as, r, site: p.site_pick ? judge(p.site_pick, hs, as, p.total, p.spread_home) : null, model: p.model_pick ? judge(p.model_pick, hs, as, null) : null, settled_at: new Date().toISOString() };
   }
   function settlePicks() {
     let changed = false;
@@ -302,18 +367,33 @@
       const res = on && p.result ? p.result.r : "";
       return `<button class="pbtn ${on ? "on" : ""} ${res}" data-pick="${side}" data-pick-game="${esc(g.id)}" ${locked ? "disabled" : ""}>${on ? icon("i-check") : ""}<span>${esc(label)}</span>${res ? `<b>${res === "win" ? "對" : res === "loss" ? "錯" : "平"}</b>` : ""}</button>`;
     };
-    const tt = (g.tw && g.tw.total) || {};
-    const line = tt.line ?? (g.odds && g.odds.total) ?? null;
-    const sideBtns = btn("away", (compact ? "押 " : "我押 ") + tname(g.away)) + btn("home", (compact ? "押 " : "我押 ") + tname(g.home));
-    const totBtns = !compact && line != null && (!p || p.side === "over" || p.side === "under" || !locked) ? btn("over", "大分 " + line) + btn("under", "小分 " + line) : "";
-    let note = "";
-    if (!compact) {
-      note = post && p ? (p.result ? (p.result.r === "win" ? "你押對了！" : p.result.r === "loss" ? "這場沒中。" : "平手，不算。") : "打完了，等比分進來對答案。")
-        : locked ? (p ? `已開打，鎖定你押的 ${sideLabel(p)}。` : "已開打，不能再選了。")
-          : (p ? `你押 ${sideLabel(p)}，開打前都可以改，再點一次取消。` : "你覺得誰會贏？點一下記下來，打完自動對答案。");
+    const A = tname(g.away), H = tname(g.home);
+    if (compact) {
+      // 卡片上只放押誰贏；押了讓分或大小分的，卡片上顯示那一個
+      const extra = p && p.side !== "home" && p.side !== "away" ? `<div class="pick-note">你押 ${esc(sideLabel(p))}${p.result ? (p.result.r === "win" ? "，對了" : p.result.r === "loss" ? "，沒中" : "，平手") : ""}</div>` : "";
+      return `<div class="pickrow compact" data-pickrow="${esc(g.id)}" data-compact="1"><div class="pick-grid">${btn("away", "押 " + A)}${btn("home", "押 " + H)}</div>${extra}</div>`;
     }
-    return `<div class="pickrow ${compact ? "compact" : ""}" data-pickrow="${esc(g.id)}" data-compact="${compact ? 1 : 0}"><div class="pick-grid">${sideBtns}${totBtns}</div>${note ? `<div class="pick-note">${esc(note)}</div>` : ""}</div>`;
+    const mk = marketOf(g);
+    const tag = (tw) => `<small class="src ${tw ? "tw" : "intl"}">${tw ? "台灣運彩" : "國際盤"}</small>`;
+    const rows = [];
+    rows.push(`<div class="pick-label">誰會贏（不讓分）</div><div class="pick-grid">${btn("away", "我押 " + A)}${btn("home", "我押 " + H)}</div>`);
+    const showP = (sides) => !locked || (p && sides.includes(p.side));
+    if (mk.spread != null && showP(["ats_home", "ats_away"])) {
+      rows.push(`<div class="pick-label">讓分 ${tag(mk.spreadTw)}</div><div class="pick-grid">${btn("ats_away", `${A} ${fmtLine(-mk.spread)}`)}${btn("ats_home", `${H} ${fmtLine(mk.spread)}`)}</div>`);
+    }
+    if (mk.total != null && showP(["over", "under"])) {
+      rows.push(`<div class="pick-label">大小分 ${tag(mk.totalTw)}</div><div class="pick-grid">${btn("over", "大分 " + mk.total)}${btn("under", "小分 " + mk.total)}</div>`);
+    }
+    let note;
+    if (post && p) note = p.result ? (p.result.r === "win" ? "你押對了！" : p.result.r === "loss" ? "這場沒中。" : "平手，不算。") : "打完了，等比分進來對答案。";
+    else if (locked) note = p ? `已開打，鎖定你押的 ${sideLabel(p)}。` : "已開打，不能再選了。";
+    else if (p) note = `你押 ${sideLabel(p)}${p.line_src === "國際盤" && p.side !== "home" && p.side !== "away" ? "（用國際盤的線）" : ""}，開打前都可以改，再點一次取消。`;
+    else note = "你覺得誰會贏？點一下記下來，打完自動對答案。";
+    const intlNote = !locked && ((mk.spread != null && !mk.spreadTw) || (mk.total != null && !mk.totalTw))
+      ? `<div class="pick-note warn">台灣運彩還沒開這場的讓分或大小，先用國際盤的線；台灣運彩開了會自動換成台灣的線（大概 20 分鐘內）。</div>` : "";
+    return `<div class="pickrow" data-pickrow="${esc(g.id)}" data-compact="0">${rows.join("")}<div class="pick-note">${esc(note)}</div>${intlNote}</div>`;
   }
+
   const hiddenSportKeys = () => new Set((state.data.sports || []).filter((s) => s.hidden).map((s) => s.key));
   function gamesForSport() {
     const g = state.data.games || [];
@@ -493,6 +573,7 @@
     const homeP = sides.filter((p) => p.side === "home"), awayP = sides.filter((p) => p.side === "away");
     const hitOf = (lst) => lst.length ? `${lst.filter((p) => p.result.r === "win").length}/${lst.length}` : "–";
     const favP = sides.filter((p) => p.prob != null && p.prob >= 0.5), dogP = sides.filter((p) => p.prob != null && p.prob < 0.5);
+    const atsP = settled.filter((p) => p.side === "ats_home" || p.side === "ats_away"), ouP = settled.filter((p) => p.side === "over" || p.side === "under");
     const tiles = [
       `<div class="stat"><div class="sl">對過答案的</div><b>${w} 對 ${l} 錯</b><small>${rate != null ? `命中 ${rate}%` : ""}${pending.length ? ` · 還有 ${pending.length} 場等結果` : ""}</small></div>`,
       `<div class="stat"><div class="sl">連中</div><b>現在 ${cur} 場</b><small>最長 ${best} 場</small></div>`,
@@ -500,6 +581,7 @@
       `<div class="stat"><div class="sl">跟網站意見不同時</div><b>你對 ${youRight}　網站對 ${siteRight}</b><small>${dis.length ? `${dis.length} 場意見不同` : "還沒有意見不同的場次"}${agree.length ? ` · 一致的 ${agree.length} 場中 ${agreeHit}` : ""}</small></div>`,
       `<div class="stat"><div class="sl">押主隊 / 押客隊</div><b>${hitOf(homeP)} / ${hitOf(awayP)}</b><small>你押主隊 ${homeP.length} 次、客隊 ${awayP.length} 次</small></div>`,
       `<div class="stat"><div class="sl">押熱門 / 押冷門</div><b>${hitOf(favP)} / ${hitOf(dogP)}</b><small>熱門是盤口看好那隊</small></div>`,
+      `<div class="stat"><div class="sl">不讓分 / 讓分 / 大小分</div><b>${hitOf(sides)} / ${hitOf(atsP)} / ${hitOf(ouP)}</b><small>你哪一種玩法比較準</small></div>`,
     ];
     const byLg = {};
     settled.forEach((p) => { (byLg[p.league_zh] = byLg[p.league_zh] || []).push(p); });
@@ -509,7 +591,7 @@
       const cls = !r ? "push" : r.r === "win" ? "win" : r.r === "loss" ? "loss" : "push";
       const mark = !r ? "等" : r.r === "win" ? "對" : r.r === "loss" ? "錯" : "平";
       const site = p.site_label ? `網站${p.site_play === "大小分" ? "玩" : "押"} ${esc(p.site_label)}${r && r.site ? (r.site === "win" ? " 對" : r.site === "loss" ? " 錯" : " 平") : ""}` : "網站沒建議";
-      return `<button class="rec" data-goto="${esc(p.id)}"><span class="mark ${cls}">${mark}</span><div><div class="t1">你押 ${esc(sideLabel(p))}${p.dec ? ` <small>賠 ${Number(p.dec).toFixed(2)}</small>` : ""}</div><div class="t2">${esc(p.league_zh)} ${esc(p.day_tw.slice(5))} ${esc(p.time_tw)} · ${esc(p.away)} 對 ${esc(p.home)} · ${site}</div></div><div class="sc">${r ? `${r.as}:${r.hs}` : (kind === "pending" && Date.parse(p.start) > Date.now() ? "還沒打" : "等比分")}</div></button>`;
+      return `<button class="rec" data-goto="${esc(p.id)}"><span class="mark ${cls}">${mark}</span><div><div class="t1">你押 ${esc(sideLabel(p))}${p.dec ? ` <small>賠 ${Number(p.dec).toFixed(2)}</small>` : ""}${p.line_src === "國際盤" && p.side !== "home" && p.side !== "away" ? ` <small>國際盤的線</small>` : ""}</div><div class="t2">${esc(p.league_zh)} ${esc(p.day_tw.slice(5))} ${esc(p.time_tw)} · ${esc(p.away)} 對 ${esc(p.home)} · ${site}</div></div><div class="sc">${r ? `${r.as}:${r.hs}` : (kind === "pending" && Date.parse(p.start) > Date.now() ? "還沒打" : "等比分")}</div></button>`;
     };
     return `<div class="stat-grid">${tiles.join("")}</div>${lgRows ? `<div class="grp">各聯盟</div><div class="stat-grid">${lgRows}</div>` : ""}
       ${pending.length ? `<div class="grp">等結果的（${pending.length}）</div><div class="list">${pending.slice(0, 20).map((p) => row(p, "pending")).join("")}</div>` : ""}
@@ -825,7 +907,8 @@
     if (saved) { document.documentElement.dataset.theme = saved; $("#btn-theme").innerHTML = icon(saved === "light" ? "i-moon" : "i-sun"); }
   } catch (_) { /* ignore */ }
 
-  load().then(() => liveTick());
+  load().then(() => { liveTick(); live.fileAt = 0; oddsTick(); });
+  setInterval(oddsTick, 60000);
   setInterval(() => load({ silent: true }), 5 * 60 * 1000);
   setInterval(liveTick, 10000);
   document.addEventListener("visibilitychange", () => { if (!document.hidden) liveTick(); });
