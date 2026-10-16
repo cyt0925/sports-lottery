@@ -29,7 +29,16 @@ OUT_RE = re.compile(
     r"\b(won't play|will not play|won't suit up|will not suit up|won't be available|will not be available|isn't expected to play|"
     r"is not expected to play|not expected to play|has been ruled out|ruled out|is out\b|will be out|will sit|sit out|sitting out|"
     r"will miss|is set to miss|won't dress|won't travel|didn't travel|did not travel|will rest|is resting|out for|"
-    r"didn't play|did not play|sat out|missed)\b", re.I)
+    r"didn't play|did not play|sat out|missed|listed as inactive|is inactive|will be inactive|inactive for|healthy scratch|"
+    r"will be a scratch|is a scratch|won't be in uniform|not in uniform)\b", re.I)
+# 長期缺陣：整季報銷、要休好幾週，先看這個（裡面的「星期三」通常是開刀那天，不是比賽）
+SEASON_RE = re.compile(r"(entire(?:ty of the)? (?:\d{4}-\d{2} )?(?:regular )?season|season-ending|out for the (?:season|year)|"
+                       r"(?:rest|remainder) of the (?:\d{4}-\d{2} )?season)", re.I)
+WEEKS_RE = re.compile(r"\b(?:miss|out|sidelined|shelved|recovery|timeline|reevaluated|re-evaluated)\b[^.]{0,40}?"
+                      r"\b(\d+|two|three|four|five|six|eight|several|multiple|a few)(?:\s*(?:-|to)\s*(?:\d+|three|four|five|six|eight|ten))?\s+(weeks|months)\b"
+                      r"|\bindefinitely\b", re.I)
+WD_SKIP_BEFORE = re.compile(r"(surgery|procedure|mri|exam|evaluat|practic|participat|underwent|injured|hurt|suffered|sustained|tweaked|aggravated|left|exited)[^.]{0,25}$", re.I)
+WD_SKIP_AFTER = re.compile(r"^(?:'s)?\s*(practice|shootaround|session|workout|morning|night's practice)", re.I)
 IN_RE = re.compile(
     r"\b(will play|is available|will be available|expected to play|is expected to play|cleared to play|has been cleared|will return|"
     r"set to return|will make his (?:season )?debut|will be in the lineup|will start|is starting|plans to play|intends to play|"
@@ -44,8 +53,10 @@ PROB_RE = re.compile(r"\bprobable\b", re.I)
 REST_RE = re.compile(r"\((?:rest|load management|injury management|injury maintenance)\)|\bload management\b|\bresting\b|\bwill rest\b", re.I)
 OPP_RE = re.compile(r"\b(?:against|vs\.?|versus|facing|hosting|host)\s+(?:the\s+)?([A-Z][A-Za-z0-9.'-]+(?:\s+[A-Z][A-Za-z0-9.'-]+)?)")
 
-REASON_ZH = {"rest": "輪休", "knee": "膝蓋", "ankle": "腳踝", "back": "背", "hamstring": "大腿後側", "calf": "小腿", "foot": "腳",
-             "illness": "生病", "personal": "私人因素", "shoulder": "肩膀", "hip": "髖部", "groin": "鼠蹊", "wrist": "手腕",
+REASON_ZH = {"rest": "輪休", "knee": "膝蓋", "ankle": "腳踝", "hamstring": "大腿後側", "calf": "小腿", "heel": "腳跟", "foot": "腳",
+             "conditioning": "體能", "eye": "眼睛", "nose": "鼻子", "rib": "肋骨", "jaw": "下巴", "oblique": "側腹", "abdominal": "腹部",
+             "pelvis": "骨盆", "leg": "腿", "arm": "手臂", "back": "背",
+             "illness": "生病", "personal": "私人因素", "shoulder": "肩膀", "hip": "髖部", "groin": "鼠蹊部", "wrist": "手腕",
              "hand": "手", "thumb": "拇指", "finger": "手指", "concussion": "腦震盪", "achilles": "阿基里斯腱", "toe": "腳趾",
              "quad": "大腿前側", "elbow": "手肘", "neck": "脖子", "load management": "控制負荷", "injury management": "傷勢控管"}
 LIMIT_DEFAULT = 0.35     # 「限時」平常大概少打三到四成
@@ -80,7 +91,12 @@ def _applies(text, note_dt, game_start, opp_names):
     ge = game_start.astimezone(ET)
     if note_dt and game_start - note_dt > timedelta(days=6):
         return False, "很多天前的消息", "past"
-    days = [WD[x.lower()] for x in WD_RE.findall(text or "")]
+    days = []
+    for m in WD_RE.finditer(text or ""):
+        before, after = text[max(0, m.start() - 40): m.start()], text[m.end() - (2 if m.group(0).endswith("'s") else 0): m.end() + 25]
+        if WD_SKIP_BEFORE.search(before) or WD_SKIP_AFTER.search(after.lstrip()):
+            continue
+        days.append(WD[m.group(1).lower()])
     if days and days[0] != ge.weekday():
         label = f"{WD_ZH[days[0]]}那場"
         if PAST_RE.search(text or ""):
@@ -106,6 +122,12 @@ def read_note(inj, game_start, opp_names):
     if not text:
         return None
     rest = bool(REST_RE.search(text))
+    if SEASON_RE.search(text):
+        return dict(kind="season", applies=True, other=None, when=None, rest=False, reason=_reason_zh(text))
+    mw = WEEKS_RE.search(text)
+    if mw and not IN_RE.search(text):
+        return dict(kind="weeks", applies=True, other=None, when=None, rest=False, reason=_reason_zh(text),
+                    span=(f"{mw.group(1)} {mw.group(2)}" if mw.group(1) else None))
     if OUT_RE.search(text):
         kind = "out"
     elif LIMIT_RE.search(text) and not NO_LIMIT_RE.search(text):
@@ -124,6 +146,16 @@ def read_note(inj, game_start, opp_names):
     return dict(kind=kind, applies=applies, other=other, when=when, rest=rest, reason=_reason_zh(text))
 
 
+def body_zh(detail):
+    d = (detail or "").strip().lower()
+    if not d:
+        return None
+    for k, v in REASON_ZH.items():
+        if k in d:
+            return v
+    return None
+
+
 def apply_notes(g, log=None):
     """讀這場兩隊每個傷兵的備註，改寫 severity / 狀態 / 不打的機率。"""
     start = _dt(g.get("start"))
@@ -135,12 +167,18 @@ def apply_notes(g, log=None):
         opp_names = [x.lower() for x in (o.get("short"), o.get("name"), o.get("abbr"), (o.get("name") or "").split(" ")[-1]) if x]
         for x in t.get("injuries") or []:
             x.setdefault("sev0", x.get("severity"))
+            if x.get("detail") and not x.get("detail_zh"):
+                x["detail_zh"] = body_zh(x["detail"])
             r = read_note(x, start, opp_names)
             if not r:
                 continue
             x["note"] = r
             why_rest = "球隊讓他休息" if r["rest"] else (f"{r['reason']}有傷" if r["reason"] else None)
-            if r["kind"] == "out" and r["applies"]:
+            if r["kind"] == "season":
+                x.update(severity="out", p_out=1.0, status_zh="整季報銷", why=(f"{r['reason']}的傷，" if r["reason"] else "") + "這季都不會打")
+            elif r["kind"] == "weeks":
+                x.update(severity="out", p_out=1.0, status_zh="長期缺陣", why=(f"{r['reason']}的傷，" if r["reason"] else "") + "要休好幾週")
+            elif r["kind"] == "out" and r["applies"]:
                 x.update(severity="out", p_out=1.0, status_zh="這場輪休" if r["rest"] else "這場不打",
                          why=(why_rest + "，這場確定不打") if why_rest else "備註寫這場不打")
             elif r["kind"] == "out":

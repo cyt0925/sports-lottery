@@ -637,7 +637,7 @@
     const list = (t.injuries || []).slice(0, 12);
     let body = "";
     if (list.length) {
-      body = list.map((x) => `<div class="prow">${avatarImg(x)}<div class="grow"><div class="pn">${esc(x.player)}${x.ppg != null ? ` <small style="color:var(--muted);font-weight:500">場均 ${Number(x.ppg).toFixed(1)} 分</small>` : ""}</div><div class="ps">${esc(x.position_zh || x.position || "")}${x.detail ? " · " + esc(x.detail) : ""}${x.return_date ? " · 預計 " + esc(String(x.return_date).slice(5, 10)) + " 回來" : ""}${x.url ? ` · <a href="${esc(x.url)}" target="_blank" rel="noopener">看新聞</a>` : ""}</div></div><span class="badge ${sevClass(x.severity)}">${esc(x.status_zh)}</span></div>`).join("");
+      body = list.map((x) => `<div class="prow">${avatarImg(x)}<div class="grow"><div class="pn">${esc(x.player)}${x.ppg != null ? ` <small style="color:var(--muted);font-weight:500">場均 ${Number(x.ppg).toFixed(1)} 分</small>` : ""}</div><div class="ps">${esc(x.position_zh || x.position || "")}${(x.why || x.detail_zh || x.detail) ? " · " + esc(x.why || x.detail_zh || x.detail) : ""}${x.return_date && String(x.return_date).slice(0, 10) > todayTW() && (x.severity === "out" || x.severity === "ir") ? " · 預計 " + esc(String(x.return_date).slice(5, 10)) + " 回來" : ""}${x.url ? ` · <a href="${esc(x.url)}" target="_blank" rel="noopener">看新聞</a>` : ""}</div></div><span class="badge ${sevClass(x.severity)}">${esc(x.status_zh)}</span></div>`).join("");
       if ((t.injuries || []).length > 12) body += `<div class="note">還有 ${(t.injuries || []).length - 12} 人沒列</div>`;
     } else {
       body = `<div class="note">${esc(t.injury_note || (g.notes && g.notes.injuries) || "沒有傷兵消息，應該是全員到齊。")}</div>`;
