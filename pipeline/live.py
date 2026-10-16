@@ -107,7 +107,13 @@ def main():
     ap.add_argument("--minutes", type=float, default=22)
     ap.add_argument("--every", type=int, default=60)
     ap.add_argument("--dry", action="store_true")
+    ap.add_argument("--selftest", action="store_true", help="推一個空的 live.json 試試看推得上去")
     args = ap.parse_args()
+    if args.selftest:
+        now = datetime.now(UTC)
+        push(json.dumps(dict(updated=now.astimezone(TW).isoformat(timespec="seconds"), games={}, selftest=True), separators=(",", ":")))
+        log("自我測試：live.json 推上 live 分支了")
+        return
     t_end = time.time() + args.minutes * 60
     last = None
     loops = 0

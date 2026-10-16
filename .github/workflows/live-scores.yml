@@ -4,6 +4,11 @@ on:
   schedule:
     - cron: "*/20 * * * *"
   workflow_dispatch:
+    inputs:
+      selftest:
+        description: "只測試推得上 live 分支"
+        type: boolean
+        default: false
 permissions:
   contents: write
 concurrency:
@@ -21,4 +26,4 @@ jobs:
         with:
           python-version: "3.12"
       - run: pip install -r pipeline/requirements.txt
-      - run: python pipeline/live.py --minutes 22
+      - run: python pipeline/live.py --minutes 22 ${{ inputs.selftest && '--selftest' || '' }}
