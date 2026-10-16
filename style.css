@@ -272,3 +272,12 @@ body[data-view="today"] .view[data-for="today"],body[data-view="injuries"] .view
 .tools .more{display:flex;align-items:center;justify-content:center;margin:0;cursor:pointer}
 .tools .more.danger{color:var(--bad);grid-column:1 / -1}
 .rec .t1 small{color:var(--muted);font-weight:500;font-size:.8rem}
+
+/* 老球迷怎麼看 */
+.fan{margin-top:14px;background:var(--card);border:1px solid var(--line);border-left:5px solid var(--lime);border-radius:var(--radius-s);padding:14px 16px}
+.fan-h{font-weight:900;color:var(--lime);font-size:.95rem;margin-bottom:6px;letter-spacing:.02em}
+:root[data-theme="light"] .fan-h{color:var(--violet-2)}
+.fan p{margin:0;font-size:1.08rem;line-height:1.65;color:var(--ink)}
+.badge.limited{background:var(--warn-wash);color:var(--warn);border:1px dashed var(--warn)}
+.pts li.info svg{transform:rotate(-90deg);color:var(--violet-2)}
+.g-mid.is-live .score{color:var(--bad)}

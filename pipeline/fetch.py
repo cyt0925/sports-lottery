@@ -487,6 +487,7 @@ def make_game(lg, ev, comp, is_tennis=False, group_name=None):
         headline=headline,
         news=[],
         suggestion=None,
+        season_type=(ev.get("season") or {}).get("type"),
     )
 
 
@@ -635,6 +636,7 @@ def parse_schedule(data, team_id, lg, comp_key=None):
             date_iso=dt.astimezone(timezone.utc).isoformat(timespec="minutes"),
             ts=dt.timestamp(),
             opp=ot.get("abbreviation") or ot.get("shortDisplayName") or ot.get("displayName"),
+            opp_id=str(ot.get("id") or opp.get("id") or ""),
             opp_zh=zh_name(lg["key"], ot.get("abbreviation"), ot.get("displayName"), ot.get("shortDisplayName")),
             opp_logo=ot.get("logo") or ((ot.get("logos") or [{}])[0].get("href") if ot.get("logos") else None),
             home=(me.get("homeAway") == "home"),
@@ -742,23 +744,44 @@ def fetch_form(lg, team):
     team["avg_margin5"] = round(team["avg_for5"] - team["avg_against5"], 1)
 
 
-# ---------- 球員近況（火燙/冰冷） ----------
+# ---------- 球員近況（火燙/冰冷）＋上場時間 ----------
+def current_season_label(now=None):
+    now = now or datetime.now(TW)
+    y = now.year if now.month >= 7 else now.year - 1
+    return f"{y}-{(y + 1) % 100:02d}"
+
+
+def _mmss(v):
+    s = str(v or "").strip()
+    m = re.match(r"^(\d+):(\d{2})$", s)
+    if m:
+        return int(m.group(1)) + int(m.group(2)) / 60
+    return num(s)
+
+
 def fetch_player_form(lg, athlete):
+    """本季正式比賽（例行賽、季後賽）的近 5 場 vs 本季平均。季前賽和上一季不算，免得拿去年季後賽說現在手感燙。
+    另外算最近 3 場的上場時間（差 20 分以上的大比分不算，那是垃圾時間）。"""
     data = get(f"{WEB}/{lg['path']}/athletes/{athlete['id']}/gamelog")
     if not data:
         return None
-    keep_raw(f"gamelog_{lg['key']}", dict(labels=data.get("labels"), seasonTypes=(data.get("seasonTypes") or [])[:1],
+    keep_raw(f"gamelog_{lg['key']}", dict(labels=data.get("labels"), seasonTypes=[dict(displayName=st.get("displayName")) for st in (data.get("seasonTypes") or [])],
                                          events=dict(list((data.get("events") or {}).items())[:2])))
     labels = data.get("labels") or []
     stat = lg["stat"]
     if stat not in labels:
         return None
     idx = labels.index(stat)
+    i_min = labels.index("MIN") if "MIN" in labels else None
     meta = data.get("events") or {}
+    cur = current_season_label()
     rows = []
     season_name = None
     for st in data.get("seasonTypes") or []:
-        season_name = season_name or st.get("displayName")
+        name = st.get("displayName") or ""
+        if cur not in name or "Preseason" in name:
+            continue
+        season_name = season_name or name
         for cat in st.get("categories") or []:
             for e in cat.get("events") or []:
                 stats = e.get("stats") or []
@@ -770,10 +793,16 @@ def fetch_player_form(lg, athlete):
                 m = meta.get(str(e.get("eventId"))) or {}
                 dt = parse_dt(m.get("gameDate"))
                 opp = (m.get("opponent") or {})
+                margin = None
+                sc = re.match(r"^\s*(\d+)\s*-\s*(\d+)", str(m.get("score") or ""))
+                if sc:
+                    margin = abs(int(sc.group(1)) - int(sc.group(2)))
                 rows.append(dict(ts=dt.timestamp() if dt else 0,
                                  date=dt.astimezone(TW).strftime("%m/%d") if dt else "",
                                  opp=opp.get("abbreviation") or opp.get("displayName"),
-                                 result=m.get("gameResult"), v=v))
+                                 result=m.get("gameResult"), v=v,
+                                 mins=_mmss(stats[i_min]) if i_min is not None and i_min < len(stats) else None,
+                                 blowout=bool(margin is not None and margin >= 20)))
     if len(rows) < 3:
         return None
     rows.sort(key=lambda r: r["ts"], reverse=True)
@@ -786,12 +815,17 @@ def fetch_player_form(lg, athlete):
         label = "火燙"
     elif delta <= -15 and season >= lg["hot_min"]:
         label = "冰冷"
+    # 上場時間：最近 3 場（不含大比分）vs 之前的平均
+    clean = [r for r in rows if r.get("mins") is not None and not r["blowout"]]
+    min_last3 = round(mean(r["mins"] for r in clean[:3]), 1) if len(clean) >= 3 else None
+    earlier = clean[3:]
+    min_base = round(mean(r["mins"] for r in earlier), 1) if len(earlier) >= 4 else None
     return dict(
         id=athlete["id"], player=athlete["player"], headshot=athlete.get("headshot"),
         position=athlete.get("position"), stat=stat, season_name=season_name,
         last5=round(l5, 1), season=round(season, 1), delta_pct=round(delta),
-        label=label, games=[dict(date=r["date"], opp=r["opp"], v=r["v"]) for r in reversed(last5)],
-        n_games=len(rows),
+        label=label, games=[dict(date=r["date"], opp=r["opp"], v=r["v"], mins=r.get("mins")) for r in reversed(last5)],
+        n_games=len(rows), min_last3=min_last3, min_base=min_base,
     )
 
 
@@ -1123,16 +1157,17 @@ def finalize_team(team, lg, injuries_map=None):
         inj = team.get("injuries") or []
     else:
         inj = injuries_map.get(team["id"], []) if team.get("id") else []
-    order = {"maybe": 0, "out": 1, "ir": 2, "ok": 3, "other": 4}
+    order = {"limited": 0, "maybe": 1, "out": 2, "ir": 3, "ok": 4, "other": 5}
     inj = sorted(inj, key=lambda x: order.get(x["severity"], 3))
     team["injuries"] = inj
     team["out_count"] = sum(1 for x in inj if x["severity"] in ("out", "ir"))
     team["maybe_count"] = sum(1 for x in inj if x["severity"] == "maybe")
     leader_ids = {l["id"] for l in team.get("leaders") or []}
     leader_names = {l["player"] for l in team.get("leaders") or []}
-    key = [x["player"] for x in inj if x["severity"] in ("out", "ir") and ((x["id"] and x["id"] in leader_ids) or x["player"] in leader_names)]
+    key = [x["player"] for x in inj if x["severity"] in ("out", "ir") and ((x.get("id") and x["id"] in leader_ids) or x["player"] in leader_names)]
     team["key_out"] = key
-    team["key_maybe"] = [x["player"] for x in inj if x["severity"] == "maybe" and ((x["id"] and x["id"] in leader_ids) or x["player"] in leader_names)]
+    team["key_maybe"] = [x["player"] for x in inj if x["severity"] in ("maybe", "limited") and ((x.get("id") and x["id"] in leader_ids) or x["player"] in leader_names)]
+    team["limited_count"] = sum(1 for x in inj if x["severity"] == "limited")
 
 
 def aggregate(games):
@@ -1146,7 +1181,7 @@ def aggregate(games):
             t = g[side]
             for x in t.get("injuries") or []:
                 key = (t.get("id"), x.get("id") or x.get("player"))
-                if x["severity"] in ("out", "maybe", "ir") and key not in seen_inj:
+                if x["severity"] in ("out", "maybe", "ir", "limited") and key not in seen_inj:
                     seen_inj.add(key)
                     feed.append(dict(
                         game_id=g["id"], league=g["league"], league_zh=g["league_zh"], sport=g["sport"], chip=g.get("chip") or g["sport"],
@@ -1154,7 +1189,7 @@ def aggregate(games):
                         player=x["player"], headshot=x.get("headshot"), position=x.get("position"),
                         status=x["status"], status_zh=x["status_zh"], severity=x["severity"],
                         # 從新聞對出來的（有連結、沒有官方狀態）快報只寫來源，英文原句留在詳細頁
-                        detail=(f"{x.get('source') or '新聞'}" if x.get("url") and not x.get("official") else x.get("detail")),
+                        detail=(x.get("why") or (f"{x.get('source') or '新聞'}" if x.get("url") and not x.get("official") else x.get("detail"))),
                         return_date=x.get("return_date"),
                         key=(x["player"] in t.get("key_out", []) or x["player"] in t.get("key_maybe", [])),
                         official=bool(x.get("official")), url=x.get("url"), ppg=x.get("ppg"), impact=x.get("impact"),
@@ -1183,7 +1218,7 @@ def aggregate(games):
                     hot.append(dict(game_id=g["id"], league=g["league"], league_zh=g["league_zh"], sport=g["sport"],
                                     chip=g.get("chip") or g["sport"], team=team_label(t), team_logo=t.get("logo"), **p))
     # 排序：主力優先；再來是「今天到底上不上」最有用的存疑/逐日觀察，然後缺陣，長期傷兵名單放最後
-    sev_order = {"maybe": 0, "out": 1, "ir": 2, "news": 3}
+    sev_order = {"limited": 0, "maybe": 1, "out": 2, "ir": 3, "news": 4}
     feed.sort(key=lambda x: (0 if x["key"] else 1, sev_order.get(x["severity"], 3), x["day_tw"], x["time_tw"]))
     # 每個聯盟最多 30 筆，避免 NFL 那種一隊二十幾個傷兵把版面塞滿
     per = {}
@@ -1234,6 +1269,7 @@ def main():
         log(f"台灣盤口失敗：{e!r}")
     log(f"台灣盤口：配對到 {tw_count} 場")
     enrich_games(all_games)
+    espn_matchups(all_games, standings)
     try:
         from model import rate_games
         rate_games(all_games, LEAGUES_BY_KEY, standings, log, ERRORS)
@@ -1261,17 +1297,25 @@ def main():
             if rt.get("our_prob_home") is not None:
                 ph = rt["our_prob_home"]
                 g["suggestion"]["model"] = dict(pick="home" if ph >= 0.5 else "away", prob_home=round(ph, 3),
-                                                spread=rt.get("our_spread"), weak=bool(rt.get("weak")))
+                                                spread=rt.get("our_spread"), weak=bool(rt.get("weak")), variants=rt.get("variants"))
+            # 季前賽：主力常常輪休、打不久，信心最多給「中」
+            if g.get("season_type") == 1 and g["suggestion"].get("confidence") == "高":
+                g["suggestion"]["confidence"] = "中"
+                g["suggestion"]["summary"] = (g["suggestion"].get("summary") or "").replace("信心高", "信心中")
         except Exception as e:  # noqa: BLE001
             ERRORS.append(f"{lg['key']} 純模型 {g['id']} 失敗: {e!r}")
         try:
             from story import build_story
             talk = build_story(g, lg["sport"])
             g["suggestion"]["talk"] = talk
-            g["suggestion"]["story"] = [talk["verdict"]] + talk["why"] + talk["care"] + [talk["odds"]]
+            g["suggestion"]["story"] = [talk["verdict"]] + ([talk["fan"]] if talk.get("fan") else []) + talk["why"] + talk["care"] + [talk["odds"]]
         except Exception as e:  # noqa: BLE001
             ERRORS.append(f"{lg['key']} 白話 {g['id']} 失敗: {e!r}")
             g["suggestion"]["story"] = [g["suggestion"].get("summary") or "資料整理中。"]
+    # 網頁抓即時比分用：ESPN 的聯盟網頁直接抓；玩運彩、SV.LEAGUE 走 live 分支
+    for g in all_games:
+        lg = LEAGUES_BY_KEY.get(g["league"]) or {}
+        g["live_src"] = lg.get("source") or (f"espn:{lg['path']}" if lg.get("path") else None)
     feed, hot = aggregate(all_games)
     # 成績單：記下建議、賽後對答案
     record = None
@@ -1342,7 +1386,7 @@ def enrich_games(all_games):
             official = nba_official_report(log)
         except Exception as e:  # noqa: BLE001
             ERRORS.append(f"NBA 官方傷報失敗: {e!r}")
-    n_sum = n_off = 0
+    n_sum = n_off = n_notes = n_min = n_b2b = 0
     logged = set()
     for g in targets:
         lg = LEAGUES_BY_KEY[g["league"]]
@@ -1385,15 +1429,91 @@ def enrich_games(all_games):
                 n_off += merge_official(g, official)
             except Exception as e:  # noqa: BLE001
                 ERRORS.append(f"官方傷報併入 {g['id']} 失敗: {e!r}")
+        # 老球迷看傷兵：讀備註（這場打不打、會不會限時）、看最近上場時間、看背靠背輪休習慣
+        if lg["sport"] in ("basketball", "hockey", "football") and not lg.get("source"):
+            try:
+                import availability
+                n_notes += availability.apply_notes(g)
+                if lg["key"] == "nba":
+                    for side in ("home", "away"):
+                        n_min += availability.merge_minutes(g[side])
+                    from players import _season_year
+                    n_b2b += availability.apply_b2b(g, lg, get, _season_year() - 1, log)
+            except Exception as e:  # noqa: BLE001
+                import traceback
+                tb = traceback.extract_tb(e.__traceback__)[-1]
+                ERRORS.append(f"{lg['key']} 上場判斷 {g['id']} 失敗: {e!r} @ {tb.name}:{tb.lineno}")
         for side in ("home", "away"):
             finalize_team(g[side], lg)
     log(f"進階分析：summary {n_sum}/{len(targets)} 場，官方傷報 {n_off} 筆，累計呼叫 {CALLS['n']}")
+    log(f"上場判斷：讀了 {n_notes} 則傷兵備註、{n_min} 人上場時間被控制、{n_b2b} 人背靠背常輪休")
     if any(g["league"] == "nba" for g in targets):
         try:
             from players import nba_injury_impact
             nba_injury_impact(targets, get, log, ERRORS, keep_raw)
         except Exception as e:  # noqa: BLE001
             ERRORS.append(f"nba 傷兵影響失敗: {e!r}")
+
+
+def espn_matchups(all_games, standings):
+    """ESPN 聯盟（NBA、NHL）：近兩季交手跟預期比；NBA 另外看打法對位（籃板、三分、失誤、節奏）。"""
+    try:
+        import matchup
+        import availability
+        from model import team_table, rating, HCA, HCA_SPORT
+        from players import _season_year
+    except Exception as e:  # noqa: BLE001
+        ERRORS.append(f"對戰模組載入失敗: {e!r}")
+        return
+    prev = _season_year() - 1
+    by_lg = {}
+    for g in all_games:
+        if g["status"]["state"] == "post" or g.get("tennis"):
+            continue
+        lg = LEAGUES_BY_KEY.get(g["league"])
+        if lg and not lg.get("source") and lg["key"] in ("nba", "nhl"):
+            by_lg.setdefault(lg["key"], []).append(g)
+    for key, games in by_lg.items():
+        lg = LEAGUES_BY_KEY[key]
+        hca = HCA.get(key, HCA_SPORT.get(lg["sport"], 2.5))
+        try:
+            prev_r = matchup.prev_ratings(get, lg, prev, rating, team_table, hca)
+        except Exception as e:  # noqa: BLE001
+            ERRORS.append(f"{key} 上季排名失敗: {e!r}")
+            prev_r = {}
+        cur_tab = team_table(standings.get(key))
+        cur_r = {k: rating(v, lg["sport"]) for k, v in cur_tab.items() if v["gp"] >= 5}
+        n_h = n_j = n_s = 0
+        styles = {}
+        for g in games:
+            try:
+                h = matchup.espn_h2h(g, lg, get, prev, prev_r, cur_r, hca, availability._team_schedule)
+                if h:
+                    g.setdefault("analysis", {})["h2h_long"] = h
+                    n_h += 1
+                    n_j += bool(h.get("jinx"))
+            except Exception as e:  # noqa: BLE001
+                ERRORS.append(f"{key} 交手 {g['id']} 失敗: {e!r}")
+            if key == "nba":
+                for side in ("home", "away"):
+                    tid = g[side].get("id")
+                    if tid and tid not in styles:
+                        try:
+                            styles[tid] = matchup.team_style(get, lg, tid, prev)
+                        except Exception as e:  # noqa: BLE001
+                            ERRORS.append(f"nba 球隊數據 {tid} 失敗: {e!r}")
+                            styles[tid] = None
+        if key == "nba" and styles:
+            paces = [st["pace"] for st in styles.values() if st and st.get("pace")]
+            lp = mean(paces) if len(paces) >= 6 else None
+            for g in games:
+                hs, as_ = styles.get(g["home"].get("id")), styles.get(g["away"].get("id"))
+                lines = matchup.style_lines(hs, as_, team_label(g["home"]), team_label(g["away"]), lp)
+                if lines:
+                    note = "（用上季數據，陣容有變的話參考就好）" if (hs or {}).get("note") or (as_ or {}).get("note") else ""
+                    g.setdefault("analysis", {})["style"] = dict(lines=lines, note=note)
+                    n_s += 1
+        log(f"[{key}] 對戰：交手紀錄 {n_h} 場（算得上剋星 {n_j} 場）、打法對位 {n_s} 場；上季評分 {len(prev_r)} 隊")
 
 
 def args_debug():

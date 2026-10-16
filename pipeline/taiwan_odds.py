@@ -293,7 +293,7 @@ def fetch_livescore_ids(aid, day):
                                      source=gs.get("source"), ascore=gs.get("ascore"), hscore=gs.get("hscore"),
                                      period=gs.get("game_period"), remaining=gs.get("time_remaining"),
                                      note=gs.get("note") or gs.get("note_full"), ss=v.get("ss"), ls=v.get("ls"),
-                                     gameday=v.get("gameday"))
+                                     gameday=v.get("gameday"), end=gs.get("game_end_time"))
     return out
 
 

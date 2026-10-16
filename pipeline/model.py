@@ -73,9 +73,21 @@ def rating(stat, sport):
     return stat["diff"] * gp / (gp + k)
 
 
+REST_PTS = {"basketball": 1.5, "hockey": 0.2}     # 背靠背第二場、對手有休息：大概差多少
+FORM_W = 0.3        # 近況（扣掉對手強弱）佔多少；整季 10 場以上才混
+FACTORS = ("notes", "form", "h2h", "rest")
+FACTOR_ZH = {"notes": "傷兵備註、上場時間、輪休習慣", "form": "近況（扣掉對手強弱）", "h2h": "交手剋星", "rest": "背靠背體力"}
+
+
+def _prob(edge, sigma):
+    return 0.5 * (1 + erf(edge / (sigma * sqrt(2))))
+
+
 def rate_game(g, lg, standings):
+    from matchup import form_view
     sport = lg["sport"]
     table = team_table(standings.get(lg["key"]))
+    ratings = {k: rating(v, sport) for k, v in table.items()}
     sides = {}
     for side in ("home", "away"):
         t = g[side]
@@ -91,11 +103,46 @@ def rate_game(g, lg, standings):
         sides[side] = stat
     hca = HCA.get(lg["key"], HCA_SPORT.get(sport, 2.5))
     rh, ra = rating(sides["home"], sport), rating(sides["away"], sport)
-    imp_h = ((g["home"].get("injury_impact") or {}).get("pts") or 0) if sport == "basketball" else 0
-    imp_a = ((g["away"].get("injury_impact") or {}).get("pts") or 0) if sport == "basketball" else 0
-    edge = rh + hca - ra - imp_h + imp_a      # 正數 = 主隊比較強；缺陣的影響也扣進去
+    a = g.get("analysis") or {}
+    # 傷兵：新算法（讀備註、限時、輪休習慣）vs 舊算法（只看名單狀態）
+    ih = (g["home"].get("injury_impact") or {}) if sport == "basketball" else {}
+    ia = (g["away"].get("injury_impact") or {}) if sport == "basketball" else {}
+    imp_h, imp_a = ih.get("pts") or 0, ia.get("pts") or 0
+    imp_h0 = ih.get("pts_basic", imp_h) or 0
+    imp_a0 = ia.get("pts_basic", imp_a) or 0
+    # 近況
+    fh, fa = form_view(g["home"], ratings, hca), form_view(g["away"], ratings, hca)
+    def blend(stat, r, fv):
+        if fv and stat.get("gp", 0) >= 10 and fv["n"] >= 4:
+            return (1 - FORM_W) * r + FORM_W * fv["recent"]
+        return r
+    bh, ba = blend(sides["home"], rh, fh), blend(sides["away"], ra, fa)
+    # 背靠背
+    rest = a.get("rest") or {}
+    rest_pts = REST_PTS.get(sport, 0)
+    rest_d = 0.0
+    if isinstance(rest, dict):
+        rh_b = bool((rest.get("home") or {}).get("b2b"))
+        ra_b = bool((rest.get("away") or {}).get("b2b"))
+        if rh_b and not ra_b:
+            rest_d = -rest_pts
+        elif ra_b and not rh_b:
+            rest_d = rest_pts
+    # 交手剋星
+    h2h_d = float((a.get("h2h_long") or {}).get("adj") or 0)
+    comp = dict(
+        base=rh + hca - ra - imp_h0 + imp_a0,
+        notes=-(imp_h - imp_h0) + (imp_a - imp_a0),
+        form=(bh - rh) - (ba - ra),
+        h2h=h2h_d,
+        rest=rest_d,
+    )
+    edge = sum(comp.values())        # 正數 = 主隊比較強
     sigma = SIGMA.get(sport, 11.0)
-    prob_home = 0.5 * (1 + erf(edge / (sigma * sqrt(2))))
+    prob_home = _prob(edge, sigma)
+    variants = dict(base=round(_prob(comp["base"], sigma), 3), full=round(prob_home, 3))
+    for f in FACTORS:
+        variants["no_" + f] = round(_prob(edge - comp[f], sigma), 3)
     o = g.get("odds") or {}
     tw = g.get("tw") or {}
     market = o.get("spread")
@@ -108,6 +155,8 @@ def rate_game(g, lg, standings):
         our_spread=round(-edge * 2) / 2, our_prob_home=round(prob_home, 3),
         market_spread=market, weak=min(sides["home"]["gp"], sides["away"]["gp"]) < MIN_GP,
         impact_home=imp_h, impact_away=imp_a,
+        parts={k: round(v, 1) for k, v in comp.items()}, variants=variants,
+        form_home=fh, form_away=fa, season_diff_home=round(sides["home"]["diff"], 1), season_diff_away=round(sides["away"]["diff"], 1),
     )
     if market is not None:
         out["diff"] = round(market - out["our_spread"], 1)   # 負數 = 盤口比我們更看好主隊
@@ -121,8 +170,9 @@ def rate_game(g, lg, standings):
             exp_a = pf_a * pa_h / avg
             total = exp_h + exp_a
             if sport == "basketball":
-                # 主場效應一點點、季初往聯盟平均拉
+                # 季初往聯盟平均拉；限時、缺陣的主力會讓總分少一點
                 total = total * (0.5 + 0.5 * min(1, (sides["home"]["gp"] + sides["away"]["gp"]) / 16)) + (2 * avg) * (0.5 - 0.5 * min(1, (sides["home"]["gp"] + sides["away"]["gp"]) / 16))
+                total -= 0.5 * (imp_h + imp_a)
             out["total"] = round(total, 1)
             out["exp_home"], out["exp_away"] = round(exp_h, 1), round(exp_a, 1)
             mt = o.get("total")

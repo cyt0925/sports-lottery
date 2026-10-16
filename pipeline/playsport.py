@@ -78,6 +78,8 @@ def _state_for(start_utc, now, ls):
         return "post", str(ls["note"]), False
     if now < start_utc:
         return "pre", "未開賽", False
+    if ls and ls.get("end"):
+        return "post", "已結束", True
     end = start_utc + timedelta(minutes=160)
     period = (ls or {}).get("period") or 0
     remaining = (ls or {}).get("remaining") or ""
@@ -339,9 +341,10 @@ def summarize_form(team, rows, note=None):
 
 
 def attach_history(lg, games, log, errors):
-    """每支球隊抓一次歷史戰績，算近況、連勝連敗、近 5 場平均。"""
+    """每支球隊抓一次歷史戰績，算近況、連勝連敗、近 5 場平均；再從主隊的完整紀錄找出跟今天對手的交手。"""
     aid = lg["alliance"]
     cache = {}
+    full = {}   # teamid -> 完整歷史列（近況只留 10 場，交手要看更久）
     n_ok = 0
     now_tw = datetime.now(TW)
     for g in games:
@@ -368,6 +371,7 @@ def attach_history(lg, games, log, errors):
             if raw and f"hist_{aid}" not in DEBUG:
                 DEBUG[f"hist_{aid}"] = raw
             if rows:
+                full[tid] = [dict(r) for r in rows]
                 summarize_form(t, rows, note="玩運彩歷史戰績")
                 n_ok += 1
             cache[tid] = t
@@ -380,5 +384,21 @@ def attach_history(lg, games, log, errors):
             if isinstance(g["analysis"], dict):
                 g["analysis"]["ats"] = dict(home=H.get("ats"), away=A.get("ats"), source="玩運彩紀錄的台灣讓分盤")
                 n_ats += 1
-    log(f"[{lg['key']}] 球隊近況：{n_ok}/{len(cache)} 隊有資料，讓分盤戰績 {n_ats} 場")
+    n_h2h = 0
+    try:
+        from matchup import playsport_h2h
+        for g in games:
+            hrows = full.get(g["home"].get("ps_teamid"))
+            if not hrows:
+                continue
+            names = [g["away"].get("name"), g["away"].get("short_zh")]
+            h = playsport_h2h(hrows, [x for x in names if x])
+            if h:
+                g.setdefault("analysis", {})
+                if isinstance(g["analysis"], dict):
+                    g["analysis"]["h2h_long"] = h
+                    n_h2h += 1
+    except Exception as e:  # noqa: BLE001
+        errors.append(f"{lg['key']} 交手紀錄失敗: {e!r}")
+    log(f"[{lg['key']}] 球隊近況：{n_ok}/{len(cache)} 隊有資料，讓分盤戰績 {n_ats} 場，交手紀錄 {n_h2h} 場")
     return n_ok

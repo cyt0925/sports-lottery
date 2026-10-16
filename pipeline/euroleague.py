@@ -178,7 +178,7 @@ class EuroLeague:
                 oc = self.clubs[opp]
                 self.results.setdefault(me, []).append(dict(
                     date=start.astimezone(TW).strftime("%m/%d"), date_iso=start.isoformat(timespec="minutes"), ts=start.timestamp(),
-                    opp=oc["abbr"], opp_zh=oc["abbr"], opp_logo=oc["crest"], home=home, pf=int(pf), pa=int(pa),
+                    opp=oc["abbr"], opp_zh=oc["abbr"], opp_code=opp, opp_logo=oc["crest"], home=home, pf=int(pf), pa=int(pa),
                     result="W" if pf > pa else ("L" if pf < pa else "D"), comp=label,
                 ))
 

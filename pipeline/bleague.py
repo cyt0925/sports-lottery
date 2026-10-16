@@ -184,6 +184,12 @@ class BLeague:
                     n = int(r["streak"][1:])
                     t["streak"] = ("連勝" if r["streak"][0] == "W" else "連敗") + str(n) if n >= 2 else None
                 t["last5_official"] = r.get("last5")
+                # 近況列的對手對到 B.LEAGUE 簡稱（扣掉對手強弱要用）
+                for fr in t.get("form") or []:
+                    if not fr.get("opp_code"):
+                        o = self.find(fr.get("opp") or "")
+                        if o:
+                            fr["opp_code"] = o["abbr"]
         self.log(f"[jpbasket] B.LEAGUE 對到 {hit} 隊" + (f"；沒對到：{'、'.join(sorted(set(miss))[:10])}" if miss else ""))
         return hit
 

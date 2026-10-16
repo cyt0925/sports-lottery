@@ -65,7 +65,7 @@
     if (p.headshot) return `<img class="avatar" src="${esc(p.headshot)}" alt="" loading="lazy" data-fb="${fb}">`;
     return `<span class="avatar fallback">${fb}</span>`;
   }
-  const sevClass = (s) => (s === "out" ? "out" : s === "maybe" ? "maybe" : s === "ir" ? "ir" : s === "ok" ? "ok" : s === "news" ? "vio" : "muted");
+  const sevClass = (s) => (s === "out" ? "out" : s === "maybe" ? "maybe" : s === "limited" ? "limited" : s === "ir" ? "ir" : s === "ok" ? "ok" : s === "news" ? "vio" : "muted");
   document.addEventListener("error", (e) => {
     const el = e.target;
     if (el.tagName !== "IMG") return;
@@ -91,14 +91,139 @@
       showLoader(false);
       return;
     }
+    reapplyLive();
     settlePicks();
-    render();
+    if (opts.silent) renderKeepScroll(render); else render();
     if (visible) setTimeout(() => showLoader(false), Math.max(0, 700 - (Date.now() - t0)));
     // 還沒對到答案、又已經不在今天名單裡的，去賽果庫找
     const ids = new Set((state.data.games || []).map((g) => g.id));
     if (Object.entries(state.picks).some(([id, p]) => !p.result && !ids.has(id) && Date.parse(p.start) < Date.now())) {
       ensureResults().then(() => { if (settlePicks()) renderRecord(); });
     }
+  }
+
+  // ---------- 即時比分 ----------
+  // NBA、NHL、足球：網頁直接跟 ESPN 拿（30 秒）。歐洲籃球、日本籃球、日本排球：GitHub 每分鐘抓一次放到 live 分支（網頁 90 秒讀一次）。
+  const LIVE_API = "https://api.github.com/repos/cyt0925/sports-lottery/contents/live.json?ref=live";
+  const LIVE_RAW = "https://raw.githubusercontent.com/cyt0925/sports-lottery/live/live.json";
+  const live = { espnAt: 0, fileAt: 0, busy: false, useRaw: false, last: {} };
+  const PERIODS = { basketball: 4, football: 4, hockey: 3, soccer: 2 };
+  function liveWanted(g) {
+    if (g.status.state === "post") return false;
+    const st = Date.parse(g.start) || 0, now = Date.now();
+    return g.status.state === "in" || (now >= st - 10 * 60000 && now <= st + 5 * 3600000);
+  }
+  const etDate = (iso) => new Date(iso).toLocaleDateString("en-CA", { timeZone: "America/New_York" }).replace(/-/g, "");
+  function zhStatus(sport, st) {
+    const t = st.type || {}, name = t.name || "", p = st.period || 0, clock = st.displayClock || "";
+    if (t.state === "post" || t.completed) return p > (PERIODS[sport] || 4) && sport !== "soccer" ? "已結束（延長）" : "已結束";
+    if (t.state === "pre") return "未開賽";
+    if (/HALFTIME/.test(name)) return "中場休息";
+    if (/END_PERIOD/.test(name)) return `第${p}節結束`;
+    if (sport === "soccer") return clock ? `${clock}` : "進行中";
+    return p > (PERIODS[sport] || 4) ? `延長賽 ${clock}` : `第${p}節 ${clock}`;
+  }
+  async function pollEspn(list) {
+    const groups = {};
+    list.forEach((g) => { const src = g.live_src || ""; if (src.indexOf("espn:") !== 0) return; const k = src.slice(5) + "|" + etDate(g.start); (groups[k] = groups[k] || []).push(g); });
+    const ups = {};
+    await Promise.all(Object.keys(groups).map(async (k) => {
+      const [path, d] = k.split("|");
+      try {
+        const r = await fetch(`https://site.api.espn.com/apis/site/v2/sports/${path}/scoreboard?dates=${d}`, { cache: "no-store" });
+        if (!r.ok) return;
+        const js = await r.json();
+        (js.events || []).forEach((ev) => {
+          const c = (ev.competitions || [])[0] || {}, st = c.status || ev.status || {}, cs = c.competitors || [];
+          const h = cs.find((x) => x.homeAway === "home") || cs[0] || {}, a = cs.find((x) => x.homeAway === "away") || cs[1] || {};
+          const sport = (groups[k][0] || {}).sport;
+          const u = { s: (st.type || {}).state, h: h.score, a: a.score, d: zhStatus(sport, st), hw: h.winner, aw: a.winner };
+          ups[String(c.id || ev.id)] = u; ups[String(ev.id)] = u;
+        });
+      } catch (_) { /* 抓不到就等下一輪 */ }
+    }));
+    return ups;
+  }
+  async function pollFile() {
+    try {
+      const r = live.useRaw ? await fetch(`${LIVE_RAW}`, { cache: "no-cache" })
+        : await fetch(LIVE_API, { cache: "no-cache", headers: { Accept: "application/vnd.github.raw" } });
+      if (r.status === 403 || r.status === 429) { live.useRaw = true; return {}; }
+      if (!r.ok) return {};
+      const js = await r.json();
+      return js.games || {};
+    } catch (_) { return {}; }
+  }
+  function applyLive(g, u) {
+    const before = g.status.state + "|" + g.status.detail + "|" + g.home.score + "|" + g.away.score;
+    const st = u.s === "post" ? "post" : u.s === "in" ? "in" : g.status.state;
+    g.status.state = st;
+    g.status.completed = st === "post";
+    if (u.d) g.status.detail = u.d;
+    if (u.h != null && u.h !== "") g.home.score = String(u.h);
+    if (u.a != null && u.a !== "") g.away.score = String(u.a);
+    if (st === "post") {
+      const hs = Number(g.home.score), as = Number(g.away.score);
+      g.home.winner = u.hw != null ? !!u.hw : hs > as;
+      g.away.winner = u.aw != null ? !!u.aw : as > hs;
+    }
+    const after = g.status.state + "|" + g.status.detail + "|" + g.home.score + "|" + g.away.score;
+    return before === after ? 0 : (before.split("|")[0] !== st ? 2 : 1);
+  }
+  function renderKeepScroll(fn) {
+    // 重畫之前記住畫面最上面那張卡片在哪，重畫之後捲回同一個位置，不會跳
+    let anchor = null, top = 0;
+    for (const el of document.querySelectorAll("#picks [data-goto], #games [data-goto]")) {
+      const r = el.getBoundingClientRect();
+      if (r.bottom > 80) { anchor = el.dataset.goto; top = r.top; break; }
+    }
+    fn();
+    if (anchor) {
+      const el = document.querySelector(`#games [data-goto="${CSS.escape(anchor)}"]`) || document.querySelector(`[data-goto="${CSS.escape(anchor)}"]`);
+      if (el) window.scrollBy(0, el.getBoundingClientRect().top - top);
+    }
+  }
+  function patchGame(g) {
+    document.querySelectorAll(`[data-mid="${CSS.escape(g.id)}"]`).forEach((el) => { el.outerHTML = midCol(g); });
+    document.querySelectorAll(`[data-when="${CSS.escape(g.id)}"]`).forEach((el) => { el.outerHTML = whenText(g); });
+  }
+  function useUpdates(ups, at) {
+    let moved = false, any = false;
+    (state.data.games || []).forEach((g) => {
+      const u = ups[g.id];
+      if (!u) return;
+      live.last[g.id] = { u, at };
+      const ch = applyLive(g, u);
+      if (!ch) return;
+      any = true;
+      if (ch === 2) moved = true; else patchGame(g);
+    });
+    if (!any) return;
+    if (settlePicks() && state.recTab === "mine") renderRecord();
+    if (moved) renderKeepScroll(() => { renderPicks(); renderGames(); });
+    if (state.detail) { const g = findGame(state.detail); if (g) patchGame(g); }
+  }
+  async function liveTick() {
+    if (!state.data || live.busy || document.hidden) return;
+    const list = (state.data.games || []).filter(liveWanted);
+    if (!list.length) return;
+    live.busy = true;
+    try {
+      const now = Date.now();
+      if (list.some((g) => (g.live_src || "").indexOf("espn:") === 0) && now - live.espnAt >= 30000) {
+        live.espnAt = now;
+        useUpdates(await pollEspn(list), now);
+      }
+      if (list.some((g) => g.live_src === "playsport" || g.live_src === "svleague") && now - live.fileAt >= 90000) {
+        live.fileAt = now;
+        useUpdates(await pollFile(), now);
+      }
+    } finally { live.busy = false; }
+  }
+  function reapplyLive() {
+    // 背景重新載入的資料比即時比分舊，把剛剛抓到的比分蓋回去
+    const gen = (state.data.generated_ts || 0) * 1000;
+    (state.data.games || []).forEach((g) => { const x = live.last[g.id]; if (x && x.at > gen) applyLive(g, x.u); });
   }
 
   // ---------- 爸爸的預測（存在這支手機的瀏覽器裡） ----------
@@ -204,6 +329,11 @@
     const story = s.story || [];
     return { verdict: story[0] || s.summary || "資料整理中。", why: story.slice(1, 4), care: [], odds: "" };
   }
+  function firstSentence(x) {
+    if (!x) return "";
+    const i = x.indexOf("。");
+    return i > 0 ? x.slice(0, i + 1) : x;
+  }
   function verdictPill(g) {
     const s = g.suggestion || {};
     if (g.status.state === "post") return `<span class="pill post">打完了</span>`;
@@ -223,9 +353,10 @@
     return parts.length ? "台灣運彩 · " + parts.join(" · ") : "";
   }
   function whenText(g) {
-    if (g.status.state === "in") return `<span class="g-when live">${esc(g.status.detail)}</span>`;
-    if (g.status.state === "post") return `<span class="g-when">已結束</span>`;
-    return `<span class="g-when">${esc(dayLabel(g.day_tw).name)} ${esc(g.time_tw)}</span>`;
+    const a = `data-when="${esc(g.id)}"`;
+    if (g.status.state === "in") return `<span class="g-when live" ${a}>${esc(g.status.detail)}</span>`;
+    if (g.status.state === "post") return `<span class="g-when" ${a}>已結束</span>`;
+    return `<span class="g-when" ${a}>${esc(dayLabel(g.day_tw).name)} ${esc(g.time_tw)}</span>`;
   }
   function teamCol(t, side, g) {
     const bits = [];
@@ -237,8 +368,9 @@
   }
   function midCol(g) {
     const hasScore = (g.status.state === "in" || g.status.state === "post") && (g.home.score != null || g.away.score != null);
-    if (hasScore) return `<div class="g-mid"><div class="score">${esc(g.away.score ?? "")} : ${esc(g.home.score ?? "")}</div><div class="sub">${g.sets ? "局數" : esc(g.status.detail)}</div></div>`;
-    return `<div class="g-mid"><div class="vs">對</div><div class="sub">${esc(g.time_tw)}</div></div>`;
+    const a = `data-mid="${esc(g.id)}"`;
+    if (hasScore) return `<div class="g-mid ${g.status.state === "in" ? "is-live" : ""}" ${a}><div class="score">${esc(g.away.score ?? "")} : ${esc(g.home.score ?? "")}</div><div class="sub">${g.sets ? "局數" : esc(g.status.detail)}</div></div>`;
+    return `<div class="g-mid" ${a}><div class="vs">對</div><div class="sub">${esc(g.time_tw)}</div></div>`;
   }
 
   // ---------- 比賽卡片 ----------
@@ -251,7 +383,7 @@
       <div class="g-top"><span>${icon(SPORT_ICON[chipOf(g)] || "i-grid")} <b>${esc(g.league_zh)}</b>${g.round ? " · " + esc(g.round) : ""}</span>${whenText(g)}</div>
       <div class="g-teams">${teamCol(g.away, "away", g)}${midCol(g)}${teamCol(g.home, "home", g)}</div>
       <div class="g-verdict">${verdictPill(g)}</div>
-      ${!post ? `<div class="g-why">${esc((t.why || [])[0] || t.verdict)}</div>` : ""}
+      ${!post ? `<div class="g-why">${esc(firstSentence(t.fan) || (t.why || [])[0] || t.verdict)}</div>` : ""}
       ${twLine(g) ? `<div class="g-odds">${twLine(g)}</div>` : ""}
       <div class="g-tap">點一下看詳細 ${icon("i-chev")}</div>
     </button>${pickButtons(g, true)}</div>`;
@@ -285,7 +417,12 @@
     const o = m.overall || {};
     const tile = (label, b) => `<div class="stat"><div class="sl">${esc(label)}</div><b>${b.n ? `模型 ${b.model_rate}%　盤口 ${b.mkt_rate}%` : "還沒有"}</b><small>${b.n ? `${b.n} 場 · Brier 模型 ${b.model_brier} / 盤口 ${b.mkt_brier}${b.disagree ? ` · 意見不同 ${b.disagree} 場：模型對 ${b.disagree_model_right}、盤口對 ${b.disagree_mkt_right}` : ""}` : (m.pending ? `${m.pending} 場等結果` : "等比賽打完")}</small></div>`;
     const leagues = Object.keys(m.by_league || {}).filter((k) => !hid.has(k));
-    return `<div class="grp">純模型 vs 盤口（近 ${m.days} 天，誰說對的場數比較多）</div>
+    const fs = (m.factors || []).filter((f) => f.n);
+    const word = (f) => f.verdict === "有幫助" ? "加進去比較準" : f.verdict === "反而變差" ? "加進去反而不準" : "看不出差別";
+    const factorHtml = `<div class="grp">每個因素有沒有用（加了跟沒加，哪個比較準）</div>
+      <div class="explain">每一場都分開算：有算這個因素、沒算這個因素，打完看哪個比較接近結果。場數到 30 場以上才看得準，沒用的因素之後會拿掉。</div>
+      <div class="list">${(m.factors || []).map((f) => `<div class="item"><div class="grow"><div class="pn">${esc(f.label)}</div><div class="ps">${f.n ? `${word(f)}：有算 ${f.with_}、沒算 ${f.without}（越低越準），${f.n} 場裡 ${f.better} 場有算的比較準` : "還沒有打完的比賽用到它"}</div></div><span class="badge ${f.verdict === "有幫助" ? "ok" : f.verdict === "反而變差" ? "out" : "muted"}">${f.n ? esc(f.verdict) : "等資料"}</span></div>`).join("")}</div>`;
+    return `${fs.length || (m.factors || []).length ? factorHtml : ""}<div class="grp">純模型 vs 盤口（近 ${m.days} 天，誰說對的場數比較多）</div>
       <div class="explain">純模型只看兩隊實力評分、主場和傷兵，完全不看賠率；盤口是市場的看法。Brier 分數越低越準，0.25 等於丟銅板。</div>
       <div class="stat-grid">${tile("全部", o)}${leagues.map((k) => tile((state.data.sports || []).find((s) => s.key === k)?.label || k, m.by_league[k])).join("")}</div>`;
   }
@@ -590,9 +727,11 @@
         <div class="g-top"><span></span>${whenText(g)}</div>
         <div class="g-teams">${teamCol(g.away, "away", g)}${midCol(g)}${teamCol(g.home, "home", g)}</div>
         <div class="verdict ${wait ? "wait" : ""}">${esc(t.verdict)}${g.status.state === "pre" ? `<small>${esc(dayLabel(g.day_tw).name)} ${esc(g.time_tw)} 開打${g.venue ? " · " + esc(g.venue) : ""}</small>` : ""}</div>
+        ${t.fan && g.status.state !== "post" ? `<div class="fan"><div class="fan-h">老球迷怎麼看</div><p>${esc(t.fan)}</p></div>` : ""}
         <div class="h">${icon("i-star")}你的預測</div><div id="mypick">${pickButtons(g, false)}</div>
         ${t.why && t.why.length ? `<div class="h">${icon("i-check")}為什麼</div>${pts(t.why, "plus", "i-check")}` : ""}
         ${t.care && t.care.length ? `<div class="h">${icon("i-warn")}要小心</div>${pts(t.care, "minus", "i-warn")}` : ""}
+        ${t.matchup && t.matchup.length ? `<div class="h">${icon("i-trophy")}對位跟交手</div>${pts(t.matchup, "info", "i-chev")}` : ""}
         <div class="h">${icon("i-star")}台灣運彩賠率</div>${twTiles(g)}
         <div class="h">${icon("i-med")}傷兵</div>${injuryBlock(g.away, g)}${injuryBlock(g.home, g)}
         ${starsBlock(g)}
@@ -686,6 +825,8 @@
     if (saved) { document.documentElement.dataset.theme = saved; $("#btn-theme").innerHTML = icon(saved === "light" ? "i-moon" : "i-sun"); }
   } catch (_) { /* ignore */ }
 
-  load();
+  load().then(() => liveTick());
   setInterval(() => load({ silent: true }), 5 * 60 * 1000);
+  setInterval(liveTick, 10000);
+  document.addEventListener("visibilitychange", () => { if (!document.hidden) liveTick(); });
 })();

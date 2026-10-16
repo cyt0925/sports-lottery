@@ -4,6 +4,7 @@
   不讓分勝敗、讓分過盤、大小分、跟收盤線比（我們推薦時拿到的線 vs 開賽前最後的線）。"""
 import json
 import os
+from statistics import mean
 from datetime import datetime, timedelta, timezone
 
 TW = timezone(timedelta(hours=8))
@@ -143,6 +144,8 @@ def _track_model(hist, g, now):
     if state == "pre" and m.get("prob_home") is not None and o.get("prob_home") is not None and o.get("prob_source") != "form":
         e = models.get(gid) or dict(day=g["day_tw"], league=g["league"], chip=g.get("chip") or g["sport"])
         e.update(model_home=m["prob_home"], mkt_home=o["prob_home"], weak=bool(m.get("weak")))
+        if m.get("variants"):
+            e["var"] = m["variants"]
         models[gid] = e
     elif state == "post" and gid in models and "res" not in models[gid]:
         hs, as_ = _score(g["home"]), _score(g["away"])
@@ -150,10 +153,13 @@ def _track_model(hist, g, now):
             return
         e = models[gid]
         home_won = hs > as_
+        y = 1 if home_won else 0
         e["res"] = dict(home_won=home_won,
                         model_hit=(e["model_home"] >= 0.5) == home_won, mkt_hit=(e["mkt_home"] >= 0.5) == home_won,
-                        model_brier=round((e["model_home"] - (1 if home_won else 0)) ** 2, 4),
-                        mkt_brier=round((e["mkt_home"] - (1 if home_won else 0)) ** 2, 4))
+                        model_brier=round((e["model_home"] - y) ** 2, 4),
+                        mkt_brier=round((e["mkt_home"] - y) ** 2, 4))
+        if e.get("var"):
+            e["res"]["var_brier"] = {k: round((v - y) ** 2, 4) for k, v in e["var"].items() if v is not None}
 
 
 def update(hist, games, now=None):
@@ -240,7 +246,26 @@ def model_summary(hist, now=None, days=30):
     for e in rows:
         by.setdefault(e.get("chip") or e["league"], []).append(e)
     pending = sum(1 for e in (hist.get("model") or {}).values() if not e.get("res"))
-    return dict(days=days, pending=pending, overall=bucket(rows), by_league={k: bucket(v) for k, v in by.items()})
+    # 每個因素：加了 vs 沒加，誰比較準（Brier 越低越準）
+    from model import FACTORS, FACTOR_ZH
+    factors = []
+    vb = [e["res"]["var_brier"] for e in rows if (e.get("res") or {}).get("var_brier")]
+    for f in FACTORS:
+        pairs = [(b["full"], b["no_" + f]) for b in vb if "full" in b and ("no_" + f) in b and abs(b["full"] - b["no_" + f]) > 1e-6]
+        if not pairs:
+            factors.append(dict(key=f, label=FACTOR_ZH[f], n=0))
+            continue
+        w = round(mean(p[0] for p in pairs), 4)
+        wo = round(mean(p[1] for p in pairs), 4)
+        better = sum(1 for p in pairs if p[0] < p[1])
+        factors.append(dict(key=f, label=FACTOR_ZH[f], n=len(pairs), with_=w, without=wo, better=better,
+                            verdict="有幫助" if wo - w >= 0.002 else ("反而變差" if w - wo >= 0.002 else "差不多")))
+    base_pairs = [(b["full"], b["base"]) for b in vb if "full" in b and "base" in b]
+    overall_vs_base = None
+    if base_pairs:
+        overall_vs_base = dict(n=len(base_pairs), full=round(mean(p[0] for p in base_pairs), 4), base=round(mean(p[1] for p in base_pairs), 4))
+    return dict(days=days, pending=pending, overall=bucket(rows), by_league={k: bucket(v) for k, v in by.items()},
+                factors=factors, vs_base=overall_vs_base)
 
 
 def _bucket():

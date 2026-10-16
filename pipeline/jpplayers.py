@@ -21,11 +21,16 @@ BACK_NOT = re.compile(r"未定|時期|へ|目指|目標|見込|めど|メド|予
 JP_CHAR = r"一-龥ぁ-んァ-ヶー々"
 
 
+LIMIT_JA = re.compile(r"出場時間制限|プレータイム制限|強行出場|痛みを抱え|痛みに耐え|万全ではない|万全でない|テーピング|コンディション不良|調整しながら")
+
+
 def severity_ja(title):
-    """標題看狀態：先看最強的字（欠場／離脱／手術），再看「復帰」是真的回來還是「復帰へ」還沒。"""
+    """標題看狀態：先看最強的字（欠場／離脱／手術），再看帶傷上場，最後看「復帰」是真的回來還是「復帰へ」還沒。"""
     t = title or ""
     if STRONG_OUT.search(t):
         return "out"
+    if LIMIT_JA.search(t):
+        return "limited"
     if BACK_JA.search(t):
         return "ok" if not BACK_NOT.search(t) else "maybe"
     if MAYBE_JA.search(t):
@@ -78,13 +83,13 @@ def match_players(roster, titles, sur_count):
                     hit = True
             if not hit:
                 continue
-            key = (a.get("published") or "", {"out": 2, "maybe": 1, "ok": 0}[sev])
+            key = (a.get("published") or "", {"out": 3, "maybe": 2, "limited": 1, "ok": 0}[sev])
             cur = found.get(p["id"])
             if cur is None or key > cur["_key"]:
                 found[p["id"]] = dict(
                     id=p["id"], player=p["name"], headshot=p.get("headshot"), position=p.get("position"), position_zh=None,
-                    status={"out": "Out", "maybe": "Doubtful", "ok": "Available"}[sev],
-                    status_zh={"out": "缺陣", "maybe": "存疑", "ok": "回歸"}[sev], severity=sev,
+                    status={"out": "Out", "maybe": "Doubtful", "limited": "Limited", "ok": "Available"}[sev],
+                    status_zh={"out": "缺陣", "maybe": "存疑", "limited": "帶傷上、可能限時", "ok": "回歸"}[sev], severity=sev,
                     detail=t_raw[:80], url=a.get("url"), source=a.get("source"), official=False,
                     ppg=p.get("ppg"), mpg=p.get("mpg"), return_date=None, comment=None, _key=key,
                 )
@@ -269,18 +274,20 @@ def player_layer(games, rosters, key_attr, log, errors, label, impact_scale=None
                 p = next((q for q in roster if q["id"] == x["id"]), {})
                 x["position_zh"] = p.get("position_zh")
                 x["key"] = bool(p.get("captain")) or (p.get("position") in ("Outside Hitter", "Opposite Hitter", "Setter"))
-            if impact_scale:
-                for x in inj:
-                    if x["severity"] in ("out", "maybe"):
-                        x["impact"] = round(impact_points(x.get("ppg"), x.get("mpg"), impact_scale) * (0.5 if x["severity"] == "maybe" else 1), 1)
-                players = [dict(player=x["player"], ppg=x.get("ppg"), mpg=x.get("mpg"), status=x["severity"], impact=x["impact"], status_zh=x["status_zh"]) for x in inj if x["severity"] in ("out", "maybe")]
-                if players:
-                    players.sort(key=lambda x: -x["impact"])
-                    t["injury_impact"] = dict(pts=round(min(8.0, sum(p["impact"] for p in players)), 1), players=players[:4], note="從日文新聞對到球員，依場均得分估算")
+            for x in inj:
+                x["sev0"] = x["severity"] if x["severity"] != "limited" else "ok"
+                if x["severity"] == "limited":
+                    x.update(limit=0.3, why="新聞說他帶傷上或會限時")
             t["injuries"] = inj
+            if impact_scale:
+                from players import team_impact
+                imp = team_impact(t, impact_scale)
+                if imp and imp["players"]:
+                    imp["note"] = "從日文新聞對到球員，依場均得分估算；帶傷上場只算少打的那幾成"
+                    t["injury_impact"] = imp
             if not impact_scale:
                 t["key_out"] = [x["player"] for x in inj if x["severity"] == "out" and x.get("key")]
-                t["key_maybe"] = [x["player"] for x in inj if x["severity"] == "maybe" and x.get("key")]
+                t["key_maybe"] = [x["player"] for x in inj if x["severity"] in ("maybe", "limited") and x.get("key")]
             t["injury_note"] = "沒有官方傷兵名單，這是從日文新聞標題對出來的，賽前再確認一次"
             n_inj += 1
             log(f"[{label}] 傷兵 {t.get('jp_name') or t.get('name')}：" + "、".join(f"{x['player']}({x['status_zh']}｜{x['detail'][:40]})" for x in inj))

@@ -52,6 +52,55 @@ def _espn_stats(get, athlete_id, season):
     return out
 
 
+def _weight(x):
+    """這個人這場「少掉幾成」：確定不打 = 1；可能不打 = 不打的機率；限時 = 少打的比例。"""
+    sev = x.get("severity")
+    if sev in ("out", "ir"):
+        return 1.0
+    if sev == "maybe":
+        return x.get("p_out") if x.get("p_out") is not None else 0.5
+    if sev == "limited":
+        return x.get("limit") if x.get("limit") is not None else 0.35
+    return 0.0
+
+
+def _weight_basic(x):
+    """舊算法（只看名單狀態，不讀備註、不看上場時間、不看輪休習慣），留著跟新算法比哪個準。"""
+    sev = x.get("sev0") or x.get("severity")
+    if sev in ("out", "ir"):
+        return 1.0
+    if sev == "maybe":
+        return 0.5
+    return 0.0
+
+
+def team_impact(t, scale="nba"):
+    """把一隊所有缺陣／限時的人加起來。回傳 injury_impact dict 或 None。"""
+    players = []
+    basic = 0.0
+    for x in t.get("injuries") or []:
+        if x.get("ppg") is None and x.get("full_impact") is None:
+            continue
+        full = x.get("full_impact")
+        if full is None:
+            full = impact_points(x.get("ppg"), x.get("mpg"), scale)
+            x["full_impact"] = full
+        w = _weight(x)
+        basic += full * _weight_basic(x)
+        if w <= 0:
+            x["impact"] = 0
+            continue
+        x["impact"] = round(full * w, 1)
+        players.append(dict(player=x["player"], ppg=x.get("ppg"), mpg=x.get("mpg"), status=x.get("severity"), impact=x["impact"],
+                            status_zh=x.get("status_zh"), why=x.get("why"), p_out=x.get("p_out"), limit=x.get("limit")))
+    if not players and basic <= 0:
+        return None
+    players.sort(key=lambda p: -p["impact"])
+    total = round(min(8.0, sum(p["impact"] for p in players)), 1)
+    return dict(pts=total, pts_basic=round(min(8.0, basic), 1), players=players[:4],
+                note="依場均得分、上場時間、傷兵備註估算：確定不打全算，可能不打乘上不打的機率，限時只算少打的那幾成")
+
+
 def nba_injury_impact(games, get, log, errors, keep_raw=None):
     season = _season_year()
     cache = {}
@@ -61,9 +110,10 @@ def nba_injury_impact(games, get, log, errors, keep_raw=None):
             continue
         for side in ("home", "away"):
             t = g[side]
-            players = []
             for inj in t.get("injuries") or []:
-                if inj.get("severity") not in ("out", "ir", "maybe") or not inj.get("id"):
+                if inj.get("severity") not in ("out", "ir", "maybe", "limited") and inj.get("sev0") not in ("out", "ir", "maybe"):
+                    continue
+                if not inj.get("id"):
                     continue
                 pid = str(inj["id"])
                 if pid not in cache:
@@ -86,18 +136,13 @@ def nba_injury_impact(games, get, log, errors, keep_raw=None):
                 if not st:
                     continue
                 n_hit += 1
-                ppg, mpg = st.get("avgPoints"), st.get("avgMinutes")
-                pts = impact_points(ppg, mpg)
-                if inj["severity"] == "maybe":
-                    pts = round(pts * 0.5, 1)
-                inj["ppg"], inj["mpg"] = ppg, mpg
-                inj["impact"] = pts
+                inj["ppg"], inj["mpg"] = st.get("avgPoints"), st.get("avgMinutes")
                 inj["stats_season"] = st.get("season")
-                players.append(dict(player=inj["player"], ppg=ppg, mpg=mpg, status=inj["severity"], impact=pts, status_zh=inj.get("status_zh")))
-            if players:
-                players.sort(key=lambda x: -x["impact"])
-                total = round(min(8.0, sum(p["impact"] for p in players)), 1)
-                t["injury_impact"] = dict(pts=total, players=players[:4], note="依場均得分與上場時間的級距估算")
+            imp = team_impact(t, "nba")
+            if imp:
+                t["injury_impact"] = imp
+            else:
+                t.pop("injury_impact", None)
     log(f"[nba] 傷兵影響：查了 {n_q} 人、有數據 {n_hit} 人")
 
 
@@ -107,8 +152,8 @@ MAYBE_WORDS = re.compile(r"\b(doubtful|questionable|game-time|game time decision
 BACK_WORDS = re.compile(r"\b(returns?|returned|returning|is back|back in|comeback|cleared|available|rejoins?|recovered|will play|ready to play|makes his debut|set to play)\b"
                         r"|(?<!lower )(?<!his )(?<!the )\bback\b(?!\s+(?:injur|problem|issue|pain|spasm|strain|surgery|tightness|trouble))", re.I)
 REPORT_TITLE = re.compile(r"injury report|absences|will miss|key players who will miss|sidelined", re.I)
-SEV_RANK = {"out": 2, "maybe": 1, "ok": 0}
-STATUS = {"out": ("Out", "缺陣"), "maybe": ("Doubtful", "存疑"), "ok": ("Available", "回歸")}
+SEV_RANK = {"out": 3, "maybe": 2, "limited": 1, "ok": 0}
+STATUS = {"out": ("Out", "缺陣"), "maybe": ("Doubtful", "存疑"), "limited": ("Limited", "帶傷上、可能限時"), "ok": ("Available", "回歸")}
 
 
 def _ascii(s):
@@ -175,12 +220,15 @@ def _clauses(sentence):
     return [c.strip() for c in re.split(r",\s+(?:and|but|while|whereas)\s+|;\s+|\s+(?:while|whereas|but)\s+", sentence) if c.strip()]
 
 
+LIMIT_WORDS = re.compile(r"\b(minutes? restriction|minutes? limit|limited minutes|play(?:s|ing)? through|not 100 ?%|not at 100|ramping up|managed minutes|on a minutes)\b", re.I)
 IMPLIED_HINT = re.compile(r"\(|knee|ankle|calf|hamstring|shoulder|foot|hand|wrist|thigh|groin|hip|muscle|illness|surgery|fracture|strain|sprain|tear|rehab|recover|achilles|concussion|back\b", re.I)
 
 
 def _severity(sentence, implied_out=False):
     """同一句裡誰先出現就聽誰的：「returns after missing two games」是回來，「will not return」是缺陣。
     傷兵報告類文章裡只點名、沒講狀態的句子（通常是「名字（膝蓋）」這種），當缺陣。"""
+    if LIMIT_WORDS.search(sentence):
+        return "limited"
     hits = []
     for sev, rx in (("ok", BACK_WORDS), ("out", OUT_WORDS), ("maybe", MAYBE_WORDS)):
         m = rx.search(sentence)
@@ -282,13 +330,14 @@ def el_player_layer(games, rosters, log, errors, articles=None):
                 inj = list(found.values())
                 for x in inj:
                     x.pop("_key", None)
-                    if x["severity"] in ("out", "maybe"):
-                        x["impact"] = round(impact_points(x["ppg"], x["mpg"], "el") * (0.5 if x["severity"] == "maybe" else 1), 1)
+                    x["sev0"] = x["severity"] if x["severity"] != "limited" else "ok"
+                    if x["severity"] == "limited":
+                        x.update(limit=0.3, why="新聞說他帶傷上或會限時")
                 t["injuries"] = inj
-                players = [dict(player=x["player"], ppg=x["ppg"], mpg=x["mpg"], status=x["severity"], impact=x["impact"], status_zh=x["status_zh"]) for x in inj if x["severity"] in ("out", "maybe")]
-                if players:
-                    players.sort(key=lambda x: -x["impact"])
-                    t["injury_impact"] = dict(pts=round(min(8.0, sum(p["impact"] for p in players)), 1), players=players[:4], note="從傷兵報告與新聞對到球員，依場均得分估算")
+                imp = team_impact(t, "el")
+                if imp and imp["players"]:
+                    imp["note"] = "從傷兵報告與新聞對到球員，依場均得分估算；帶傷上場只算少打的那幾成"
+                    t["injury_impact"] = imp
                 t["injury_note"] = "沒有官方傷兵名單，這是從傷兵報告文章和新聞對出來的，賽前再確認一次"
                 n_inj += 1
                 if code not in seen_codes:

@@ -1,0 +1,24 @@
+name: 即時比分
+# 只在有比賽正在打（歐洲籃球、日本籃球、日本排球）的時候每分鐘抓一次；沒比賽幾秒就結束。
+on:
+  schedule:
+    - cron: "*/20 * * * *"
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: live-scores
+  cancel-in-progress: false
+jobs:
+  live:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -r pipeline/requirements.txt
+      - run: python pipeline/live.py --minutes 22
