@@ -99,8 +99,12 @@ def prev_ratings(get, lg, season_prev, rating_fn, team_table_fn, hca):
     return {k: rating_fn(v, lg["sport"]) for k, v in table.items()}
 
 
+JINX_TH = {"basketball": 5.0, "hockey": 1.0, "football": 5.0}
+JINX_CAP = {"basketball": 2.0, "hockey": 0.4, "football": 2.0}
+
+
 def espn_h2h(g, lg, get, season_prev, prev_r, cur_r, hca, schedule_fn):
-    """主隊角度：近兩季交手，每場跟「照當時實力該贏幾分」比。"""
+    """主隊角度：近兩季（例行賽）交手，每場跟「照當時實力該贏幾分」比。季前賽的交手不算。"""
     hid, aid = str(g["home"].get("id") or ""), str(g["away"].get("id") or "")
     if not hid or not aid:
         return None
@@ -116,6 +120,8 @@ def espn_h2h(g, lg, get, season_prev, prev_r, cur_r, hca, schedule_fn):
             pa = float((op.get("score") or {}).get("value") if isinstance(op.get("score"), dict) else op.get("score"))
         except (TypeError, ValueError):
             continue
+        if pf == 0 and pa == 0:
+            continue
         home = me.get("homeAway") == "home"
         exp = None
         if hid in prev_r and aid in prev_r:
@@ -124,7 +130,9 @@ def espn_h2h(g, lg, get, season_prev, prev_r, cur_r, hca, schedule_fn):
                           over=None if exp is None else round(pf - pa - exp, 1), season="上季"))
     # 這一季（ESPN summary 的 seasonseries）
     h2h = (g.get("analysis") or {}).get("h2h") or {}
-    for x in h2h.get("games") or []:
+    for x in ([] if g.get("season_type") == 1 else (h2h.get("games") or [])):
+        if not (x.get("hs") or x.get("as")):
+            continue
         home_abbr = g["home"].get("abbr")
         if x.get("home") == home_abbr:
             pf, pa, home = x["hs"], x["as"], True
@@ -147,11 +155,12 @@ def espn_h2h(g, lg, get, season_prev, prev_r, cur_r, hca, schedule_fn):
     out = dict(n=n, w=w, l=l, avg_margin=round(mean(x["margin"] for x in games), 1), avg_over=avg_over,
                games=games[-6:], source="近兩季交手")
     side, adj = None, 0.0
+    th, cap = JINX_TH.get(lg["sport"], 5.0), JINX_CAP.get(lg["sport"], 2.0)
     if n >= 3 and avg_over is not None:
-        if w >= n - 1 and avg_over >= 5:
-            side, adj = "home", clamp(0.25 * avg_over, 0, 2)
-        elif l >= n - 1 and avg_over <= -5:
-            side, adj = "away", clamp(0.25 * avg_over, -2, 0)
+        if w >= n - 1 and avg_over >= th:
+            side, adj = "home", clamp(0.25 * avg_over, 0, cap)
+        elif l >= n - 1 and avg_over <= -th:
+            side, adj = "away", clamp(0.25 * avg_over, -cap, 0)
     out["jinx"] = side
     out["adj"] = round(adj * min(1.0, n / 4), 1)
     return out

@@ -93,6 +93,18 @@ def _fan_take(g, sport, hn, an, pick, used):
             if fv.get("streak_kind") == "L" and fv.get("streak_n", 0) >= 3 and (fv.get("streak_opp_avg") or 0) >= 3:
                 out.append(f"{name}連輸 {fv['streak_n']} 場，但碰的都是強隊，沒有看起來那麼差。")
                 break
+        if len(out) < 2:
+            # 季初場數少，帳面就是近況：只講特別順或特別差的
+            for side, t, name in (("home", H, hn), ("away", A, an)):
+                fv = r.get("form_" + side)
+                if not fv or (r.get("gp_" + side) or 0) >= 8:
+                    continue
+                if fv["recent"] >= 10:
+                    out.append(f"{name}開季打得很順，扣掉對手強弱平均贏 {fv['recent']:.0f} 分，不是只靠賽程。")
+                    break
+                if fv["recent"] <= -8:
+                    out.append(f"{name}開季打得很掙扎，扣掉對手強弱平均輸 {abs(fv['recent']):.0f} 分。")
+                    break
     # 4) 剋星
     h = a.get("h2h_long") or {}
     if len(out) < 2 and h.get("jinx"):
@@ -116,6 +128,10 @@ def _fan_take(g, sport, hn, an, pick, used):
     st_ = a.get("style") or {}
     if len(out) < 2 and st_.get("lines"):
         out.append(st_["lines"][0])
+    # 7) 實力差很多：要擔心的不是輸贏，是讓分
+    if not out and r and not r.get("weak") and abs(r.get("our_spread") or 0) >= 10:
+        fav = hn if (r.get("our_spread") or 0) < 0 else an
+        out.append(f"兩隊實力差很多，{fav}贏面大，但這種比賽要擔心的不是輸贏，是讓分讓太深、後段換替補被追分。")
     if not out:
         if pick in ("home", "away"):
             out.append(f"沒什麼特別的變數，照實力看{hn if pick == 'home' else an}比較穩。")
@@ -258,15 +274,19 @@ def build_story(g, sport):
     hl = a.get("h2h_long") or {}
     h2h = a.get("h2h")
     if hl.get("n"):
-        line = f"近 {hl['n']} 次交手{hn} {hl['w']} 勝 {hl['l']} 敗"
-        if hl.get("ats_w") is not None and hl.get("ats_w", 0) + hl.get("ats_l", 0) >= 2:
-            line += f"，{hn}台灣讓分盤 {hl['ats_w']} 過 {hl['ats_l']} 沒過"
-        elif hl.get("avg_over") is not None:
-            line += f"，平均{'比預期多贏' if hl['avg_over'] >= 0 else '比預期少贏'} {abs(hl['avg_over']):.0f} 分"
         if hl.get("jinx"):
-            line += f"，算得上{'剋星' if hl['jinx'] == 'home' else '苦主'}。"
+            win, lose = (hn, an) if hl["jinx"] == "home" else (an, hn)
+            ww = hl["w"] if hl["jinx"] == "home" else hl["l"]
+            line = f"{win}是{lose}的剋星：近 {hl['n']} 次碰面贏了 {ww} 次"
+            if hl.get("ats_w") is not None and hl.get("ats_w", 0) + hl.get("ats_l", 0) >= 3:
+                aw = hl["ats_w"] if hl["jinx"] == "home" else hl["ats_l"]
+                line += f"，台灣讓分盤也過了 {aw} 次。"
+            elif hl.get("avg_over") is not None:
+                line += f"，而且平均比實力該贏的多贏 {abs(hl['avg_over']):.0f} 分。"
+            else:
+                line += "。"
         else:
-            line += "，看不出誰剋誰。"
+            line = f"近 {hl['n']} 次交手{hn} {hl['w']} 勝 {hl['l']} 敗，看不出誰剋誰。"
         matchup.append(line)
     elif h2h and h2h.get("games"):
         hw = sum(1 for x in h2h["games"] if x["winner"] == "home")
@@ -281,9 +301,15 @@ def build_story(g, sport):
     r0 = a.get("rating") or {}
     for side, name in (("home", hn), ("away", an)):
         fv = r0.get("form_" + side)
-        if fv and fv.get("n", 0) >= 3:
-            sched = "強隊" if fv["opp_avg"] >= 3 else ("弱隊" if fv["opp_avg"] <= -3 else "中段的隊")
-            matchup.append(f"{name}最近 {fv['n']} 場碰的大多是{sched}，扣掉對手強弱平均{'贏' if fv['recent'] >= 0 else '輸'} {abs(fv['recent']):.0f} 分。")
+        if fv and fv.get("n", 0) >= 3 and (abs(fv["recent"]) >= 5 or abs(fv["opp_avg"]) >= 3):
+            if fv["opp_avg"] >= 3:
+                sched = f"最近 {fv['n']} 場碰的多是強隊"
+            elif fv["opp_avg"] <= -3:
+                sched = f"最近 {fv['n']} 場碰的多是弱隊"
+            else:
+                sched = f"最近 {fv['n']} 場"
+            how = f"扣掉對手強弱平均{'贏' if fv['recent'] >= 0 else '輸'} {abs(fv['recent']):.0f} 分" if abs(fv["recent"]) >= 1 else "扣掉對手強弱打得跟對手差不多"
+            matchup.append(f"{name}{sched}，{how}。")
     # 盤口變動
     lm = a.get("line_move")
     if lm and lm.get("spread_open") is not None and lm.get("spread_now") is not None and abs(lm["spread_now"] - lm["spread_open"]) >= 1:

@@ -153,7 +153,7 @@ def apply_notes(g, log=None):
                 elif r["when"] == "future":
                     x.update(severity="maybe", p_out=0.7, status_zh="很可能不打", why=f"{hurt}的關係，連{r['other']}都說不會打，這場也很可能不打")
                 else:
-                    x.update(severity="maybe", p_out=0.5, status_zh="上一場沒打", why=f"{r['other']}因為{hurt}沒打，這場還要看")
+                    x.update(severity="maybe", p_out=0.5, status_zh="上一場沒打", why=f"{r['other']}因{hurt}沒打，這場還要看")
             elif r["kind"] == "limited":
                 x.update(severity="limited", p_out=0.0, limit=LIMIT_DEFAULT, status_zh="會上但限時",
                          why="球隊在控制他的上場時間" + (f"（{r['reason']}）" if r["reason"] else ""))
