@@ -288,6 +288,15 @@
       mlTw: !!(tw.ml && (tw.ml.home || tw.ml.away)),
     };
   }
+  // 按鈕旁邊的賠率：台灣運彩有開就用台灣的；不讓分沒有台灣盤時用國際盤，讓分、大小只放台灣的
+  function oddOf(g, side, mk) {
+    const o = g.odds || {}, tw = g.tw || {}, ml = tw.ml || {}, sp = tw.spread || {}, tt = tw.total || {};
+    const v = side === "home" || side === "away" ? (mk.mlTw ? ml[side] : o["dec_" + side])
+      : side === "ats_home" ? (mk.spreadTw ? sp.home : null) : side === "ats_away" ? (mk.spreadTw ? sp.away : null)
+        : side === "over" ? (mk.totalTw ? tt.over : null) : side === "under" ? (mk.totalTw ? tt.under : null) : null;
+    const x = Number(v);
+    return Number.isFinite(x) && x > 1 ? x.toFixed(2) : "";
+  }
   function snapshotPick(g, side) {
     const o = g.odds || {}, tw = g.tw || {}, ml = tw.ml || {}, sp = tw.spread || {}, tt = tw.total || {}, s = g.suggestion || {};
     const mk = marketOf(g);
@@ -362,10 +371,12 @@
     const p = state.picks[g.id];
     const locked = gameStarted(g), post = g.status.state === "post";
     if (compact && !p && locked) return "";
+    const mk = marketOf(g);
     const btn = (side, label) => {
       const on = p && p.side === side;
       const res = on && p.result ? p.result.r : "";
-      return `<button class="pbtn ${on ? "on" : ""} ${res}" data-pick="${side}" data-pick-game="${esc(g.id)}" ${locked ? "disabled" : ""}>${on ? icon("i-check") : ""}<span>${esc(label)}</span>${res ? `<b>${res === "win" ? "對" : res === "loss" ? "錯" : "平"}</b>` : ""}</button>`;
+      const od = oddOf(g, side, mk);
+      return `<button class="pbtn ${on ? "on" : ""} ${res}" data-pick="${side}" data-pick-game="${esc(g.id)}" ${locked ? "disabled" : ""}>${on ? icon("i-check") : ""}<span class="pt"><span class="pn">${esc(label)}</span>${od ? `<em class="odd">賠 ${od}</em>` : ""}</span>${res ? `<b>${res === "win" ? "對" : res === "loss" ? "錯" : "平"}</b>` : ""}</button>`;
     };
     const A = tname(g.away), H = tname(g.home);
     if (compact) {
@@ -373,10 +384,10 @@
       const extra = p && p.side !== "home" && p.side !== "away" ? `<div class="pick-note">你押 ${esc(sideLabel(p))}${p.result ? (p.result.r === "win" ? "，對了" : p.result.r === "loss" ? "，沒中" : "，平手") : ""}</div>` : "";
       return `<div class="pickrow compact" data-pickrow="${esc(g.id)}" data-compact="1"><div class="pick-grid">${btn("away", "押 " + A)}${btn("home", "押 " + H)}</div>${extra}</div>`;
     }
-    const mk = marketOf(g);
     const tag = (tw) => `<small class="src ${tw ? "tw" : "intl"}">${tw ? "台灣運彩" : "國際盤"}</small>`;
     const rows = [];
-    rows.push(`<div class="pick-label">誰會贏（不讓分）</div><div class="pick-grid">${btn("away", "我押 " + A)}${btn("home", "我押 " + H)}</div>`);
+    const mlIntl = !mk.mlTw && ((g.odds || {}).dec_home || (g.odds || {}).dec_away);
+    rows.push(`<div class="pick-label">誰會贏（不讓分）${mk.mlTw || mlIntl ? " " + tag(mk.mlTw) : ""}</div><div class="pick-grid">${btn("away", "我押 " + A)}${btn("home", "我押 " + H)}</div>`);
     const showP = (sides) => !locked || (p && sides.includes(p.side));
     if (mk.spread != null && showP(["ats_home", "ats_away"])) {
       rows.push(`<div class="pick-label">讓分 ${tag(mk.spreadTw)}</div><div class="pick-grid">${btn("ats_away", `${A} ${fmtLine(-mk.spread)}`)}${btn("ats_home", `${H} ${fmtLine(mk.spread)}`)}</div>`);

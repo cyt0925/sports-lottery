@@ -252,12 +252,16 @@ body[data-view="today"] .view[data-for="today"],body[data-view="injuries"] .view
 .pickrow.compact{border-top:1px dashed var(--line-2);border-top-left-radius:0;border-top-right-radius:0;padding:10px 14px 12px}
 .pick-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
 .pbtn{min-height:52px;display:flex;align-items:center;justify-content:center;gap:6px;padding:6px 10px;border-radius:14px;background:var(--card-2);border:1.5px solid var(--line-2);font-weight:800;font-size:1rem;color:var(--ink);text-align:center;line-height:1.2}
-.pbtn span{overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+.pbtn .pt{display:flex;flex-direction:column;align-items:center;min-width:0;gap:2px}
+.pbtn .pn{overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
 .pbtn svg{width:20px;height:20px;flex:none}
 .pbtn.on{background:var(--violet);border-color:var(--violet);color:#fff;box-shadow:0 6px 18px rgba(139,92,246,.35)}
 .pbtn.on.win{background:var(--good);border-color:var(--good);color:#0b0a14}
 .pbtn.on.loss{background:var(--bad);border-color:var(--bad);color:#fff}
 .pbtn.on.push{background:var(--muted);border-color:var(--muted);color:#fff}
+.pbtn .odd{font-style:normal;font-weight:800;font-size:.9rem;color:var(--violet);font-variant-numeric:tabular-nums;flex:none}
+.pbtn.on .odd{color:inherit;opacity:.9}
+.pbtn:disabled .odd{color:var(--muted)}
 .pbtn b{font-size:.85rem;padding:2px 7px;border-radius:999px;background:rgba(0,0,0,.18)}
 .pbtn:disabled{opacity:.45}
 .pbtn.on:disabled{opacity:1}
