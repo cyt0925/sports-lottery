@@ -1039,6 +1039,8 @@ def build_suggestion(g, lg):
     else:
         hi, mid = 0.66, 0.56
     adj = pf + score * 0.05
+    # 網站估的勝率（盤口＋傷兵、近況等調整），串關算機率用
+    res["fav"], res["p_est"] = fav, round(min(0.97, max(0.03, adj)), 3)
     if adj >= hi and score >= 0:
         conf = "高"
     elif adj >= mid:
@@ -1304,6 +1306,14 @@ def main():
                 g["suggestion"]["summary"] = (g["suggestion"].get("summary") or "").replace("信心高", "信心中")
         except Exception as e:  # noqa: BLE001
             ERRORS.append(f"{lg['key']} 純模型 {g['id']} 失敗: {e!r}")
+        # 每個選項（不讓分、讓分、大小分兩邊）會中的機率，給串關用
+        try:
+            if g["status"]["state"] == "pre":
+                import parlay
+                from model import TOTAL_SIGMA
+                g["suggestion"]["probs"] = parlay.side_probs(g, lg["sport"], SPREAD_SIGMA, TOTAL_SIGMA)
+        except Exception as e:  # noqa: BLE001
+            ERRORS.append(f"{lg['key']} 串關機率 {g['id']} 失敗: {e!r}")
         try:
             from story import build_story
             talk = build_story(g, lg["sport"])
@@ -1319,14 +1329,26 @@ def main():
     feed, hot = aggregate(all_games)
     # 成績單：記下建議、賽後對答案
     record = None
+    parlay_out = None
     try:
         import history
         hpath = os.path.join(os.path.dirname(os.path.abspath(args.out)), "history.json")
         hist = history.load(hpath)
         n_new, n_upd, n_set = history.update(hist, all_games, now_tw)
+        try:
+            import parlay
+            parlay_out = parlay.track(hist, all_games, now_tw, hidden={x["key"] for x in SPORTS if x.get("hidden")})
+            cur = parlay_out.get("current")
+            log("串關：" + (f"{'已鎖定' if cur.get('locked') else '推薦'} " + "＋".join(x["label"] for x in cur["legs"]) + f"，總賠率 {cur['dec']}、全中約 {round(cur['p'] * 100)}%" if cur else parlay_out.get("note", "")))
+        except Exception as e:  # noqa: BLE001
+            ERRORS.append(f"串關失敗: {e!r}")
         history.save(hpath, hist)
         record = history.summarize(hist, now_tw)
         record["model"] = history.model_summary(hist, now_tw)
+        try:
+            record["parlay"] = parlay.summary(hist, now_tw)
+        except Exception as e:  # noqa: BLE001
+            ERRORS.append(f"串關成績失敗: {e!r}")
         rpath = os.path.join(os.path.dirname(os.path.abspath(args.out)), "results.json")
         with open(rpath, "w", encoding="utf-8") as f:
             json.dump(history.results_payload(hist, now_tw), f, ensure_ascii=False, separators=(",", ":"))
@@ -1347,6 +1369,7 @@ def main():
         hot_players=hot[:40],
         standings=standings,
         record=record,
+        parlay=parlay_out,
         source="NBA 來自 ESPN；歐洲籃球、日本籃球的賽程與盤口來自玩運彩，隊徽與排名來自 EuroLeague 官方與 B.LEAGUE 官網；日本排球來自 SV.LEAGUE 官網；沒有官方傷兵名單的聯盟用 Google 新聞",
         errors=ERRORS[:50],
         calls=CALLS["n"],
