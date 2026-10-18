@@ -1453,7 +1453,7 @@ def main():
             import probe   # 暫時：台灣運彩官網資料主機讀不讀得到（只寫 log）
             probe.run(log)
         except Exception as e:  # noqa: BLE001
-            log(f"[查詢3] 失敗：{e!r}")
+            log(f"[查詢4] 失敗：{e!r}")
         os.makedirs(args.debug_dir, exist_ok=True)
         for name, obj in RAW.items():
             with open(os.path.join(args.debug_dir, f"{name}.json"), "w", encoding="utf-8") as f:
