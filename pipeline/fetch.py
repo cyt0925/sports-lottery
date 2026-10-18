@@ -1449,12 +1449,6 @@ def main():
     for e in ERRORS[:20]:
         log("  ! " + e)
     if args.debug_dir:
-        try:
-            import probe   # 暫時：查玩運彩有哪些籃球分類（只寫 log）
-            probe.run(log)
-            probe.run_sources(log)
-        except Exception as e:  # noqa: BLE001
-            log(f"[查詢] 失敗：{e!r}")
         os.makedirs(args.debug_dir, exist_ok=True)
         for name, obj in RAW.items():
             with open(os.path.join(args.debug_dir, f"{name}.json"), "w", encoding="utf-8") as f:
