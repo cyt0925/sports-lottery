@@ -1452,6 +1452,7 @@ def main():
         try:
             import probe   # 暫時：查玩運彩有哪些籃球分類（只寫 log）
             probe.run(log)
+            probe.run_sources(log)
         except Exception as e:  # noqa: BLE001
             log(f"[查詢] 失敗：{e!r}")
         os.makedirs(args.debug_dir, exist_ok=True)

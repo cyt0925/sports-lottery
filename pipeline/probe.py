@@ -46,3 +46,34 @@ def run(log):
         log(f"[查詢] 分類 {aid}={name}：{len(games)} 場；來源欄 {dict(comps)}")
         for g in games[:40]:
             log(f"[查詢]   {g}")
+
+
+def run_sources(log):
+    """暫時：測試幾個免費的國內聯賽資料來源（只寫 log）。"""
+    import requests
+    ua = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36"}
+    tsdb = "https://www.thesportsdb.com/api/v1/json/123"
+    for c in ("Spain", "Turkey", "Greece", "Italy", "Israel", "France", "Germany", "Lithuania", "Serbia"):
+        try:
+            r = requests.get(f"{tsdb}/search_all_leagues.php", params={"c": c, "s": "Basketball"}, headers=ua, timeout=20)
+            ls = (r.json() or {}).get("countries") or []
+            log(f"[查詢] TheSportsDB {c}：HTTP {r.status_code}，" + "、".join(f"{x.get('idLeague')}={x.get('strLeague')}" for x in ls[:6]))
+        except Exception as e:  # noqa: BLE001
+            log(f"[查詢] TheSportsDB {c} 失敗：{type(e).__name__} {str(e)[:120]}")
+    for lid in ("4408", "4433"):
+        try:
+            r = requests.get(f"{tsdb}/eventspastleague.php", params={"id": lid}, headers=ua, timeout=20)
+            ev = (r.json() or {}).get("events") or []
+            log(f"[查詢] TheSportsDB 聯賽 {lid} 最近比賽 {len(ev)} 場：" + "；".join(f"{e.get('dateEvent')} {e.get('strEvent')} {e.get('intHomeScore')}-{e.get('intAwayScore')}" for e in ev[:5]))
+        except Exception as e:  # noqa: BLE001
+            log(f"[查詢] TheSportsDB 聯賽 {lid} 失敗：{type(e).__name__}")
+    day = datetime.now(TW).strftime("%Y-%m-%d")
+    for url in (f"https://api.sofascore.com/api/v1/sport/basketball/scheduled-events/{day}",
+                f"https://www.sofascore.com/api/v1/sport/basketball/scheduled-events/{day}"):
+        try:
+            r = requests.get(url, headers={**ua, "Accept": "application/json"}, timeout=20)
+            n = len((r.json() or {}).get("events") or []) if r.status_code == 200 else 0
+            tours = Counter(((e.get("tournament") or {}).get("name") or "?") for e in ((r.json() or {}).get("events") or [])) if r.status_code == 200 else {}
+            log(f"[查詢] Sofascore {url.split('/')[2]}：HTTP {r.status_code}，{n} 場；聯賽 {dict(list(dict(tours).items())[:25])}")
+        except Exception as e:  # noqa: BLE001
+            log(f"[查詢] Sofascore 失敗：{type(e).__name__} {str(e)[:120]}")
