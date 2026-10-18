@@ -1449,6 +1449,11 @@ def main():
     for e in ERRORS[:20]:
         log("  ! " + e)
     if args.debug_dir:
+        try:
+            import probe   # 暫時：找歐洲國內聯賽的資料來源（只寫 log）
+            probe.run(log)
+        except Exception as e:  # noqa: BLE001
+            log(f"[查詢2] 失敗：{e!r}")
         os.makedirs(args.debug_dir, exist_ok=True)
         for name, obj in RAW.items():
             with open(os.path.join(args.debug_dir, f"{name}.json"), "w", encoding="utf-8") as f:
