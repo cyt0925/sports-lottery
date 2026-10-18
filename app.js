@@ -19,6 +19,7 @@
     standingsLeague: localStorage.getItem("standingsLeague") || null,
     numbersOpen: false,
     picks: {},
+    day: null,
     recTab: "site",
     results: null,
     resultsAt: 0,
@@ -50,6 +51,16 @@
     const name = diff === 0 ? "今天" : diff === 1 ? "明天" : diff === -1 ? "昨天" : diff === 2 ? "後天" : "";
     return { name: name || md, sub: `${md}（${wk}）` };
   }
+  function addDays(day, n) {
+    const [y, m, d] = day.split("-").map(Number);
+    return new Date(Date.UTC(y, m - 1, d + n)).toISOString().slice(0, 10);
+  }
+  // 日期列表：昨天、今天、往後 3 天
+  const dayList = () => [-1, 0, 1, 2, 3].map((n) => addDays(todayTW(), n));
+  const isTodayView = () => state.day === todayTW();
+  const weekOf = (d) => "週" + ["日", "一", "二", "三", "四", "五", "六"][new Date(d + "T00:00:00Z").getUTCDay()];
+  // 昨天／今天／明天／後天，再後面用「週三」
+  const dayName = (d) => { const n = dayLabel(d).name; return ["昨天", "今天", "明天", "後天"].includes(n) ? n : weekOf(d); };
   function ago(ts) {
     const m = Math.max(0, Math.round((Date.now() / 1000 - ts) / 60));
     if (m < 1) return "剛剛更新";
@@ -560,7 +571,7 @@
   function renderParlay() {
     const el = $("#parlay");
     if (!el || !state.data) return;
-    el.innerHTML = siteParlayCard() + slipCard();
+    el.innerHTML = isTodayView() ? siteParlayCard() + slipCard() : "";
   }
   function setStake(v) {
     const n = Math.round(Number(v) / 10) * 10;
@@ -609,7 +620,15 @@
   }
   function verdictPill(g) {
     const s = g.suggestion || {};
-    if (g.status.state === "post") return `<span class="pill post">打完了</span>`;
+    if (g.status.state === "post") {
+      const gr = g.graded;
+      if (gr && gr.r) {
+        const ok = gr.r === "win", bad = gr.r === "loss";
+        const what = gr.play === "大小分" ? `玩 ${esc(gr.pick_label)}${gr.total_line != null ? " " + gr.total_line : ""}` : `押 ${esc(gr.pick_label)} · ${esc(gr.play)}${gr.play === "讓分" && gr.ats_line != null ? " " + fmtLine(gr.ats_line) : ""}`;
+        return `<span class="pill post ${ok ? "hit" : bad ? "miss" : ""}">${ok ? icon("i-check") : ""}網站${what}</span><span class="conf ${ok ? "hit" : bad ? "miss" : ""}">${ok ? "對了" : bad ? "沒中" : "平手"}</span>`;
+      }
+      return `<span class="pill post">打完了</span>`;
+    }
     if (s.play === "大小分" && s.pick) { const tt = s.totals || {}; const line = tt.line_tw ?? tt.line; return `<span class="pill">${icon("i-star")}玩 ${esc(s.pick_label)}${line != null ? " " + line : ""}</span><span class="conf">信心${esc(s.confidence)}</span>`; }
     if (s.pick) return `<span class="pill">${icon("i-star")}押 ${esc(s.pick_label)} · ${esc(s.play)}</span><span class="conf">信心${esc(s.confidence)}</span>`;
     if (!g.odds || g.odds.prob_home == null) return `<span class="pill wait">還沒開盤</span>`;
@@ -657,7 +676,7 @@
       <div class="g-teams">${teamCol(g.away, "away", g)}${midCol(g)}${teamCol(g.home, "home", g)}</div>
       <div class="g-verdict">${verdictPill(g)}</div>
       ${!post ? `<div class="g-why">${esc(firstSentence(t.fan) || (t.why || [])[0] || t.verdict)}</div>` : ""}
-      ${twLine(g) ? `<div class="g-odds">${twLine(g)}</div>` : ""}
+      ${twLine(g) ? `<div class="g-odds">${twLine(g)}</div>` : g.far ? `<div class="g-odds">台灣運彩還沒開盤，傷兵名單也還沒出來，先看看就好</div>` : ""}
       <div class="g-tap">點一下看詳細 ${icon("i-chev")}</div>
     </button>${pickButtons(g, true)}</div>`;
   }
@@ -668,7 +687,9 @@
     document.body.dataset.sport = state.sport;
     $("#hdr-date").textContent = `${dayLabel(todayTW()).sub} · ${ago(d.generated_ts)}`;
     $("#foot-src").textContent = `資料來源：${d.source || "ESPN"}　｜　更新時間 ${String(d.generated_at || "").replace("T", " ").slice(0, 16)}`;
+    if (!state.day || !dayList().includes(state.day)) state.day = todayTW();
     renderChips();
+    renderDays();
     renderPicks();
     renderParlay();
     renderGames();
@@ -797,7 +818,7 @@
   }
 
   function renderChips() {
-    const all = state.data.games || [];
+    const all = (state.data.games || []).filter((g) => g.day_tw === state.day || (isTodayView() && g.status.state === "in"));
     const sports = state.data.sports || [];
     const hiddenKeys = new Set(sports.filter((s) => s.hidden).map((s) => s.key));
     const counts = {};
@@ -810,11 +831,22 @@
     }).join("") + (hiddenKeys.size ? `<button class="chip more-chip" data-more-sports="1">${state.showMore ? "收起" : "其他球種"}</button>` : "");
   }
 
+  function renderDays() {
+    const el = $("#days");
+    if (!el) return;
+    const counts = {};
+    gamesForSport().forEach((g) => { counts[g.day_tw] = (counts[g.day_tw] || 0) + 1; });
+    el.innerHTML = dayList().map((d) => {
+      return `<button class="day ${state.day === d ? "on" : ""}" data-day="${d}"><b>${esc(dayName(d))}</b><small>${esc(d.slice(5).replace("-", "/"))} ${esc(weekOf(d).slice(1))}</small><span class="n">${counts[d] || 0} 場</span></button>`;
+    }).join("");
+  }
   function topPicks() {
     const order = { 高: 0, 中: 1, 低: 2 };
     const dec = (g) => { const side = g.suggestion.pick; if (g.suggestion.play === "大小分") { const tt = g.tw && g.tw.total; return tt ? (side === "over" ? tt.over : tt.under) || null : null; } const ml = g.tw && g.tw.ml; return (ml && ml[side]) || (g.odds && g.odds["dec_" + side]) || null; };
+    const soon = Date.now() + 30 * 3600e3;
+    const inDay = (g) => isTodayView() ? Date.parse(g.start) <= soon : g.day_tw === state.day;
     return gamesForSport()
-      .filter((g) => g.suggestion && g.suggestion.pick && g.status.state !== "post" && !(dec(g) != null && dec(g) < 1.2))
+      .filter((g) => inDay(g) && g.suggestion && g.suggestion.pick && g.status.state !== "post" && !(dec(g) != null && dec(g) < 1.2))
       .sort((a, b) => {
         const c = order[a.suggestion.confidence] - order[b.suggestion.confidence];
         if (c) return c;
@@ -824,17 +856,28 @@
       });
   }
   function renderPicks() {
-    const picks = topPicks().slice(0, 3);
     const el = $("#picks");
+    // 昨天：網站推薦的對了幾場
+    if (state.day < todayTW()) {
+      const gr = gamesForSport().filter((g) => g.day_tw === state.day && g.graded && g.graded.r);
+      const w = gr.filter((g) => g.graded.r === "win").length, l = gr.filter((g) => g.graded.r === "loss").length;
+      el.innerHTML = gr.length ? `<div class="day-sum"><b>${esc(dayName(state.day))}網站推薦 ${gr.length} 場：對 ${w}、錯 ${l}</b><small>每一場下面有寫網站當時押什麼、對不對；你自己押的也會顯示。</small></div>` : "";
+      return;
+    }
+    const picks = topPicks().slice(0, 3);
     if (!picks.length) { el.innerHTML = ""; return; }
-    el.innerHTML = `<div class="day-title">今天最有把握的 ${picks.length} 場<small>先看這裡</small></div><div class="cards">${picks.map(gameCard).join("")}</div>`;
+    const title = `${dayName(state.day)}最有把握的`;
+    const far = !isTodayView() && picks.some((g) => g.far);
+    el.innerHTML = `<div class="day-title">${esc(title)} ${picks.length} 場<small>${far ? "還沒開盤，先參考" : "先看這裡"}</small></div><div class="cards">${picks.map(gameCard).join("")}</div>`;
   }
   function renderGames() {
-    const games = gamesForSport();
+    const all = gamesForSport();
     const el = $("#games");
-    if (!games.length) { el.innerHTML = `<div class="empty">這個球種現在沒有比賽（往後 40 小時內）。</div>`; return; }
-    const live = games.filter((g) => g.status.state === "in");
-    const rest = games.filter((g) => g.status.state !== "in");
+    const live = isTodayView() ? all.filter((g) => g.status.state === "in") : [];
+    const rest = all.filter((g) => g.status.state !== "in" && g.day_tw === state.day);
+    const farNote = state.day > addDays(todayTW(), 1) && rest.some((g) => g.status.state === "pre")
+      ? `<div class="pl-hint">這天的比賽還早：台灣運彩的盤口、傷兵名單通常前一兩天才出來，現在只能看近況和對戰，正式建議等近一點再看。</div>` : "";
+    if (!live.length && !rest.length) { el.innerHTML = `<div class="empty">${esc(dayName(state.day))}（${esc(state.day.slice(5).replace("-", "/"))}）這個球種沒有比賽。</div>`; return; }
     const sortGames = (list) => list.sort((a, b) => (a.status.state === "post") - (b.status.state === "post") || a.start.localeCompare(b.start));
     let html = "";
     if (live.length) html += `<div class="day-title live">${icon("i-live")} 進行中<small>${live.length} 場</small></div><div class="cards">${live.map(gameCard).join("")}</div>`;
@@ -843,9 +886,9 @@
     html += Object.keys(byDay).sort().map((day) => {
       const dl = dayLabel(day);
       const list = sortGames(byDay[day]);
-      return `<div class="day-title">${esc(dl.name)}的比賽<small>${esc(dl.sub)} · ${list.length} 場</small></div><div class="cards">${list.map(gameCard).join("")}</div>`;
+      return `<div class="day-title">${esc(dayName(day))}的比賽<small>${esc(dl.sub)} · ${list.length} 場</small></div><div class="cards">${list.map(gameCard).join("")}</div>`;
     }).join("");
-    el.innerHTML = html;
+    el.innerHTML = farNote + html;
   }
 
   function renderInjuries() {
@@ -1049,6 +1092,8 @@
     if (e.target.closest("[data-back]")) { closeSheet(false); return; }
     const fold = e.target.closest("[data-fold]");
     if (fold) { state.numbersOpen = !state.numbersOpen; fold.classList.toggle("open", state.numbersOpen); fold.nextElementSibling.classList.toggle("open", state.numbersOpen); return; }
+    const dy = e.target.closest("[data-day]");
+    if (dy) { state.day = dy.dataset.day; renderChips(); renderDays(); renderPicks(); renderParlay(); renderGames(); window.scrollTo({ top: 0 }); return; }
     if (e.target.closest("[data-more-sports]")) { state.showMore = !state.showMore; renderChips(); return; }
     const chip = e.target.closest(".chip");
     if (chip) { state.sport = chip.dataset.sport; localStorage.setItem("sport", state.sport); render(); return; }

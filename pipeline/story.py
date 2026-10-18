@@ -166,8 +166,11 @@ def build_story(g, sport):
     elif pn:
         play = s.get("play") or "不讓分"
         extra = ""
-        if play == "讓分" and o.get("spread") is not None:
-            extra = f"（讓 {abs(o['spread']):g} 分）"
+        tw_sp = ((g.get("tw") or {}).get("spread") or {}).get("line_home")
+        line_h = tw_sp if tw_sp is not None else o.get("spread")
+        if play == "讓分" and line_h is not None:
+            mine = line_h if s.get("pick") == "home" else -line_h
+            extra = f"（{'讓' if mine < 0 else '受讓'} {abs(mine):g} 分）"
         verdict = f"這場我會押{pn}，玩{play}{extra}，信心{s.get('confidence', '中')}。"
     elif ph is None:
         verdict = "還沒開盤，等盤出來再說。" if not sets else "這場沒有盤口，看球用的。"
@@ -347,7 +350,8 @@ def build_story(g, sport):
         why.append(f"台灣運彩賠 {s.get('tw_dec')}，比平常好一點。")
     for c in s.get("cautions") or []:
         if "幾乎沒賺頭" in c:
-            care.append("不讓分賠率太低，贏了也沒賺頭，要下就下讓分。")
+            d_ = ((g.get("tw") or {}).get("ml") or {}).get(s.get("pick") or "")
+            care.append(f"不讓分只賠{f' {d_}' if d_ else '得很低'}，贏了也幾乎沒賺頭，所以改看讓分；讓分本來就接近五五波，信心最多給「中」。")
     # 大小分
     tot = s.get("totals")
     if tot and tot.get("lean") in ("大", "小"):

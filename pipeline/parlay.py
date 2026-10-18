@@ -11,6 +11,7 @@ from datetime import datetime, timedelta, timezone
 
 TW = timezone(timedelta(hours=8))
 LOCK_MIN = 45          # 第一場開打前幾分鐘鎖定
+SLATE_H = 30           # 只從 30 小時內開打的比賽挑（今天這一輪），更後面的盤口、傷兵都還沒定
 MIN_LEG_DEC = 1.20     # 單場賠率太低，串了也沒意義
 MIN_LEG_P = 0.55       # 單場至少要有五成五把握
 MIN_LEG_EV = 0.85      # 台灣運彩正常大概拿回 85～90%，比這差的不串
@@ -133,7 +134,7 @@ def options(games, now, hidden=(), allow_totals=False):
     for g in games:
         s = g.get("suggestion") or {}
         st = _start(g)
-        if g["status"]["state"] != "pre" or not st or st - now < timedelta(minutes=LOCK_MIN + 15):
+        if g["status"]["state"] != "pre" or not st or st - now < timedelta(minutes=LOCK_MIN + 15) or st - now > timedelta(hours=SLATE_H):
             continue
         if (g.get("chip") or g["sport"]) in hidden or g.get("season_type") == 1:
             continue

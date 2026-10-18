@@ -330,3 +330,20 @@ body[data-view="today"] .view[data-for="today"],body[data-view="injuries"] .view
 .stake button{width:48px;height:48px;border-radius:12px;background:var(--card-2);border:1.5px solid var(--line-2);font-size:1.4rem;font-weight:900;color:var(--ink)}
 .stake input{flex:1;min-width:0;height:48px;border-radius:12px;border:1.5px solid var(--line-2);background:var(--bg-2);color:var(--ink);font:inherit;font-family:var(--num);font-weight:900;font-size:1.2rem;text-align:center}
 .pl-del{display:block;margin:4px 0 0 auto;font-size:.8rem;color:var(--bad);font-weight:700;padding:2px 0}
+
+/* 日期列表 */
+.days{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:6px;margin:4px 0 6px}
+.day{display:flex;flex-direction:column;align-items:center;gap:1px;padding:8px 2px;border-radius:14px;background:var(--card);border:1px solid var(--line);color:var(--ink-2);min-width:0}
+.day b{font-size:1.02rem;font-weight:900;color:var(--ink)}
+.day small{font-family:var(--num);font-size:.78rem;color:var(--muted);white-space:nowrap}
+.day .n{font-family:var(--num);font-size:.75rem;font-weight:700;color:var(--muted);margin-top:2px}
+.day.on{background:linear-gradient(135deg,var(--violet),var(--violet-deep));border-color:transparent;box-shadow:0 6px 16px rgba(139,92,246,.35)}
+.day.on b,.day.on small,.day.on .n{color:#fff}
+.day-sum{margin:14px 0 4px;padding:14px;border-radius:var(--radius-s);background:var(--card);border:1px solid var(--line)}
+.day-sum b{display:block;font-size:1.1rem;font-weight:900}
+.day-sum small{display:block;color:var(--muted);font-size:.88rem;margin-top:2px}
+.g-verdict .pill.post.hit{background:var(--good-wash);color:var(--good)}
+.g-verdict .pill.post.miss{background:var(--bad-wash);color:var(--bad)}
+.g-verdict .conf.hit{color:var(--good);font-weight:900}
+.g-verdict .conf.miss{color:var(--bad);font-weight:900}
+.g-verdict .pill svg{width:18px;height:18px}

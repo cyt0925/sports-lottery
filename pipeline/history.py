@@ -175,7 +175,8 @@ def update(hist, games, now=None):
         s = g.get("suggestion") or {}
         e = entries.get(g["id"])
         state = g["status"]["state"]
-        if state == "pre" and s.get("pick"):
+        # 48 小時後的比賽先不記：盤口、傷兵都還沒出來，等近一點、建議定下來再記
+        if state == "pre" and s.get("pick") and (e is not None or not g.get("far")):
             snap = _snap(g, s, now)
             if e is None:
                 tot = s.get("totals") or {}
@@ -210,6 +211,22 @@ def update(hist, games, now=None):
         hist["lines"].pop(k, None)
     hist["updated"] = now.isoformat(timespec="minutes")
     return n_new, n_upd, n_set
+
+
+def graded(hist, g):
+    """打完的比賽：網站當時押什麼、對不對（給網頁「昨天」對答案用）。"""
+    e = (hist.get("entries") or {}).get(g["id"])
+    r = (e or {}).get("result")
+    if not r:
+        return None
+    main = r.get("ou") if e.get("play") == "大小分" else (r.get("ats") or r.get("ml")) if e.get("play") == "讓分" else r.get("ml")
+    out = dict(pick=e["pick"], pick_label=e.get("pick_label"), play=e.get("play"), confidence=e.get("confidence"), r=main)
+    if e.get("play") == "讓分" or (e.get("play") == "不讓分" and r.get("ats")):
+        out["ats"], out["ats_line"] = r.get("ats"), r.get("ats_line")
+    if e.get("play") == "大小分":
+        out["total_line"], out["total"] = r.get("total_line"), r.get("total")
+    out["dec"] = (e.get("latest") or e.get("first") or {}).get("dec")
+    return out
 
 
 def results_payload(hist, now=None, days=RESULT_DAYS):

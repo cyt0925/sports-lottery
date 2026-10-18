@@ -32,6 +32,10 @@ HEADERS = {
 }
 WINDOW_BACK_H = 10     # 保留幾小時前開打的比賽（含剛結束的）
 WINDOW_AHEAD_H = 40    # 往後看幾小時
+# 爸爸要看的球種多抓幾天：昨天（對答案）到 3 天後，網頁有日期列表可以切
+MAIN_DAYS_AHEAD = 3
+NEAR_H = 48            # 48 小時內的比賽才做完整分析（單場 summary、新聞、球員名單）；更後面的先放基本資料
+NEAR_HI = None         # main() 裡設定
 
 # total_th：兩隊近五場平均總分 與 盤口大小分 差多少才建議大/小
 LEAGUES = [
@@ -69,6 +73,17 @@ SPORTS = [
     dict(key="hockey", label="冰球", hidden=True),
     dict(key="football", label="美足", hidden=True),
 ]
+
+
+MAIN_CHIPS = {x["key"] for x in SPORTS if x["key"] != "all" and not x.get("hidden")}
+
+
+def is_near(g):
+    """這場要不要做完整分析：已開打／打完的、或 48 小時內開打的。"""
+    if g["status"]["state"] != "pre" or NEAR_HI is None:
+        return True
+    st = parse_dt(g["start"])
+    return st is None or st <= NEAR_HI
 
 
 def chip_of(lg):
@@ -250,6 +265,7 @@ def _line_from_market(o, market, side, key="line"):
 
 
 SPREAD_SIGMA = {"basketball": 11.5, "football": 13.5, "hockey": 2.0}
+ML_MIN_DEC = 1.20      # 台灣不讓分賠率低於這個，贏了也幾乎沒賺頭，改看讓分
 
 
 def spread_prob(spread, sport):
@@ -1127,11 +1143,13 @@ def build_suggestion(g, lg):
         dec_tw = ml[res["pick"]]
         p = o[f"prob_{res['pick']}"]
         ev = p * dec_tw - 1
-        if dec_tw < 1.12:
+        if dec_tw < ML_MIN_DEC:
             cautions.append(f"台灣運彩不讓分賠率只有 {dec_tw}，贏了也幾乎沒賺頭，想下的話看讓分盤")
             ev = None
-            if o.get("spread") is not None and res["play"] == "不讓分":
+            if (o.get("spread") is not None or (tw.get("spread") or {}).get("line_home") is not None) and res["play"] == "不讓分":
                 res["play"] = "讓分"
+                if res["confidence"] == "高":
+                    res["confidence"] = "中"
                 res["summary"] = f"押 {res['pick_label']}，不讓分賠率太低，改玩讓分，信心{res['confidence']}"
     if res["pick"] and ml.get(res["pick"]) and o.get(f"prob_{res['pick']}") and psrc != "tw_ml" and ev is not None:
         # 台灣運彩抽水約一成多，期望值 -8% 到 -14% 是「正常」；比這好算划算，比這差才提醒
@@ -1240,11 +1258,18 @@ def main():
     ap.add_argument("--debug-dir", default="", help="把每種 ESPN 回應的第一筆原始資料寫到這個資料夾")
     args = ap.parse_args()
 
+    global NEAR_HI
     now = datetime.now(timezone.utc)
     now_tw = now.astimezone(TW)
     dates = [now.date() - timedelta(days=1), now.date(), now.date() + timedelta(days=1)]
     lo = now - timedelta(hours=WINDOW_BACK_H)
     hi = now + timedelta(hours=WINDOW_AHEAD_H)
+    # 主要球種：台灣時間昨天 0 點到 3 天後 24 點。ESPN 的日期是美東，前後各多抓一天
+    d_tw = now_tw.date()
+    lo_main = datetime(d_tw.year, d_tw.month, d_tw.day, tzinfo=TW) - timedelta(days=1)
+    hi_main = datetime(d_tw.year, d_tw.month, d_tw.day, tzinfo=TW) + timedelta(days=MAIN_DAYS_AHEAD + 1) - timedelta(seconds=1)
+    dates_main = [d_tw + timedelta(days=i) for i in range(-2, MAIN_DAYS_AHEAD + 1)]
+    NEAR_HI = now + timedelta(hours=NEAR_H)
     only = {s.strip() for s in args.leagues.split(",") if s.strip()}
 
     all_games = []
@@ -1253,7 +1278,10 @@ def main():
         if only and lg["key"] not in only:
             continue
         try:
-            process_league(lg, dates, lo, hi, all_games, standings)
+            if chip_of(lg) in MAIN_CHIPS:
+                process_league(lg, dates_main, lo_main.astimezone(timezone.utc), hi_main.astimezone(timezone.utc), all_games, standings)
+            else:
+                process_league(lg, dates, lo, hi, all_games, standings)
         except Exception as e:  # noqa: BLE001
             import traceback
             ERRORS.append(f"{lg['key']} 整個聯盟失敗: {e!r}")
@@ -1261,6 +1289,9 @@ def main():
             traceback.print_exc()
 
     all_games.sort(key=lambda g: (g["start"], g["league"]))
+    for g in all_games:
+        g["far"] = not is_near(g)
+    log(f"日期列表：{', '.join(f'{k} {v} 場' for k, v in sorted(__import__('collections').Counter(g['day_tw'] for g in all_games).items()))}；48 小時後的 {sum(1 for g in all_games if g['far'])} 場只放基本資料")
     # 台灣運彩盤口（抓不到就全部沒有，不影響其他）
     tw_count = 0
     try:
@@ -1300,8 +1331,8 @@ def main():
                 ph = rt["our_prob_home"]
                 g["suggestion"]["model"] = dict(pick="home" if ph >= 0.5 else "away", prob_home=round(ph, 3),
                                                 spread=rt.get("our_spread"), weak=bool(rt.get("weak")), variants=rt.get("variants"))
-            # 季前賽：主力常常輪休、打不久，信心最多給「中」
-            if g.get("season_type") == 1 and g["suggestion"].get("confidence") == "高":
+            # 季前賽：主力常常輪休、打不久；48 小時後的比賽傷兵和盤口都還沒出來：信心最多給「中」
+            if (g.get("season_type") == 1 or g.get("far")) and g["suggestion"].get("confidence") == "高":
                 g["suggestion"]["confidence"] = "中"
                 g["suggestion"]["summary"] = (g["suggestion"].get("summary") or "").replace("信心高", "信心中")
         except Exception as e:  # noqa: BLE001
@@ -1335,6 +1366,11 @@ def main():
         hpath = os.path.join(os.path.dirname(os.path.abspath(args.out)), "history.json")
         hist = history.load(hpath)
         n_new, n_upd, n_set = history.update(hist, all_games, now_tw)
+        for g in all_games:
+            if g["status"]["state"] == "post":
+                gr = history.graded(hist, g)
+                if gr:
+                    g["graded"] = gr
         try:
             import parlay
             parlay_out = parlay.track(hist, all_games, now_tw, hidden={x["key"] for x in SPORTS if x.get("hidden")})
@@ -1402,7 +1438,7 @@ def enrich_games(all_games):
     except Exception as e:  # noqa: BLE001
         ERRORS.append(f"analysis 模組載入失敗: {e!r}")
         return
-    targets = [g for g in all_games if not g.get("tennis") and g["status"]["state"] != "post"]
+    targets = [g for g in all_games if not g.get("tennis") and g["status"]["state"] != "post" and not g.get("far")]
     official = None
     if any(g["league"] == "nba" for g in targets):
         try:
@@ -1590,9 +1626,10 @@ def process_playsport(lg, lo, hi, all_games, standings):
     for g in keep:
         for side in ("home", "away"):
             finalize_team(g[side], lg)
-    if keep:
+    near = [g for g in keep if is_near(g)]
+    if near:
         try:
-            newsinj.attach(keep, name_fn, log, ERRORS, lg["key"], hint=(" basketball" if lg["key"] == "eurobasket" else ""))
+            newsinj.attach(near, name_fn, log, ERRORS, lg["key"], hint=(" basketball" if lg["key"] == "eurobasket" else ""))
         except Exception as e:  # noqa: BLE001
             ERRORS.append(f"{lg['key']} 新聞失敗: {e!r}")
         if lg["key"] == "eurobasket":
@@ -1609,8 +1646,8 @@ def process_playsport(lg, lo, hi, all_games, standings):
                 except Exception as e:  # noqa: BLE001
                     ERRORS.append(f"eurobasket 傷兵報告失敗: {e!r}")
                     articles = []
-                el_player_layer(keep, rosters, log, ERRORS, articles)
-                for g in keep:
+                el_player_layer(near, rosters, log, ERRORS, articles)
+                for g in near:
                     for side in ("home", "away"):
                         finalize_team(g[side], lg)
             except Exception as e:  # noqa: BLE001
@@ -1620,10 +1657,10 @@ def process_playsport(lg, lo, hi, all_games, standings):
         elif lg["key"] == "jpbasket":
             try:
                 from jpplayers import bleague_rosters, player_layer
-                ids = sorted({g[s_]["bl_id"] for g in keep for s_ in ("home", "away") if g[s_].get("bl_id")})
+                ids = sorted({g[s_]["bl_id"] for g in near for s_ in ("home", "away") if g[s_].get("bl_id")})
                 rosters = bleague_rosters(ids, log, ERRORS)
-                player_layer(keep, rosters, "bl_id", log, ERRORS, "jpbasket", impact_scale="el")
-                for g in keep:
+                player_layer(near, rosters, "bl_id", log, ERRORS, "jpbasket", impact_scale="el")
+                for g in near:
                     for side in ("home", "away"):
                         finalize_team(g[side], lg)
             except Exception as e:  # noqa: BLE001
@@ -1657,16 +1694,17 @@ def process_svleague(lg, lo, hi, all_games, standings):
         for side in ("home", "away"):
             finalize_team(g[side], lg)
     if keep:
+        near = [g for g in keep if is_near(g)]
         try:
-            newsinj.attach(keep, lambda t: (t["jp_name"] + " バレー", "ja") if t.get("jp_name") else None, log, ERRORS, lg["key"])
+            newsinj.attach(near, lambda t: (t["jp_name"] + " バレー", "ja") if t.get("jp_name") else None, log, ERRORS, lg["key"])
         except Exception as e:  # noqa: BLE001
             ERRORS.append(f"{lg['key']} 新聞失敗: {e!r}")
         try:
             from jpplayers import sv_rosters, player_layer
-            codes = sorted({g[s_]["sv_code"] for g in keep for s_ in ("home", "away") if g[s_].get("sv_code")})
+            codes = sorted({g[s_]["sv_code"] for g in near for s_ in ("home", "away") if g[s_].get("sv_code")})
             rosters = sv_rosters(codes, log, ERRORS)
-            player_layer(keep, rosters, "sv_code", log, ERRORS, "jpvolley")
-            for g in keep:
+            player_layer(near, rosters, "sv_code", log, ERRORS, "jpvolley")
+            for g in near:
                 for side in ("home", "away"):
                     finalize_team(g[side], lg)
         except Exception as e:  # noqa: BLE001
@@ -1755,18 +1793,21 @@ def process_league(lg, dates, lo, hi, all_games, standings):
                 finalize_team(t, lg, injuries_map)
                 if g.get("tennis"):
                     continue
+                want_hot = lg.get("gamelog") and g["status"]["state"] != "post" and is_near(g)
                 if t["id"] in seen_teams:
                     cached = seen_teams[t["id"]]
                     for k in ("form", "form_note", "streak", "last10", "last10_w", "avg_for5", "avg_against5", "avg_total5", "avg_margin5", "hot"):
                         t[k] = cached.get(k)
-                    continue
-                try:
-                    fetch_form(lg, t)
-                except Exception as e:  # noqa: BLE001
-                    import traceback
-                    tb = traceback.extract_tb(e.__traceback__)[-1]
-                    ERRORS.append(f"{lg['key']} 球隊 {t.get('abbr')} 近況失敗: {e!r} @ {tb.name}:{tb.lineno} {tb.line}")
-                if lg.get("gamelog") and g["status"]["state"] != "post":
+                    if not want_hot or cached.get("hot") is not None:
+                        continue
+                else:
+                    try:
+                        fetch_form(lg, t)
+                    except Exception as e:  # noqa: BLE001
+                        import traceback
+                        tb = traceback.extract_tb(e.__traceback__)[-1]
+                        ERRORS.append(f"{lg['key']} 球隊 {t.get('abbr')} 近況失敗: {e!r} @ {tb.name}:{tb.lineno} {tb.line}")
+                if want_hot:
                     hot = []
                     for ath in (t.get("leaders") or [])[:3]:
                         try:
@@ -1777,7 +1818,9 @@ def process_league(lg, dates, lo, hi, all_games, standings):
                         if pf:
                             hot.append(pf)
                     t["hot"] = hot
-                seen_teams[t["id"]] = t
+                    if t["id"] in seen_teams:
+                        seen_teams[t["id"]]["hot"] = hot
+                seen_teams.setdefault(t["id"], t)
             ids = {g["home"]["id"], g["away"]["id"]}
             picked = []
             for a in news:
