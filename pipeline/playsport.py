@@ -14,7 +14,7 @@ from bs4 import BeautifulSoup
 from taiwan_odds import BASE, fetch, parse_scale_page, fetch_livescore_ids, TW, _num
 
 UTC = timezone.utc
-GENERIC_SRC = {"sports", "sport", "basketball", "game", "games", "live"}
+GENERIC_SRC = {"sports", "sport", "basketball", "game", "games", "live", "bet365", "pinnacle", "sbobet", "188bet", "williamhill"}
 SOURCE_ZH = {
     "EuroLeague": "歐冠", "Euroleague": "歐冠", "EuroCup": "歐盃", "Eurocup": "歐盃",
     "BCL": "籃球冠軍聯賽", "ChampionsLeague": "籃球冠軍聯賽", "FibaEuropeCup": "FIBA 歐洲盃",
@@ -157,8 +157,8 @@ def fetch_games(lg, log, errors, now=None):
                         except (TypeError, ValueError):
                             pass
             src = (ls.get("source") or "").strip()
-            # 玩運彩的來源欄有時只是「sports」這種通用字，不是賽事名稱，就不顯示
-            comp = SOURCE_ZH.get(src) or (src if src and not src.lower().startswith(("fiba", "tw")) and src.lower() not in GENERIC_SRC else None)
+            # 玩運彩的來源欄有時只是「sports」或莊家名（bet365），不是賽事名稱；日籃只認得出來的才顯示
+            comp = SOURCE_ZH.get(src) or (src if src and lg["key"] != "jpbasket" and not src.lower().startswith(("fiba", "tw")) and src.lower() not in GENERIC_SRC else None)
             tw = dict(source="玩運彩", url=url, updated=now_tw.isoformat(timespec="minutes"), no=r.get("no"),
                       matched_by="直接", spread=r.get("spread"), ml=r.get("ml"), total=r.get("total"),
                       intl=r.get("intl"), crowd=r.get("crowd"), tw_names=f"{r['away']} @ {r['home']}",
