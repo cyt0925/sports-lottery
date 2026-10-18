@@ -11,7 +11,6 @@ on:
 
 permissions:
   contents: write
-  models: read        # 用 GitHub 的免費 AI 模型寫每場的分析
 
 concurrency:
   group: sports-data-${{ github.ref }}
@@ -34,7 +33,7 @@ jobs:
       - name: 抓資料
         run: python pipeline/fetch.py --debug-dir debug
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}   # AI 分析用（Google AI Studio 免費申請）；沒設就不寫 AI 分析
 
 
       - name: 保留原始資料樣本（除錯用，3 天後自動刪）

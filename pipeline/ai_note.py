@@ -1,8 +1,9 @@
 # -*- coding: utf-8 -*-
 """AI 寫分析：把每場的事實（實力、近況、傷兵、手感、休息、交手、戰意、外界看法、我們的計算）交給
-GitHub 的免費 AI 模型，請它像老球迷一樣寫一段分析，第一行寫它看好誰。
+Google Gemini 的免費額度，請它像老球迷一樣寫一段分析，第一行寫它看好誰。
+金鑰放在 GitHub 的 Secrets：GEMINI_API_KEY（到 Google AI Studio 免費申請）。沒有金鑰就不寫，網站照常。
 
-免費額度有限（小模型大約每分鐘 15 次、每天 150 次），所以：
+免費額度有限，所以：
   - 只寫 36 小時內、爸爸要看的球種、還沒開打的比賽
   - 同一場事實沒變就不重寫；有變也至少隔 2 小時才重寫；每天最多 120 次、每次跑最多 20 場
   - 沒有權杖、額度用完、AI 出錯都沒關係：那場就不顯示 AI 那一段
@@ -25,7 +26,7 @@ RUN_CAP = 20
 NEAR_H = 36
 MIN_GAP_H = 2          # 事實有變，至少隔 2 小時才重寫
 MAX_AGE_H = 12         # 事實沒變，超過 12 小時也重寫一次（新聞會變）
-GAP_S = 4.5            # 每分鐘最多 15 次
+GAP_S = 7.0            # 每分鐘最多 8～9 次，免費額度比較安全
 KEEP_DAYS = 45
 
 SYSTEM = """你是一位什麼運動都看、很會分析的台灣老球迷，正在跟家人聊等一下的比賽。
@@ -198,54 +199,72 @@ def previews(g, log=None):
     return out
 
 
-# 先試新的網址，不行再試舊的（Azure 那個）；哪個可以用就記住
-ENDPOINTS = (
-    ("https://models.github.ai/inference/chat/completions", "openai/gpt-4.1-mini"),
-    ("https://models.github.ai/inference/chat/completions", "openai/gpt-4o-mini"),
-    ("https://models.inference.ai.azure.com/chat/completions", "gpt-4o-mini"),
-)
-_WORKING = []
+# Google Gemini（免費額度，只要 Google 帳號申請金鑰，不用信用卡）。
+# GitHub 的免費 AI（GitHub Models）2026/7/30 已經停了，舊的 Azure 網址也沒了。
+GEMINI = "https://generativelanguage.googleapis.com/v1beta"
+PREFER = ("flash-lite", "flash")          # 免費額度給 Flash、Flash-Lite；Lite 額度最多
+SKIP_WORDS = ("pro", "thinking", "image", "tts", "audio", "live", "embedding", "vision", "exp", "preview")
+_MODEL = []
 _LOGGED = set()
 
 
-def _diag(r):
-    hist = " → ".join(f"{h.status_code} {h.headers.get('location', '')}" for h in r.history)
-    keep = {k: v for k, v in r.headers.items() if k.lower() in ("content-type", "location", "x-ratelimit-remaining-requests", "x-ratelimit-limit-requests", "server", "x-github-request-id", "www-authenticate")}
-    return f"HTTP {r.status_code} 網址 {r.url}{(' 轉址 ' + hist) if hist else ''} 標頭 {keep} 內容 {r.text[:200]!r}"
+def _pick_model(key, log):
+    """問 Google 現在有哪些模型，挑最新的 Flash-Lite（沒有就 Flash）。"""
+    if _MODEL:
+        return _MODEL[0]
+    try:
+        r = requests.get(f"{GEMINI}/models", params={"pageSize": 200}, headers={"x-goog-api-key": key}, timeout=20)
+        names = [m.get("name", "").split("/")[-1] for m in (r.json().get("models") or [])
+                 if "generateContent" in (m.get("supportedGenerationMethods") or [])]
+    except Exception as e:  # noqa: BLE001
+        log(f"[AI] 拿不到模型清單：{type(e).__name__}")
+        names = []
+    def ver(n):
+        m = re.search(r"(\d+(?:\.\d+)?)", n)
+        return float(m.group(1)) if m else 0.0
+    for want in PREFER:
+        cands = [n for n in names if want in n and not any(w in n for w in SKIP_WORDS if w not in want)]
+        if want == "flash":
+            cands = [n for n in cands if "lite" not in n]
+        if cands:
+            best = sorted(cands, key=lambda n: (ver(n), "latest" in n, -len(n)), reverse=True)[0]
+            _MODEL.append(best)
+            log(f"[AI] 用 Gemini 模型 {best}（可用的：{', '.join(sorted(names)[:12])}）")
+            return best
+    _MODEL.append("gemini-flash-lite-latest")
+    return _MODEL[0]
 
 
-def _call(token, f, log):
-    body_user = "比賽資料（JSON）：\n" + json.dumps(f, ensure_ascii=False, indent=1)
-    last_err = None
-    order = _WORKING + [e for e in ENDPOINTS if e not in _WORKING]
-    for url, model in order:
-        headers = {"Authorization": f"Bearer {token}", "Content-Type": "application/json", "Accept": "application/json"}
-        if "models.github.ai" in url:
-            headers["X-GitHub-Api-Version"] = "2022-11-28"
+def _call(key, f, log):
+    model = _pick_model(key, log)
+    body = dict(
+        systemInstruction=dict(parts=[dict(text=SYSTEM)]),
+        contents=[dict(role="user", parts=[dict(text="比賽資料（JSON）：\n" + json.dumps(f, ensure_ascii=False, indent=1))])],
+        generationConfig=dict(temperature=0.4, maxOutputTokens=700),
+    )
+    try:
+        # 金鑰放在標頭，不放網址：出錯訊息會印網址，不能讓金鑰跑進公開的資料檔
+        r = requests.post(f"{GEMINI}/models/{model}:generateContent", headers={"x-goog-api-key": key}, json=body, timeout=60)
+    except requests.RequestException as e:
+        return dict(error=f"{model} 連不上：{e!r}"[:300], unreachable=True)
+    text = None
+    if r.status_code == 200:
         try:
-            r = requests.post(url, headers=headers, timeout=60, allow_redirects=False,
-                              json=dict(model=model, temperature=0.4, max_tokens=600,
-                                        messages=[dict(role="system", content=SYSTEM), dict(role="user", content=body_user)]))
-        except requests.RequestException as e:
-            last_err = f"{model} 連不上：{e!r}"[:300]
-            continue
-        text = None
-        if r.status_code == 200:
-            try:
-                text = r.json()["choices"][0]["message"]["content"].strip()
-            except (KeyError, IndexError, ValueError, TypeError):
-                text = None
-        if text:
-            if (url, model) not in _WORKING:
-                _WORKING.insert(0, (url, model))
-            return dict(text=text, model=model, headers={k: v for k, v in r.headers.items() if "ratelimit" in k.lower()})
-        last_err = f"{model} @ {url.split('/')[2]}：{_diag(r)}"
-        if (url, model) not in _LOGGED:
-            _LOGGED.add((url, model))
-            log(f"[AI] 不行：{last_err}")
-        if r.status_code == 429:
-            return dict(error=last_err, rate_limited=True)
-    return dict(error=last_err, unreachable=last_err is not None and "連不上" in last_err)
+            parts = r.json()["candidates"][0]["content"]["parts"]
+            text = "".join(p.get("text", "") for p in parts).strip()
+        except (KeyError, IndexError, ValueError, TypeError):
+            text = None
+    if text:
+        return dict(text=text, model=model, headers={})
+    err = f"{model}：HTTP {r.status_code} {r.text[:300]!r}"
+    if model not in _LOGGED:
+        _LOGGED.add(model)
+        log(f"[AI] 不行：{err}")
+    if r.status_code == 429:
+        return dict(error=err, rate_limited=True)
+    if r.status_code in (400, 401, 403):
+        return dict(error=err, denied=True)
+    return dict(error=err)
 
 
 def parse(text, hn, an):
@@ -279,7 +298,7 @@ def run(games, path, now, main_chips, log, errors):
     usage = store.setdefault("usage", {})
     today = now.astimezone(TW).strftime("%Y-%m-%d")
     used_today = usage.get(today, 0)
-    token = os.environ.get("GITHUB_TOKEN") or os.environ.get("GH_MODELS_TOKEN")
+    token = os.environ.get("GEMINI_API_KEY")
     n_new = n_cache = 0
     fails = 0
     stop = None
@@ -312,7 +331,7 @@ def run(games, path, now, main_chips, log, errors):
         need = not old or (old.get("hash") != h and (age_h is None or age_h >= MIN_GAP_H)) or (age_h is not None and age_h >= MAX_AGE_H)
         if need and not stop:
             if not token:
-                stop = "沒有 GITHUB_TOKEN"
+                stop = "還沒設定 GEMINI_API_KEY（到 Google AI Studio 免費申請，放進 GitHub Secrets）"
             elif used_today >= DAILY_CAP:
                 stop = f"今天已經寫了 {used_today} 次，到上限"
             elif n_new >= RUN_CAP:
@@ -338,8 +357,10 @@ def run(games, path, now, main_chips, log, errors):
                 fails += 1
                 errors.append(f"AI 分析失敗 {gid}: {res.get('error')}")
                 log(f"[AI] 失敗：{res.get('error')}")
-                if res.get("rate_limited") or res.get("denied"):
-                    stop = "額度用完或沒有權限"
+                if res.get("rate_limited"):
+                    stop = "Gemini 免費額度這分鐘或今天用完了"
+                elif res.get("denied"):
+                    stop = "Gemini 金鑰不對或沒有權限"
                 elif fails >= 2:
                     stop = "連續失敗兩次，這次先不寫"
         elif not need:

@@ -63,9 +63,10 @@ python3 pipeline/fetch.py --leagues eurobasket,jpvolley   # 只抓某幾個聯�
 
 ## AI 分析
 
-`pipeline/ai_note.py` 用 GitHub 的免費 AI 模型（`models.github.ai`，workflow 需要 `permissions: models: read`，用內建的 `GITHUB_TOKEN`，不用付錢）。把每場的事實（實力、近況、傷兵、手感、休息、交手、戰意、外界看法、網站的計算、台灣運彩）交給 AI，請它像老球迷寫 120～200 字，第一行寫它看好誰會贏。
-- 只寫 36 小時內、還沒開打的比賽；事實沒變不重寫、有變也隔 2 小時；每天最多 120 次、每次最多 20 場（免費額度大約每天 150 次）。快取在 `data/ai_notes.json`。
-- 沒有權杖、額度用完、AI 出錯，那場就不顯示 AI 那一段，其他照常。
+`pipeline/ai_note.py` 用 Google Gemini 的免費額度（GitHub 原本的免費 AI「GitHub Models」2026/7/30 已經停了）。把每場的事實（實力、近況、傷兵、手感、休息、交手、戰意、外界看法、網站的計算、台灣運彩）交給 AI，請它像老球迷寫 120～200 字，第一行寫它看好誰會贏。
+- 金鑰：到 Google AI Studio（aistudio.google.com）用 Google 帳號免費申請 API key，放到 GitHub 專案的 Settings → Secrets and variables → Actions，名字叫 `GEMINI_API_KEY`。沒設定就不寫 AI 分析，其他照常。
+- 會自動挑最新的 Flash-Lite（沒有就 Flash）模型。只寫 36 小時內、還沒開打的比賽；事實沒變不重寫、有變也隔 2 小時；每天最多 120 次、每次最多 20 場、每次間隔 7 秒。快取在 `data/ai_notes.json`。
+- 金鑰只放在請求標頭，不會出現在網址或錯誤訊息裡。
 - AI 看好誰也記下來，成績單有「AI 的看法準不準」，跟網站的計算、盤口比。
 
 ## 日期列表
