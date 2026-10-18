@@ -2,7 +2,7 @@
 """老球迷看對戰：近況要扣掉對手強弱、交手紀錄要看「有沒有贏得比預期多」、打法對不對位。
 
 近況：最近 5 場每場的「表現分」= 淨勝分 + 對手實力 − 主場優勢。贏弱隊 10 分跟贏強隊 10 分不一樣。
-交手（剋星）：只交手一兩場多半是運氣。至少 3 場、幾乎都贏，而且平均比預期多贏 5 分以上（或台灣讓分盤幾乎都過），才算「剋」。
+交手（剋星）：只交手一兩場多半是運氣。至少 3 場、幾乎都贏，而且平均比預期多贏 5 分以上（玩運彩聯盟：平均贏 8 分以上），才算「剋」。
 打法對位（NBA）：籃板、三分、失誤、節奏。只當參考說明，不加進分數（還沒有證據證明有用）。
 """
 from statistics import mean
@@ -69,9 +69,10 @@ def playsport_h2h(home_rows, away_names):
     n = len(games)
     side, adj = None, 0.0
     if n >= 3:
-        if (aw + al >= 3 and aw >= aw + al - 1 and w >= n - 1) or (w >= n - 1 and out["avg_margin"] >= 8):
+        # 只看輸贏和贏多少（不看讓分盤過盤）
+        if w >= n - 1 and out["avg_margin"] >= 8:
             side, adj = "home", 1.5
-        elif (aw + al >= 3 and al >= aw + al - 1 and l >= n - 1) or (l >= n - 1 and out["avg_margin"] <= -8):
+        elif l >= n - 1 and out["avg_margin"] <= -8:
             side, adj = "away", -1.5
     out["jinx"] = side
     out["adj"] = round(adj * min(1.0, n / 4), 1)

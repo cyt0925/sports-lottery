@@ -347,3 +347,24 @@ body[data-view="today"] .view[data-for="today"],body[data-view="injuries"] .view
 .g-verdict .conf.hit{color:var(--good);font-weight:900}
 .g-verdict .conf.miss{color:var(--bad);font-weight:900}
 .g-verdict .pill svg{width:18px;height:18px}
+
+/* AI 分析、這場怎麼算的、外界怎麼看 */
+.ai{margin-top:14px;background:var(--card);border:1px solid var(--line);border-left:5px solid var(--violet);border-radius:var(--radius-s);padding:14px 16px}
+.ai-h{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:8px}
+.ai-h > span:first-child{font-weight:900;color:var(--violet-2);font-size:.95rem;letter-spacing:.02em}
+:root[data-theme="light"] .ai-h > span:first-child{color:var(--violet-deep)}
+.ai-lean{font-weight:900;font-size:.9rem;padding:3px 10px;border-radius:999px;background:var(--violet-wash);color:var(--ink)}
+.ai p{margin:0 0 8px;font-size:1.06rem;line-height:1.7;color:var(--ink)}
+.ai-diff{display:flex;gap:8px;align-items:flex-start;color:var(--warn);font-weight:700;font-size:.92rem;margin:4px 0 6px}
+.ai-diff svg{width:18px;height:18px;flex:none;margin-top:2px}
+.ai-foot{color:var(--muted);font-size:.8rem}
+.h-sub{font-weight:600;font-size:.82rem;color:var(--muted);margin-left:4px}
+.calc{background:var(--card);border:1px solid var(--line);border-radius:var(--radius-s);padding:6px 14px}
+.calc-row{display:flex;justify-content:space-between;gap:10px;padding:8px 0;border-bottom:1px dashed var(--line);font-size:1rem}
+.calc-row span{color:var(--ink-2)}
+.calc-row b{font-family:var(--num);font-weight:800;white-space:nowrap}
+.calc-sum{padding:10px 0 6px;font-weight:900;font-size:1.05rem}
+.out-news{display:flex;flex-direction:column;gap:8px;margin-top:8px}
+.out-news a{display:block;padding:10px 14px;border-radius:var(--radius-s);background:var(--card);border:1px solid var(--line);color:var(--ink);text-decoration:none;font-size:.98rem;line-height:1.45}
+.out-news a small{display:block;color:var(--muted);font-size:.8rem;margin-top:2px}
+.line .val.good{color:var(--good)}.line .val.bad{color:var(--bad)}

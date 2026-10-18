@@ -138,7 +138,7 @@ def options(games, now, hidden=(), allow_totals=False):
             continue
         if (g.get("chip") or g["sport"]) in hidden or g.get("season_type") == 1:
             continue
-        if not s.get("pick") or s.get("confidence") not in ("高", "中") or (g.get("odds") or {}).get("prob_source") == "form":
+        if not s.get("pick") or s.get("confidence") not in ("高", "中") or (s.get("est") or {}).get("src") == "form" or (s.get("est") or {}).get("weak"):
             continue
         probs = s.get("probs") or {}
         pick = s["pick"]

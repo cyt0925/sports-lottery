@@ -1319,7 +1319,13 @@ def main():
         except Exception as e:  # noqa: BLE001
             ERRORS.append(f"{lg['key']} notes {g['id']} 失敗: {e!r}")
         try:
-            g["suggestion"] = build_suggestion(g, lg)
+            if chip_of(lg) in MAIN_CHIPS:
+                # 爸爸要看的球種：自己判斷，不看賭盤和賠率（算完才拿去對台灣運彩的線和賠率）
+                import own
+                g["suggestion"] = own.build(g, lg)
+                g["suggestion"]["outside"] = own.outside(g)
+            else:
+                g["suggestion"] = build_suggestion(g, lg)
         except Exception as e:  # noqa: BLE001
             ERRORS.append(f"{lg['key']} 建議 {g['id']} 失敗: {e!r}")
             g["suggestion"] = dict(pick=None, pick_label=None, play="觀望", confidence="低",
@@ -1339,7 +1345,7 @@ def main():
             ERRORS.append(f"{lg['key']} 純模型 {g['id']} 失敗: {e!r}")
         # 每個選項（不讓分、讓分、大小分兩邊）會中的機率，給串關用
         try:
-            if g["status"]["state"] == "pre":
+            if g["status"]["state"] == "pre" and not g["suggestion"].get("probs"):
                 import parlay
                 from model import TOTAL_SIGMA
                 g["suggestion"]["probs"] = parlay.side_probs(g, lg["sport"], SPREAD_SIGMA, TOTAL_SIGMA)
@@ -1357,6 +1363,15 @@ def main():
     for g in all_games:
         lg = LEAGUES_BY_KEY.get(g["league"]) or {}
         g["live_src"] = lg.get("source") or (f"espn:{lg['path']}" if lg.get("path") else None)
+    # AI 寫分析（GitHub 免費 AI 模型；沒有權杖或額度用完就跳過）
+    try:
+        import ai_note
+        ai_path = os.path.join(os.path.dirname(os.path.abspath(args.out)), "ai_notes.json")
+        ai_note.run(all_games, ai_path, now_tw, MAIN_CHIPS, log, ERRORS)
+    except Exception as e:  # noqa: BLE001
+        import traceback
+        ERRORS.append(f"AI 分析整個失敗: {e!r}")
+        traceback.print_exc()
     feed, hot = aggregate(all_games)
     # 成績單：記下建議、賽後對答案
     record = None
@@ -1366,6 +1381,11 @@ def main():
         hpath = os.path.join(os.path.dirname(os.path.abspath(args.out)), "history.json")
         hist = history.load(hpath)
         n_new, n_upd, n_set = history.update(hist, all_games, now_tw)
+        try:
+            import ai_note
+            ai_note.track(hist, all_games, now_tw)
+        except Exception as e:  # noqa: BLE001
+            ERRORS.append(f"AI 對答案失敗: {e!r}")
         for g in all_games:
             if g["status"]["state"] == "post":
                 gr = history.graded(hist, g)
@@ -1385,6 +1405,11 @@ def main():
             record["parlay"] = parlay.summary(hist, now_tw)
         except Exception as e:  # noqa: BLE001
             ERRORS.append(f"串關成績失敗: {e!r}")
+        try:
+            import ai_note
+            record["ai"] = ai_note.summary(hist, now_tw)
+        except Exception as e:  # noqa: BLE001
+            ERRORS.append(f"AI 成績失敗: {e!r}")
         rpath = os.path.join(os.path.dirname(os.path.abspath(args.out)), "results.json")
         with open(rpath, "w", encoding="utf-8") as f:
             json.dump(history.results_payload(hist, now_tw), f, ensure_ascii=False, separators=(",", ":"))
@@ -1540,6 +1565,11 @@ def espn_matchups(all_games, standings):
         except Exception as e:  # noqa: BLE001
             ERRORS.append(f"{key} 上季排名失敗: {e!r}")
             prev_r = {}
+        # 上季實力：開季前幾場場數太少，實力評分從上季出發（model.rate_game 會用）
+        for g in games:
+            hid, aid = str(g["home"].get("id") or ""), str(g["away"].get("id") or "")
+            if hid in prev_r or aid in prev_r:
+                g.setdefault("analysis", {})["prev_rating"] = dict(home=prev_r.get(hid), away=prev_r.get(aid))
         cur_tab = team_table(standings.get(key))
         cur_r = {k: rating(v, lg["sport"]) for k, v in cur_tab.items() if v["gp"] >= 5}
         n_h = n_j = n_s = 0
@@ -1750,9 +1780,9 @@ def fill_notes(g, lg):
     if o.get("prob_home") is None:
         n["odds"] = {
             "svleague": "台灣運彩和玩運彩都沒有日本排球的盤口，這場只看近況和新聞",
-            "playsport": "玩運彩還沒開這場的盤，通常比賽前一天才會出現；有盤後勝率和建議會自動補上",
-        }.get(src, "還沒開盤，通常比賽前一天才會出現；有盤後勝率和建議會自動補上")
-    elif o.get("prob_source") == "form":
+            "playsport": "台灣運彩還沒開這場的盤，通常比賽前一天才會出現",
+        }.get(src, "台灣運彩還沒開這場的盤，通常比賽前一天才會出現")
+    elif o.get("prob_source") == "form" and chip_of(lg) not in MAIN_CHIPS:
         n["odds"] = "沒有盤口，勝率是用兩隊近況估的，只能當參考"
     if lg.get("injuries"):
         n["injuries"] = "ESPN 傷兵名單裡沒有這隊的人，表示目前沒有傷兵回報"

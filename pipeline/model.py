@@ -67,6 +67,15 @@ def _ids(team):
     return out
 
 
+def _record_gp(rec):
+    """「3-1」→ 4；「0-0」→ 0；看不懂就 None。"""
+    try:
+        parts = [int(x) for x in str(rec).split("-")[:3]]
+        return sum(parts)
+    except (TypeError, ValueError):
+        return None
+
+
 def rating(stat, sport):
     k = SHRINK_K.get(sport, 8)
     gp = stat["gp"]
@@ -75,8 +84,65 @@ def rating(stat, sport):
 
 REST_PTS = {"basketball": 1.5, "hockey": 0.2}     # 背靠背第二場、對手有休息：大概差多少
 FORM_W = 0.3        # 近況（扣掉對手強弱）佔多少；整季 10 場以上才混
-FACTORS = ("notes", "form", "h2h", "rest")
-FACTOR_ZH = {"notes": "傷兵備註、上場時間、輪休習慣", "form": "近況（扣掉對手強弱）", "h2h": "交手剋星", "rest": "背靠背體力"}
+PREV_W = 0.7        # 上季實力打七折（換人、老化），開季從這裡出發，打越多場越看本季
+PREV_K = {"basketball": 10, "hockey": 12}   # 本季打幾場之後，本季跟上季各佔一半
+FACTORS = ("notes", "form", "h2h", "rest", "hot", "motive")
+FACTOR_ZH = {"notes": "傷兵備註、上場時間、輪休習慣", "form": "近況（扣掉對手強弱）", "h2h": "交手剋星", "rest": "背靠背體力",
+             "hot": "主力手感（火燙／冰冷）", "motive": "戰意（拚季後賽、已經沒希望、名次已定）"}
+HOT_PTS = 0.12      # 主力近 5 場比季平均多（少）1 分，球隊大概多（少）0.12 分
+HOT_CAP = 1.5
+# 戰意：球季打到七成以後才看。每組前幾名進季後賽（含附加賽）
+SEASON_GAMES = {"nba": 82, "eurobasket": 38}
+PLAYOFF_CUT = {"nba": 10, "eurobasket": 10}
+MOTIVE_PTS = {"race": 0.8, "out": -1.5, "locked": -1.0}
+
+
+def hot_pts(team):
+    """主力手感：火燙加分、冰冷扣分；冰冷又帶傷扣多一點。"""
+    hurt = {x["player"] for x in team.get("injuries") or [] if x.get("severity") in ("maybe", "limited")}
+    v = 0.0
+    for p in team.get("hot") or []:
+        if p.get("label") not in ("火燙", "冰冷") or p.get("last5") is None or p.get("season") is None:
+            continue
+        d = (p["last5"] - p["season"]) * HOT_PTS
+        if p["label"] == "冰冷" and p.get("player") in hurt:
+            d *= 1.5
+        v += d
+    return max(-HOT_CAP, min(HOT_CAP, v))
+
+
+def motive(standings_entry, team_ids, lg_key):
+    """回傳 (分數, 說明)。球季打到七成以後才判斷：拚季後賽、已經沒希望、名次已定。"""
+    total = SEASON_GAMES.get(lg_key)
+    cut = PLAYOFF_CUT.get(lg_key)
+    ids = {str(x) for x in team_ids if x}
+    if not total or not cut or not ids:
+        return 0.0, None
+    for grp in (standings_entry or {}).get("groups") or []:
+        rows = []
+        for r in grp.get("rows") or []:
+            w, l = _num(r.get("w")), _num(r.get("l"))
+            if w is None or l is None:
+                continue
+            rows.append(dict(id=str(r.get("team_id") or ""), w=w, l=l))
+        me = next((r for r in rows if r["id"] in ids), None)
+        if not me:
+            continue
+        gp = me["w"] + me["l"]
+        if gp < 0.7 * total or len(rows) <= cut:
+            return 0.0, None
+        rows.sort(key=lambda r: (-(r["w"] / max(1, r["w"] + r["l"])), -r["w"]))
+        rank = rows.index(me) + 1
+        left = total - gp
+        line_in, line_out = rows[cut - 1], rows[cut]
+        if rank > cut and me["w"] + left < line_in["w"]:
+            return MOTIVE_PTS["out"], "已經確定進不了季後賽，常讓年輕人打"
+        if rank == 1 and len(rows) > 1 and me["w"] - rows[1]["w"] > left:
+            return MOTIVE_PTS["locked"], "第一名已經確定，主力可能輪休"
+        if abs(me["w"] - (line_out["w"] if rank <= cut else line_in["w"])) <= 2 and left <= 0.3 * total:
+            return MOTIVE_PTS["race"], "正在拚季後賽門檻，每場都很拚"
+        return 0.0, None
+    return 0.0, None
 
 
 def _prob(edge, sigma):
@@ -88,6 +154,8 @@ def rate_game(g, lg, standings):
     sport = lg["sport"]
     table = team_table(standings.get(lg["key"]))
     ratings = {k: rating(v, sport) for k, v in table.items()}
+    a = g.get("analysis") or {}
+    prev = a.get("prev_rating") or {}
     sides = {}
     for side in ("home", "away"):
         t = g[side]
@@ -96,14 +164,29 @@ def rate_game(g, lg, standings):
             if tid in table:
                 stat = dict(table[tid], src="standings")
                 break
+        # 例行賽剛開打：比分板上的戰績（例行賽）跟排名表／近況（還是季前賽）對不起來，就不用季前賽的數字，從上季出發
+        rec_gp = _record_gp(t.get("record")) if g.get("season_type") == 2 else None
+        if rec_gp is not None and prev.get(side) is not None and (stat is None or abs(stat["gp"] - rec_gp) >= 1):
+            stat = dict(gp=0, pf=None, pa=None, diff=0.0, src="prev")
+        elif rec_gp == 0:
+            return None      # 例行賽還沒打、上季資料也沒抓到：寧可不估，也不要拿季前賽來估
         if stat is None:
             stat = from_form(t)
+        if stat is None and prev.get(side) is not None:
+            stat = dict(gp=0, pf=None, pa=None, diff=0.0, src="prev")   # 本季還沒打：只有上季
         if stat is None:
             return None
         sides[side] = stat
     hca = HCA.get(lg["key"], HCA_SPORT.get(sport, 2.5))
-    rh, ra = rating(sides["home"], sport), rating(sides["away"], sport)
-    a = g.get("analysis") or {}
+
+    def eff(stat, side):
+        # 有上季實力就從上季出發（打七折），本季打越多場越看本季；沒有就往 0 拉
+        pv = prev.get(side)
+        if pv is None:
+            return rating(stat, sport)
+        k = PREV_K.get(sport, 10)
+        return (stat["diff"] * stat["gp"] + PREV_W * pv * k) / (stat["gp"] + k)
+    rh, ra = eff(sides["home"], "home"), eff(sides["away"], "away")
     # 傷兵：新算法（讀備註、限時、輪休習慣）vs 舊算法（只看名單狀態）
     ih = (g["home"].get("injury_impact") or {}) if sport == "basketball" else {}
     ia = (g["away"].get("injury_impact") or {}) if sport == "basketball" else {}
@@ -130,12 +213,19 @@ def rate_game(g, lg, standings):
             rest_d = rest_pts
     # 交手剋星
     h2h_d = float((a.get("h2h_long") or {}).get("adj") or 0)
+    # 主力手感、戰意
+    hot_d = hot_pts(g["home"]) - hot_pts(g["away"]) if sport == "basketball" else 0.0
+    st_entry = standings.get(lg["key"])
+    mh, mh_why = motive(st_entry, _ids(g["home"]), lg["key"])
+    ma, ma_why = motive(st_entry, _ids(g["away"]), lg["key"])
     comp = dict(
         base=rh + hca - ra - imp_h0 + imp_a0,
         notes=-(imp_h - imp_h0) + (imp_a - imp_a0),
         form=(bh - rh) - (ba - ra),
         h2h=h2h_d,
         rest=rest_d,
+        hot=hot_d,
+        motive=mh - ma,
     )
     edge = sum(comp.values())        # 正數 = 主隊比較強
     sigma = SIGMA.get(sport, 11.0)
@@ -157,13 +247,15 @@ def rate_game(g, lg, standings):
         impact_home=imp_h, impact_away=imp_a,
         parts={k: round(v, 1) for k, v in comp.items()}, variants=variants,
         form_home=fh, form_away=fa, season_diff_home=round(sides["home"]["diff"], 1), season_diff_away=round(sides["away"]["diff"], 1),
+        prev_home=prev.get("home"), prev_away=prev.get("away"),
+        motive_home=mh_why, motive_away=ma_why,
     )
     if market is not None:
         out["diff"] = round(market - out["our_spread"], 1)   # 負數 = 盤口比我們更看好主隊
     # 大小分：得分力 × 對手失分力
     pf_h, pa_h = sides["home"]["pf"], sides["home"]["pa"]
     pf_a, pa_a = sides["away"]["pf"], sides["away"]["pa"]
-    if pa_h and pa_a and pf_h and pf_a:
+    if pa_h and pa_a and pf_h and pf_a and min(sides["home"]["gp"], sides["away"]["gp"]) >= 1:
         avg = (pf_h + pf_a + pa_h + pa_a) / 4
         if avg > 0:
             exp_h = pf_h * pa_a / avg

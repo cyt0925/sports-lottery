@@ -11,6 +11,7 @@ on:
 
 permissions:
   contents: write
+  models: read        # 用 GitHub 的免費 AI 模型寫每場的分析
 
 concurrency:
   group: sports-data-${{ github.ref }}
@@ -32,6 +33,8 @@ jobs:
 
       - name: 抓資料
         run: python pipeline/fetch.py --debug-dir debug
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
 
       - name: 保留原始資料樣本（除錯用，3 天後自動刪）
@@ -61,6 +64,7 @@ jobs:
           cp data/today.json /tmp/today.json
           cp data/history.json /tmp/history.json 2>/dev/null || true
           cp data/results.json /tmp/results.json 2>/dev/null || true
+          cp data/ai_notes.json /tmp/ai_notes.json 2>/dev/null || true
           BRANCH="${GITHUB_REF_NAME}"
           for i in 1 2 3 4; do
             git fetch -q origin "$BRANCH"
@@ -68,7 +72,9 @@ jobs:
             cp /tmp/today.json data/today.json
             [ -f /tmp/history.json ] && cp /tmp/history.json data/history.json
             [ -f /tmp/results.json ] && cp /tmp/results.json data/results.json
+            [ -f /tmp/ai_notes.json ] && cp /tmp/ai_notes.json data/ai_notes.json
             git add data/today.json data/history.json data/results.json
+            [ -f data/ai_notes.json ] && git add data/ai_notes.json
             if git diff --cached --quiet; then
               echo "資料沒有變化，不提交"
               exit 0

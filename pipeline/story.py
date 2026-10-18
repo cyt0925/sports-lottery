@@ -1,5 +1,7 @@
 # -*- coding: utf-8 -*-
 """把一場比賽講成人話：先講結論，再講為什麼、要小心什麼，最後一行賠率。
+爸爸要看的球種是「自己判斷」（suggestion.source == "own"）：理由只講實力、近況、傷兵、休息、交手、手感、戰意，
+不講盤口看好誰、錢往哪邊跑、網友押哪邊；賠率只用來說划不划算。
 每句都短，像朋友在旁邊跟你講。資料缺什麼就說缺什麼，不留空白。"""
 
 
@@ -21,6 +23,11 @@ def _cheng(p):
     if whole == 5 and not half:
         return "一半"
     return f"{digits[whole]}成" + ("五" if half else "")
+
+
+def _r(v):
+    """四捨五入取整數（跟網頁一樣 .5 進位）。"""
+    return int(abs(v) + 0.5)
 
 
 def _short(t, limit=7):
@@ -85,7 +92,7 @@ def _fan_take(g, sport, hn, an, pick, used):
                 out.append(f"{name}帳面看起來不錯，但最近 {fv['n']} 場扣掉對手強弱，打得比整季差 {abs(gap):.0f} 分，狀況在往下掉。")
                 break
             if gap >= 6:
-                out.append(f"{name}整季帳面普通，但最近 {fv['n']} 場打得比整季好 {gap:.0f} 分，正在變強，盤口不一定跟得上。")
+                out.append(f"{name}整季帳面普通，但最近 {fv['n']} 場打得比整季好 {gap:.0f} 分，正在變強，帳面還看不出來。")
                 break
             if fv.get("streak_kind") == "W" and fv.get("streak_n", 0) >= 3 and (fv.get("streak_opp_avg") or 0) <= -3:
                 out.append(f"{name}雖然連贏 {fv['streak_n']} 場，但打的都是後段班，別被連勝騙了。")
@@ -111,11 +118,10 @@ def _fan_take(g, sport, hn, an, pick, used):
         win, lose = (hn, an) if h["jinx"] == "home" else (an, hn)
         ww = h["w"] if h["jinx"] == "home" else h["l"]
         extra = ""
-        if h.get("ats_w") is not None and (h.get("ats_w", 0) + h.get("ats_l", 0)) >= 3:
-            aw = h["ats_w"] if h["jinx"] == "home" else h["ats_l"]
-            extra = f"台灣讓分盤也過了 {aw} 次"
-        elif h.get("avg_over") is not None:
+        if h.get("avg_over") is not None:
             extra = f"平均比預期多贏 {abs(h['avg_over']):.0f} 分"
+        elif h.get("avg_margin") is not None:
+            extra = f"平均贏 {abs(h['avg_margin']):.0f} 分"
         out.append(f"{win}碰{lose}就是有辦法，近 {h['n']} 次交手贏 {ww} 次{('，' + extra) if extra else ''}。交手場數不多，參考就好。")
     # 5) 背靠背
     rest = a.get("rest") or {}
@@ -153,6 +159,9 @@ def build_story(g, sport):
     pn = hn if pick == "home" else an if pick == "away" else None
     psrc = o.get("prob_source")
     ph, pa = o.get("prob_home"), o.get("prob_away")
+    own = s.get("source") == "own"
+    est = s.get("est") or {}
+    rt0 = a.get("rating") or {}
 
     why, care = [], []
 
@@ -162,7 +171,7 @@ def build_story(g, sport):
     elif s.get("play") == "大小分" and s.get("pick_label"):
         tot_ = s.get("totals") or {}
         line_ = tot_.get("line_tw") if tot_.get("line_tw") is not None else tot_.get("line")
-        verdict = f"這場我會玩{s['pick_label']}（盤口 {line_:g}），信心{s.get('confidence', '中')}。" if line_ is not None else f"這場我會玩{s['pick_label']}，信心{s.get('confidence', '中')}。"
+        verdict = f"這場我會玩{s['pick_label']}（台灣運彩的線 {line_:g}），信心{s.get('confidence', '中')}。" if line_ is not None else f"這場我會玩{s['pick_label']}，信心{s.get('confidence', '中')}。"
     elif pn:
         play = s.get("play") or "不讓分"
         extra = ""
@@ -172,13 +181,29 @@ def build_story(g, sport):
             mine = line_h if s.get("pick") == "home" else -line_h
             extra = f"（{'讓' if mine < 0 else '受讓'} {abs(mine):g} 分）"
         verdict = f"這場我會押{pn}，玩{play}{extra}，信心{s.get('confidence', '中')}。"
+    elif own and s.get("summary"):
+        verdict = s["summary"].rstrip("。") + "。"
     elif ph is None:
         verdict = "還沒開盤，等盤出來再說。" if not sets else "這場沒有盤口，看球用的。"
     else:
         verdict = "這場看不出誰比較穩，我會先不下。"
 
     # ---- 為什麼（最多 3 點）----
-    if ph is not None and pa is not None:
+    if own and est.get("p_home") is not None:
+        fav = "home" if est["p_home"] >= 0.5 else "away"
+        fn = hn if fav == "home" else an
+        p = max(est["p_home"], 1 - est["p_home"])
+        where = "在主場" if fav == "home" else "作客"
+        if est.get("src") == "form":
+            why.append(f"這個聯盟數據少，看近況猜{fn}大概{_cheng(p)}會贏。")
+        else:
+            by = f"，大概贏 {_r(est['margin'])} 分" if est.get("margin") is not None and abs(est["margin"]) >= 1 else ""
+            base = "（開季場數少，先看上季實力）" if est.get("src") == "prev" else ""
+            if p < 0.55:
+                why.append(f"我們算兩隊差不多，{fn}{where}稍微好一點{base}。")
+            else:
+                why.append(f"我們算{fn}{where}大概{_cheng(p)}會贏{by}{base}。")
+    elif ph is not None and pa is not None:
         fav = "home" if ph >= pa else "away"
         fn = hn if fav == "home" else an
         p = max(ph, pa)
@@ -215,7 +240,7 @@ def build_story(g, sport):
                 parts.append(f"{'' if outs else '的'}{_who(maybes)}{'很可能不打' if hi and len(hi) == len(maybes) else '還不確定上不上'}")
             line = f"{name}{'，'.join(parts)}，大概影響 {imp['pts']:g} 分。"
             lm = a.get("line_move") or {}
-            if lm.get("spread_open") is not None and lm.get("spread_now") is not None and abs(lm["spread_now"] - lm["spread_open"]) >= 1:
+            if not own and lm.get("spread_open") is not None and lm.get("spread_now") is not None and abs(lm["spread_now"] - lm["spread_open"]) >= 1:
                 line += "盤口已經有動，應該反映進去了。"
             (care if mine else why).append(line)
         elif outs or maybes:
@@ -281,9 +306,8 @@ def build_story(g, sport):
             win, lose = (hn, an) if hl["jinx"] == "home" else (an, hn)
             ww = hl["w"] if hl["jinx"] == "home" else hl["l"]
             line = f"{win}是{lose}的剋星：近 {hl['n']} 次碰面贏了 {ww} 次"
-            if hl.get("ats_w") is not None and hl.get("ats_w", 0) + hl.get("ats_l", 0) >= 3:
-                aw = hl["ats_w"] if hl["jinx"] == "home" else hl["ats_l"]
-                line += f"，台灣讓分盤也過了 {aw} 次。"
+            if hl.get("avg_over") is None and hl.get("avg_margin") is not None:
+                line += f"，平均贏 {abs(hl['avg_margin']):.0f} 分。"
             elif hl.get("avg_over") is not None:
                 line += f"，而且平均比實力該贏的多贏 {abs(hl['avg_over']):.0f} 分。"
             else:
@@ -315,12 +339,28 @@ def build_story(g, sport):
             matchup.append(f"{name}{sched}，{how}。")
     # 盤口變動
     lm = a.get("line_move")
-    if lm and lm.get("spread_open") is not None and lm.get("spread_now") is not None and abs(lm["spread_now"] - lm["spread_open"]) >= 1:
+    if not own and lm and lm.get("spread_open") is not None and lm.get("spread_now") is not None and abs(lm["spread_now"] - lm["spread_open"]) >= 1:
         who = hn if lm["spread_now"] < lm["spread_open"] else an
         why.append(f"盤口往{who}那邊移，錢在押他。")
     # 實力評分 vs 盤口
     r = a.get("rating") or {}
-    if r and not r.get("weak") and r.get("diff") is not None and r.get("market_spread") is not None:
+    if own:
+        # 讓分：我們算的分差 vs 台灣運彩的線
+        sp_ = tw.get("spread") or {}
+        lh = sp_.get("line_home")
+        if est.get("margin") is not None and lh is not None and s.get("play") == "讓分" and pick in ("home", "away"):
+            mine = lh if pick == "home" else -lh
+            fav_ = hn if est["margin"] >= 0 else an
+            pr = (s.get("probs") or {}).get("ats_" + pick)
+            gap_ = "我們算的差距沒那麼大" if (fav_ != pn) else "我們算的差距比這還大"
+            why.insert(1, f"台灣運彩開{pn}{'讓' if mine < 0 else '受讓'} {abs(mine):g} 分，{gap_}（{fav_}大概贏 {_r(est['margin'])} 分），所以押{pn}過的機會比較大{('（大概' + _cheng(pr) + '）') if pr else ''}。")
+        if r.get("weak") and est.get("src") != "prev":
+            care.append(f"兩隊這季才打 {min(r['gp_home'], r['gp_away'])} 場，實力還看不準，信心打折。")
+        for side_, name in (("home", hn), ("away", an)):
+            mw = r.get("motive_" + side_)
+            if mw:
+                (why if ("拚" in mw) == ((pick == side_) if pick in ("home", "away") else True) else care).append(f"{name}{mw}。")
+    elif r and not r.get("weak") and r.get("diff") is not None and r.get("market_spread") is not None:
         ours, mk = -r["our_spread"], -r["market_spread"]
         th = 3.0 if sport == "basketball" else 0.45 if sport == "hockey" else 3.0
         def _let(v, who_fav, who_dog):
@@ -338,27 +378,42 @@ def build_story(g, sport):
         care.append(f"兩隊才打 {min(r['gp_home'], r['gp_away'])} 場，實力評分還不準，盤口為主。")
     # 玩家一面倒
     crowd = a.get("crowd") or {}
-    if crowd.get("ml_home") is not None and crowd.get("ml_away") is not None:
+    if not own and crowd.get("ml_home") is not None and crowd.get("ml_away") is not None:
         v = max(crowd["ml_home"], crowd["ml_away"])
         side = hn if crowd["ml_home"] >= crowd["ml_away"] else an
         if v >= 80:
             care.append(f"{_cheng(v / 100)}的人都押{side}，太一面倒的時候反而常翻車。")
     # 台灣賠率划不划算
-    if s.get("tw_value") == "偏差":
+    v = s.get("value") or {}
+    value_line = ""
+    if own and v:
+        if v["label"] == "划算":
+            value_line = f"照我們估的{_cheng(v['p'])}，台灣運彩賠 {v['dec']:g}，押 100 元長期大概拿回 {v['back']} 元，划算。"
+            why.append(value_line)
+        elif v["label"] == "不划算":
+            value_line = f"照我們估的{_cheng(v['p'])}，台灣運彩只賠 {v['dec']:g}，押 100 元長期大概只拿回 {v['back']} 元，不划算，要下就小注。"
+            care.append(value_line)
+        else:
+            value_line = f"照我們估的{_cheng(v['p'])}，台灣運彩賠 {v['dec']:g}，押 100 元長期大概拿回 {v['back']} 元，普通。"
+    elif s.get("tw_value") == "偏差":
         care.append(f"台灣運彩賠率 {s.get('tw_dec')} 比平常差，注碼小一點。")
     elif s.get("tw_value") == "划算":
         why.append(f"台灣運彩賠 {s.get('tw_dec')}，比平常好一點。")
     for c in s.get("cautions") or []:
         if "幾乎沒賺頭" in c:
-            d_ = ((g.get("tw") or {}).get("ml") or {}).get(s.get("pick") or "")
-            care.append(f"不讓分只賠{f' {d_}' if d_ else '得很低'}，贏了也幾乎沒賺頭，所以改看讓分；讓分本來就接近五五波，信心最多給「中」。")
+            d_ = ((g.get("tw") or {}).get("ml") or {}).get(s.get("fav") or s.get("pick") or "")
+            if s.get("play") == "讓分":
+                care.append(f"不讓分只賠{f' {d_}' if d_ else '得很低'}，贏了也幾乎沒賺頭，所以改看讓分；讓分本來就接近五五波，信心最多給「中」。")
+            else:
+                care.append(f"不讓分只賠{f' {d_}' if d_ else '得很低'}，贏了也幾乎沒賺頭；讓分又不一定過，想下就小注。")
     # 大小分
     tot = s.get("totals")
     if tot and tot.get("lean") in ("大", "小"):
         how = "照兩隊得分和失分算，這場大概" if tot.get("method") == "評分" else "兩隊最近 5 場平均總分"
         line_ = tot.get("line_tw") if tot.get("line_tw") is not None else tot.get("line")
         lead = "" if tot.get("main") else f"大小分看「{tot['lean']}」："
-        why.insert(0 if tot.get("main") else len(why), f"{lead}{how} {tot['expected']:.0f} 分，盤口 {line_:g}，差了 {abs(tot['expected'] - line_):.0f} 分。")
+        lname = "台灣運彩的線" if tot.get("line_tw") is not None else "國際盤的線"
+        why.insert(0 if tot.get("main") else len(why), f"{lead}{how} {tot['expected']:.0f} 分，{lname} {line_:g}，差了 {abs(tot['expected'] - line_):.0f} 分。")
         if tot.get("main"):
             # 主建議是大小分：這兩句要排在最前面，不能被後面的近況擠掉
             extra = []
@@ -397,14 +452,23 @@ def build_story(g, sport):
         odds_line = "台灣運彩：" + "，".join(parts) + "。"
     elif sets:
         odds_line = "台灣運彩沒有開日本排球。"
-    elif o.get("prob_home") is not None and psrc != "form":
+    elif own or (o.get("prob_home") is not None and psrc != "form"):
         odds_line = "台灣運彩還沒開這場，通常前一天才會開。"
     else:
         odds_line = notes.get("odds") or "還沒開盤。"
 
+    outside_lines = []
+    out_ = s.get("outside") or {}
+    if out_.get("espn") and est.get("p_home") is not None:
+        ep = out_["espn"]["home"]
+        efav = hn if ep >= 0.5 else an
+        same = (ep >= 0.5) == (est["p_home"] >= 0.5)
+        outside_lines.append(f"ESPN 的電腦預測：{efav}{_cheng(max(ep, 1 - ep))}會贏，{'跟我們看法一樣' if same else '跟我們看法相反，要多想一下'}。")
     if g.get("season_type") == 1 and g["status"]["state"] != "post" and not any("季前賽" in x for x in care) and "季前賽" not in fan:
         care.insert(0, "現在是季前賽，主力常常輪休、打不久，戰績跟數據都不能當真。")
-    talk = dict(verdict=verdict, fan=fan, why=why[:4], care=care[:3], matchup=matchup[:4], odds=odds_line)
+    if value_line and value_line not in why and value_line not in care:
+        odds_line = (odds_line + value_line) if odds_line else value_line
+    talk = dict(verdict=verdict, fan=fan, why=why[:4], care=care[:3], matchup=matchup[:4], odds=odds_line, outside=outside_lines)
     if sets:
         talk["note"] = "排球看局數，五局三勝。"
     return talk

@@ -39,11 +39,15 @@ def _snap(g, s, now):
     total = tt.get("line") if tt.get("line") is not None else o.get("total")
     if s.get("play") == "大小分":
         dec = tt.get("over") if pick == "over" else tt.get("under")
-        prob = (s.get("totals") or {}).get("prob")
+        prob = s.get("prob") if s.get("source") == "own" else (s.get("totals") or {}).get("prob")
+        has_tw = bool(dec)
+    elif s.get("play") == "讓分":
+        dec = sp.get(pick)
+        prob = s.get("prob")
         has_tw = bool(dec)
     else:
         dec = ml.get(pick) if ml.get(pick) else o.get(f"dec_{pick}")
-        prob = o.get(f"prob_{pick}")
+        prob = s.get("prob") if s.get("source") == "own" else o.get(f"prob_{pick}")
         has_tw = bool(ml.get(pick))
     return dict(t=now.isoformat(timespec="minutes"), dec=dec, spread_home=spread_home, total=total, prob=prob, tw=has_tw)
 
