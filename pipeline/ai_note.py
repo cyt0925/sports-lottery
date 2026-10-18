@@ -20,8 +20,6 @@ from urllib.parse import quote
 import requests
 
 TW = timezone(timedelta(hours=8))
-ENDPOINT = "https://models.github.ai/inference/chat/completions"
-MODELS = ("openai/gpt-4.1-mini", "openai/gpt-4o-mini")
 DAILY_CAP = 120
 RUN_CAP = 20
 NEAR_H = 36
@@ -200,31 +198,54 @@ def previews(g, log=None):
     return out
 
 
+# 先試新的網址，不行再試舊的（Azure 那個）；哪個可以用就記住
+ENDPOINTS = (
+    ("https://models.github.ai/inference/chat/completions", "openai/gpt-4.1-mini"),
+    ("https://models.github.ai/inference/chat/completions", "openai/gpt-4o-mini"),
+    ("https://models.inference.ai.azure.com/chat/completions", "gpt-4o-mini"),
+)
+_WORKING = []
+_LOGGED = set()
+
+
+def _diag(r):
+    hist = " → ".join(f"{h.status_code} {h.headers.get('location', '')}" for h in r.history)
+    keep = {k: v for k, v in r.headers.items() if k.lower() in ("content-type", "location", "x-ratelimit-remaining-requests", "x-ratelimit-limit-requests", "server", "x-github-request-id", "www-authenticate")}
+    return f"HTTP {r.status_code} 網址 {r.url}{(' 轉址 ' + hist) if hist else ''} 標頭 {keep} 內容 {r.text[:200]!r}"
+
+
 def _call(token, f, log):
     body_user = "比賽資料（JSON）：\n" + json.dumps(f, ensure_ascii=False, indent=1)
     last_err = None
-    for model in MODELS:
+    order = _WORKING + [e for e in ENDPOINTS if e not in _WORKING]
+    for url, model in order:
+        headers = {"Authorization": f"Bearer {token}", "Content-Type": "application/json", "Accept": "application/json"}
+        if "models.github.ai" in url:
+            headers["X-GitHub-Api-Version"] = "2022-11-28"
         try:
-            r = requests.post(ENDPOINT, headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json",
-                                                 "Accept": "application/vnd.github+json", "X-GitHub-Api-Version": "2022-11-28"},
+            r = requests.post(url, headers=headers, timeout=60, allow_redirects=False,
                               json=dict(model=model, temperature=0.4, max_tokens=600,
-                                        messages=[dict(role="system", content=SYSTEM), dict(role="user", content=body_user)]),
-                              timeout=60)
+                                        messages=[dict(role="system", content=SYSTEM), dict(role="user", content=body_user)]))
         except requests.RequestException as e:
-            return dict(error=f"{model} 連不上：{e!r}"[:300], unreachable=True)
+            last_err = f"{model} 連不上：{e!r}"[:300]
+            continue
+        text = None
         if r.status_code == 200:
             try:
                 text = r.json()["choices"][0]["message"]["content"].strip()
-            except (KeyError, IndexError, ValueError):
-                last_err = f"{model} 回應看不懂：{r.text[:200]}"
-                continue
+            except (KeyError, IndexError, ValueError, TypeError):
+                text = None
+        if text:
+            if (url, model) not in _WORKING:
+                _WORKING.insert(0, (url, model))
             return dict(text=text, model=model, headers={k: v for k, v in r.headers.items() if "ratelimit" in k.lower()})
-        last_err = f"{model} HTTP {r.status_code}：{r.text[:300]}"
+        last_err = f"{model} @ {url.split('/')[2]}：{_diag(r)}"
+        if (url, model) not in _LOGGED:
+            _LOGGED.add((url, model))
+            log(f"[AI] 不行：{last_err}")
         if r.status_code == 429:
             return dict(error=last_err, rate_limited=True)
-        if r.status_code in (401, 403):
-            return dict(error=last_err, denied=True)
-    return dict(error=last_err)
+    return dict(error=last_err, unreachable=last_err is not None and "連不上" in last_err)
 
 
 def parse(text, hn, an):
