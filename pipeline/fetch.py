@@ -1453,6 +1453,13 @@ def main():
         import traceback
         ERRORS.append(f"球員看點失敗: {e!r}")
         traceback.print_exc()
+    # 網站最近押錯的教訓（同一隊上次錯在哪）：給 AI 讀，想一想這場會不會犯同樣的錯
+    try:
+        import history
+        n_les = history.lessons(history.load(os.path.join(os.path.dirname(os.path.abspath(args.out)), "history.json")), all_games, now_tw)
+        log(f"押錯的教訓：{n_les} 場的球隊最近有押錯的檢討，交給 AI 讀")
+    except Exception as e:  # noqa: BLE001
+        ERRORS.append(f"押錯的教訓失敗: {e!r}")
     # AI 寫分析（GitHub 免費 AI 模型；沒有權杖或額度用完就跳過）
     try:
         import ai_note
@@ -1462,6 +1469,8 @@ def main():
         import traceback
         ERRORS.append(f"AI 分析整個失敗: {e!r}")
         traceback.print_exc()
+    for g in all_games:
+        g.pop("_lessons", None)
     # AI 讀完新聞、想過球隊狀態後看法跟網站的計算不一樣：網站的信心最多給「中」（數字看不到的東西，可能是 AI 對）
     n_diff = 0
     for g in all_games:

@@ -63,7 +63,7 @@ def _why(g, s):
     return dict(p=s.get("prob") or s.get("p_est"), margin=est.get("margin"), total=est.get("total"), f=[x for x in fs if x[1]])
 
 
-REVIEW_ZH = {"luck": "差一點（運氣）", "strength": "實力看錯", "upset": "爆冷", "total": "總分節奏看錯", "factor": "某個因素看錯"}
+REVIEW_ZH = {"luck": "差一點（運氣）", "preseason": "季前賽（本來就不準）", "strength": "實力看錯", "upset": "爆冷", "total": "總分節奏看錯", "factor": "某個因素看錯"}
 
 
 def review(e, res):
@@ -73,6 +73,8 @@ def review(e, res):
     main = res.get("ou") if play == "大小分" else (res.get("ats") if play == "讓分" else res.get("ml"))
     if main != "loss":
         return None
+    if e.get("pre"):
+        return dict(kind="preseason", text="這場是季前賽，主力打不多、教練在試陣容，輸贏本來就不準。")
     w = e.get("why") or {}
     if play == "大小分":
         tot, line, exp_t = res.get("total"), res.get("total_line"), w.get("total")
@@ -243,6 +245,50 @@ def _migrate(hist, games):
                     d[new]["id"] = new
 
 
+def _preseason(g):
+    """這場是不是季前賽（NBA 的賽季類別，或兩隊的近況都還只有季前賽）。"""
+    if g.get("season_type") == 1:
+        return True
+    return all((g[s].get("form_note") or "") == "季前賽" for s in ("home", "away"))
+
+
+# 押錯的檢討裡，真的能學到東西的（差一點的算運氣、季前賽本來就不準，不拿來提醒）
+LESSON_KINDS = {"factor", "strength", "upset", "total"}
+KIND_ZH = {"factor": "某個因素沒準", "strength": "實力看錯", "upset": "爆冷", "total": "總分節奏看錯"}
+
+
+def lessons(hist, games, now=None, days=30):
+    """給 AI 讀的「網站最近押錯的教訓」：這兩隊最近一次押錯、錯在哪；這個聯盟最近押錯多半是哪一種。
+    只放不常變的東西（每打完一場就變的命中率不放），免得 AI 分析一直被迫重寫。"""
+    now = now or datetime.now(TW)
+    cut = (now - timedelta(days=days)).strftime("%Y-%m-%d")
+    bad = [e for e in (hist.get("entries") or {}).values()
+           if e.get("day_tw", "") >= cut and (e.get("review") or {}).get("kind") in LESSON_KINDS and not e.get("pre")]
+    bad.sort(key=lambda e: e.get("start") or "", reverse=True)
+    n = 0
+    for g in games:
+        if g["status"]["state"] != "pre":
+            continue
+        out = []
+        for side in ("home", "away"):
+            nm = g[side].get("name_zh") or g[side].get("name")
+            e = next((x for x in bad if nm and nm in (x.get("home"), x.get("away"))), None)
+            if e:
+                out.append(f"{e['day_tw'][5:].replace('-', '/')} {e['away']} 對 {e['home']}：網站押 {e.get('pick_label')}（{e.get('play') or '不讓分'}）沒中，"
+                           f"檢討：{e['review']['text']}")
+        # 聯盟裡最近押錯，有一半以上是同一個原因（「爆冷」說不出原因，不算）
+        from model import FACTOR_ZH
+        why = [(e["review"]["kind"], e["review"].get("factor")) for e in bad if e.get("chip") == (g.get("chip") or g["sport"])]
+        if len(why) >= 5:
+            top = max(set(why), key=why.count)
+            if top[0] != "upset" and why.count(top) >= len(why) / 2:
+                out.append(f"這個聯盟最近押錯，多半是「{FACTOR_ZH.get(top[1], top[1]) + '」這個因素沒準' if top[1] else KIND_ZH[top[0]] + '」'}")
+        if out:
+            g["_lessons"] = out
+            n += 1
+    return n
+
+
 def update(hist, games, now=None):
     now = now or datetime.now(TW)
     entries = hist.setdefault("entries", {})
@@ -270,6 +316,7 @@ def update(hist, games, now=None):
                     total_lean=tot.get("lean") if tot.get("lean") in ("大", "小") else None,
                     side=(s.get("side") or {}).get("pick_label") if s.get("play") == "大小分" else None,
                     first=snap, latest=snap, why=_why(g, s),
+                    pre=_preseason(g),
                 )
                 n_new += 1
             else:
@@ -281,6 +328,12 @@ def update(hist, games, now=None):
         elif state == "post" and e is not None and not e.get("result"):
             if settle(e, g):
                 n_set += 1
+    # 這個功能加上之前記的 NBA 季前賽（2026-27 例行賽台灣時間 10/21 開打）：補上標記，檢討改成季前賽
+    for e in entries.values():
+        if "pre" not in e and e.get("league") == "nba" and "2026-10-01" <= e.get("day_tw", "") <= "2026-10-20":
+            e["pre"] = True
+            if e.get("review") and e.get("result"):
+                e["review"] = review(e, e["result"]) or e["review"]
     # 以前結算、還沒檢討過的押錯場次，補一次檢討
     for e in entries.values():
         if e.get("result") and "review" not in e and not e.get("review_done"):
