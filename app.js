@@ -14,6 +14,7 @@
     view: "today",
     detail: null,
     showMore: false,
+    pickTab: {},        // 卡片上的預測按鈕現在顯示哪一種玩法（誰會贏／讓分／大小分）
     showAllInj: false,
     showAllHot: false,
     standingsLeague: localStorage.getItem("standingsLeague") || null,
@@ -382,6 +383,14 @@
     renderParlay();
     if (state.recTab === "mine") renderRecord();
   }
+  // 讓分講白話：熱門那隊要贏幾分以上才算對，冷門那隊輸幾分以內也算對
+  function atsHint(spreadHome, H, A) {
+    const L = Math.abs(spreadHome);
+    if (!L) return "讓分 0：誰贏就算誰對，打平退錢。";
+    const fav = spreadHome < 0 ? H : A, dog = spreadHome < 0 ? A : H;
+    if (L % 1) return `押${fav}：要贏 ${Math.ceil(L)} 分以上才算對；押${dog}：輸 ${Math.floor(L)} 分以內、或贏球，都算對。`;
+    return `押${fav}：要贏 ${L + 1} 分以上才算對（剛好贏 ${L} 分退錢）；押${dog}：輸 ${L - 1} 分以內、或贏球，都算對。`;
+  }
   function pickButtons(g, compact) {
     const p = state.picks[g.id];
     const locked = gameStarted(g), post = g.status.state === "post";
@@ -395,9 +404,21 @@
     };
     const A = tname(g.away), H = tname(g.home);
     if (compact) {
-      // 卡片上只放押誰贏；押了讓分或大小分的，卡片上顯示那一個
-      const extra = p && p.side !== "home" && p.side !== "away" ? `<div class="pick-note">你押 ${esc(sideLabel(p))}${p.result ? (p.result.r === "win" ? "，對了" : p.result.r === "loss" ? "，沒中" : "，平手") : ""}</div>` : "";
-      return `<div class="pickrow compact" data-pickrow="${esc(g.id)}" data-compact="1"><div class="pick-grid">${btn("away", "押 " + A)}${btn("home", "押 " + H)}</div>${extra}</div>`;
+      // 卡片上可以切「誰會贏／讓分／大小分」；押過的那一種先打開
+      const playOf = (side) => (side === "ats_home" || side === "ats_away" ? "ats" : side === "over" || side === "under" ? "ou" : "ml");
+      const mine = p ? playOf(p.side) : null;
+      const plays = [["ml", "誰會贏"]];
+      if (mk.spread != null && (!locked || mine === "ats")) plays.push(["ats", "讓分"]);
+      if (mk.total != null && (!locked || mine === "ou")) plays.push(["ou", "大小分"]);
+      let tab = state.pickTab[g.id] || mine || "ml";
+      if (!plays.some((x) => x[0] === tab)) tab = "ml";
+      const tabs = plays.length > 1 ? `<div class="ptabs">${plays.map(([k, l]) => `<button class="${k === tab ? "on" : ""}" data-ptab="${k}" data-ptab-game="${esc(g.id)}">${l}</button>`).join("")}</div>` : "";
+      const grid = tab === "ats" ? btn("ats_away", `${A} ${fmtLine(-mk.spread)}`) + btn("ats_home", `${H} ${fmtLine(mk.spread)}`)
+        : tab === "ou" ? btn("over", "大分 " + mk.total) + btn("under", "小分 " + mk.total) : btn("away", "押 " + A) + btn("home", "押 " + H);
+      const intl = !locked && ((tab === "ats" && !mk.spreadTw) || (tab === "ou" && !mk.totalTw)) ? `<div class="pick-note warn">台灣運彩還沒開這一種，先用國際盤的線</div>` : "";
+      const hint = !locked && tab === "ats" ? `<div class="pick-note">${esc(atsHint(mk.spread, H, A))}</div>` : "";
+      const extra = p && mine !== tab ? `<div class="pick-note">你押 ${esc(sideLabel(p))}${p.result ? (p.result.r === "win" ? "，對了" : p.result.r === "loss" ? "，沒中" : "，平手") : ""}</div>` : "";
+      return `<div class="pickrow compact" data-pickrow="${esc(g.id)}" data-compact="1">${tabs}<div class="pick-grid">${grid}</div>${intl}${hint}${extra}</div>`;
     }
     const tag = (tw) => `<small class="src ${tw ? "tw" : "intl"}">${tw ? "台灣運彩" : "國際盤"}</small>`;
     const rows = [];
@@ -1212,6 +1233,13 @@
     if (dp) { if (confirm("刪掉這張串關？")) { state.parlays = state.parlays.filter((x) => x.id !== dp.dataset.delParlay); saveParlays(); renderRecord(); renderParlay(); } return; }
     const pb = e.target.closest("[data-pick]");
     if (pb) { setPick(pb.dataset.pickGame, pb.dataset.pick); return; }
+    const ptab = e.target.closest("[data-ptab]");
+    if (ptab) {
+      const gid = ptab.dataset.ptabGame, g = findGame(gid);
+      state.pickTab[gid] = ptab.dataset.ptab;
+      if (g) document.querySelectorAll(`[data-pickrow="${CSS.escape(gid)}"][data-compact="1"]`).forEach((el) => { el.outerHTML = pickButtons(g, true); });
+      return;
+    }
     const rt = e.target.closest("[data-rec]");
     if (rt) { state.recTab = rt.dataset.rec; renderRecord(); return; }
     if (e.target.closest("[data-export]")) { exportPicks(); return; }
