@@ -235,10 +235,20 @@ body[data-view="today"] .view[data-for="today"],body[data-view="injuries"] .view
 .loader{position:fixed;inset:0;z-index:60;display:grid;place-items:center;background:var(--bg);opacity:0;pointer-events:none;transition:opacity .35s ease}
 .loader.on{opacity:1;pointer-events:auto}
 .loader-box{text-align:center;padding:24px}
-.loader-box img{width:min(64vw,260px);height:auto}
-.loader-mascot{animation:mascot-bob 1.1s ease-in-out infinite;transform-origin:50% 90%}
-@keyframes mascot-bob{0%,100%{transform:translateY(0) rotate(0)}50%{transform:translateY(-8px) rotate(-1.5deg)}}
-@media (prefers-reduced-motion:reduce){.loader-mascot{animation:none}}
+/* 載入畫面的運彩大叔：整個人跳、拳頭一直揮、驚嘆號一閃一閃（四張圖疊在一起，各自動） */
+.mascot-wrap{width:min(66vw,270px);margin:0 auto}
+.mascot{position:relative;width:100%;aspect-ratio:560/537;transform-origin:50% 100%;animation:m-hop .9s cubic-bezier(.33,0,.4,1) infinite}
+.mascot .m{position:absolute;inset:0;width:100%;height:100%}
+.m-fist{transform-origin:82.2% 54.4%;animation:m-pump .45s ease-in-out infinite alternate}
+.m-red{transform-origin:9.6% 24%;animation:m-pop .9s ease-in-out infinite}
+.m-yel{transform-origin:77.7% 17.1%;animation:m-pop .9s ease-in-out infinite .45s}
+.m-shadow{width:62%;height:16px;margin:-10px auto 0;border-radius:50%;background:radial-gradient(closest-side,rgba(0,0,0,.5),transparent);animation:m-shadow .9s cubic-bezier(.33,0,.4,1) infinite}
+:root[data-theme="light"] .m-shadow{background:radial-gradient(closest-side,rgba(30,20,60,.25),transparent)}
+@keyframes m-hop{0%{transform:translateY(0) scale(1.04,.95)}14%{transform:translateY(0) scale(.97,1.04)}50%{transform:translateY(-20px) rotate(-3deg)}82%{transform:translateY(0) rotate(1deg) scale(1,1)}100%{transform:translateY(0) scale(1.04,.95)}}
+@keyframes m-pump{from{transform:rotate(-3deg)}to{transform:rotate(15deg)}}
+@keyframes m-pop{0%,100%{transform:scale(.75);opacity:.35}45%{transform:scale(1.18);opacity:1}}
+@keyframes m-shadow{0%,100%{transform:scaleX(1);opacity:1}50%{transform:scaleX(.68);opacity:.45}}
+@media (prefers-reduced-motion:reduce){.mascot,.m-fist,.m-red,.m-yel,.m-shadow{animation:none}}
 .loader-text{margin-top:14px;font-weight:900;font-size:1.15rem;letter-spacing:.18em;color:var(--ink)}
 .loader-text i{display:inline-block;font-style:normal;animation:ldblink 1.2s infinite}
 .loader-text i:nth-child(2){animation-delay:.2s}.loader-text i:nth-child(3){animation-delay:.4s}
