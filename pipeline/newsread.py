@@ -150,9 +150,10 @@ def sources(g):
     items += [x for x in ((g.get("ai") or {}).get("previews")) or [] if not NOISE.search(x.get("title") or "")]
     for x in items:
         title = x.get("detail") if x.get("player") else x.get("title")
-        if not title or title in seen:
+        key = (title or "").split(" - ")[0].strip()      # 同一則新聞，網站名稱有時接在標題後面、有時沒有
+        if not title or key in seen:
             continue
-        seen.add(title)
+        seen.add(key)
         out.append(dict(media=media_of(dict(title=title, lang=x.get("lang"))), title=title[:120], url=x.get("url"), src=x.get("source") or x.get("src")))
     return out[:8]
 
