@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""休賽季的陣容變動（簽了誰、交易走誰、換教練）：沒有官方名單可以比的聯盟（NBA、國內聯賽、日本籃球），看新聞。
+"""休賽季的陣容變動（簽了誰、交易走誰、換教練）：沒有官方名單可以比的聯盟（NBA、國內聯賽、日本籃球、日本排球），看新聞。
 
 只在新球季剛開始的那段時間查（9 到 12 月），一隊三天查一次（Google 新聞最近 150 天），存在 data/offseason.json。
 新聞交給 AI 讀，寫成「今年補了誰、少了誰，新人跟球隊合不合」；每次最多查 MAX_CALLS 隊，慢慢補齊。"""
@@ -31,9 +31,9 @@ def _queries(t, league):
         if t.get("name"):
             out.append((t["name"], "en", ""))
             out.append((t["name"], "en-preview", ""))
-    elif league == "jpbasket":
+    elif league in ("jpbasket", "jpvolley"):
         if t.get("jp_name"):
-            out.append((t["jp_name"], "ja", ""))
+            out.append((t["jp_name"], "ja", " バレー" if league == "jpvolley" else ""))
     else:
         if t.get("en_key"):
             out.append((t["en_key"], "en", " basketball"))
@@ -59,7 +59,7 @@ def attach(games, path, log, errors, now=None):
     calls = n_team = 0
     todo = {}
     for g in games:
-        if g["status"]["state"] == "post" or g.get("far") or g["league"] not in ("nba", "jpbasket", "eurobasket", "eurodom"):
+        if g["status"]["state"] == "post" or g.get("far") or g["league"] not in ("nba", "jpbasket", "jpvolley", "eurobasket", "eurodom"):
             continue
         for side in ("home", "away"):
             t = g[side]

@@ -1011,8 +1011,16 @@
       }
       foot = "看實力、近況、傷兵、新聞整理的，不看賭盤和賠率" + (est.weak ? " · 開季場數少，還不準" : "");
     }
-    if (!paras.length) return "";
-    return `<div class="ai"><div class="ai-h"><span>AI 分析</span>${lean ? `<span class="ai-lean">看好 ${esc(lean)}</span>` : ""}</div>${paras.map(paraHtml).join("")}${diff}${post ? "" : calcRows(g)}${sourcesHtml(g)}<div class="ai-foot">${foot}</div></div>`;
+    // 72 小時外的比賽：還沒抓傷兵、新聞，也還沒請 AI 寫，講清楚什麼時候會有完整分析
+    let wait = "";
+    if (g.far && !post) {
+      const at = new Date(new Date(g.start).getTime() - 72 * 3600e3);
+      const when = at.toLocaleString("zh-TW", { timeZone: "Asia/Taipei", month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit", hour12: false });
+      const soon = at.getTime() <= Date.now() ? "下一次更新（每小時一次）就會出來" : `大約 ${esc(when)} 以後出來`;
+      wait = `<div class="ai-wait">${icon("i-clock")}<span>這場還早。傷兵、新聞和 AI 寫的完整分析，${soon}，現在先看基本資料。</span></div>`;
+    }
+    if (!paras.length && !wait) return "";
+    return `<div class="ai"><div class="ai-h"><span>AI 分析</span>${lean ? `<span class="ai-lean">看好 ${esc(lean)}</span>` : ""}</div>${wait}${paras.map(paraHtml).join("")}${diff}${post ? "" : calcRows(g)}${sourcesHtml(g)}<div class="ai-foot">${foot}</div></div>`;
   }
   // 資料來源：分析用到的新聞（原文標題），收起來，要查證才點開
   function sourcesHtml(g) {

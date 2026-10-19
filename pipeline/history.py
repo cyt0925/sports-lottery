@@ -257,7 +257,7 @@ def update(hist, games, now=None):
         s = g.get("suggestion") or {}
         e = entries.get(g["id"])
         state = g["status"]["state"]
-        # 48 小時後的比賽先不記：盤口、傷兵都還沒出來，等近一點、建議定下來再記
+        # 72 小時後的比賽先不記：盤口、傷兵都還沒出來，等近一點、建議定下來再記
         if state == "pre" and s.get("pick") and (e is not None or not g.get("far")):
             snap = _snap(g, s, now)
             if e is None:

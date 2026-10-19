@@ -34,7 +34,7 @@ WINDOW_BACK_H = 10     # 保留幾小時前開打的比賽（含剛結束的）
 WINDOW_AHEAD_H = 40    # 往後看幾小時
 # 爸爸要看的球種多抓幾天：昨天（對答案）到 3 天後，網頁有日期列表可以切
 MAIN_DAYS_AHEAD = 3
-NEAR_H = 48            # 48 小時內的比賽才做完整分析（單場 summary、新聞、球員名單）；更後面的先放基本資料
+NEAR_H = 72            # 72 小時內的比賽才做完整分析（單場 summary、新聞、球員名單）；更後面的先放基本資料
 NEAR_HI = None         # main() 裡設定
 
 # total_th：兩隊近五場平均總分 與 盤口大小分 差多少才建議大/小
@@ -83,7 +83,7 @@ MAIN_CHIPS = {x["key"] for x in SPORTS if x["key"] != "all" and not x.get("hidde
 
 
 def is_near(g):
-    """這場要不要做完整分析：已開打／打完的、或 48 小時內開打的。"""
+    """這場要不要做完整分析：已開打／打完的、或 72 小時內開打的。"""
     if g["status"]["state"] != "pre" or NEAR_HI is None:
         return True
     st = parse_dt(g["start"])
@@ -1309,7 +1309,7 @@ def main():
     all_games.sort(key=lambda g: (g["start"], g["league"]))
     for g in all_games:
         g["far"] = not is_near(g)
-    log(f"日期列表：{', '.join(f'{k} {v} 場' for k, v in sorted(__import__('collections').Counter(g['day_tw'] for g in all_games).items()))}；48 小時後的 {sum(1 for g in all_games if g['far'])} 場只放基本資料")
+    log(f"日期列表：{', '.join(f'{k} {v} 場' for k, v in sorted(__import__('collections').Counter(g['day_tw'] for g in all_games).items()))}；72 小時後的 {sum(1 for g in all_games if g['far'])} 場只放基本資料")
     # 台灣運彩盤口（抓不到就全部沒有，不影響其他）
     tw_count = 0
     try:
@@ -1389,7 +1389,7 @@ def main():
                 g["suggestion"]["model"] = dict(pick="home" if ph >= 0.5 else "away", prob_home=round(ph, 3),
                                                 spread=rt.get("our_spread"), weak=bool(rt.get("weak")), variants=rt.get("variants"),
                                                 parts=rt.get("parts_raw"))
-            # 季前賽：主力常常輪休、打不久；48 小時後的比賽傷兵和盤口都還沒出來：信心最多給「中」
+            # 季前賽：主力常常輪休、打不久；72 小時後的比賽傷兵和盤口都還沒出來：信心最多給「中」
             if (g.get("season_type") == 1 or g.get("far")) and g["suggestion"].get("confidence") == "高":
                 g["suggestion"]["confidence"] = "中"
                 g["suggestion"]["summary"] = (g["suggestion"].get("summary") or "").replace("信心高", "信心中")
