@@ -278,6 +278,8 @@ def _cba(t, inj):
         if p.get("moved") and p.get("prev_team_zh"):
             tag = "新來的"
             text = f"今年新來的，上季在{p['prev_team_zh']}場均 {bits}" if not p.get("cur") else f"這季場均 {bits}，今年新來的（上季在{p['prev_team_zh']}）"
+        elif p.get("cur") and (p.get("gp") or 0) < 3:
+            text = f"開季第一場 {bits}" if p.get("gp") == 1 else f"開季 {p['gp']} 場平均 {bits}"
         else:
             text = f"{when}場均 {bits}"
             if p.get("cur") and p.get("prev_ppg") is not None and p.get("ppg") is not None and (p.get("prev_gp") or 0) >= 10:

@@ -185,7 +185,7 @@ def _zh(name):
     try:
         from opencc import OpenCC
         if "cc" not in _CC:
-            _CC["cc"] = OpenCC("s2t")
+            _CC["cc"] = OpenCC("s2tw")      # 台灣的寫法（杰倫 → 傑倫）
         return _CC["cc"].convert(name or "")
     except Exception:  # noqa: BLE001
         return name
