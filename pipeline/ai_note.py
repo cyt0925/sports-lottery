@@ -429,7 +429,7 @@ def parse(text, hn, an):
     return lean, p, body
 
 
-def run(games, path, now, main_chips, log, errors):
+def run(games, path, now, main_chips, log, errors, deadline=None):
     """寫 AI 分析，掛在 g["ai"]。回傳 (寫了幾場, 用了快取幾場)。"""
     try:
         with open(path, encoding="utf-8") as fh:
@@ -483,6 +483,8 @@ def run(games, path, now, main_chips, log, errors):
                 stop = f"今天已經寫了 {used_today} 次，到上限"
             elif n_new >= RUN_CAP:
                 stop = f"這次已經寫 {n_new} 場，下次再寫"
+            elif deadline and time.time() > deadline:
+                stop = f"這次更新跑太久（寫了 {n_new} 場），剩下的下次再寫"
         if need and not stop and old and old.get("text") and used_today >= DAILY_CAP - RESERVE:
             need = False          # 額度快用完：留給還沒寫過的比賽，舊的先沿用
         if need and not stop:

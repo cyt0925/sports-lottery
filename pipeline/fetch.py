@@ -99,6 +99,8 @@ SESSION = requests.Session()
 SESSION.headers.update(HEADERS)
 ERRORS = []
 CALLS = {"n": 0}
+T_START = time.time()
+AI_STOP_S = 17 * 60    # 整次更新跑到 17 分鐘就不再叫 AI 寫新的（工作上限 30 分鐘，留時間存檔）
 TSDB_LOADER = None     # 國內聯賽（main() 一開始就在背景抓）
 OUT_PATH = [""]        # data/today.json 的位置（其他快取檔放同一個資料夾）
 EL_STATE = {}          # 歐冠、歐盃官方資料（國內聯賽要用同一支球隊的歐戰賽程）
@@ -1451,7 +1453,7 @@ def main():
     try:
         import ai_note
         ai_path = os.path.join(os.path.dirname(os.path.abspath(args.out)), "ai_notes.json")
-        ai_note.run(all_games, ai_path, now_tw, MAIN_CHIPS, log, ERRORS)
+        ai_note.run(all_games, ai_path, now_tw, MAIN_CHIPS, log, ERRORS, deadline=T_START + AI_STOP_S)
     except Exception as e:  # noqa: BLE001
         import traceback
         ERRORS.append(f"AI 分析整個失敗: {e!r}")
