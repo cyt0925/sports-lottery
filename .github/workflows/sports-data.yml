@@ -30,6 +30,11 @@ jobs:
       - name: 安裝套件
         run: pip install -r pipeline/requirements.txt
 
+      - name: 探路 CBA（暫時，查完就拿掉）
+        run: python pipeline/cbaprobe.py
+        continue-on-error: true
+        timeout-minutes: 4
+
       - name: 抓資料
         run: python pipeline/fetch.py --debug-dir debug
         env:
