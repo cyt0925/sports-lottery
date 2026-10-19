@@ -1439,6 +1439,8 @@ def main():
     # 球員看點（NBA、歐冠歐盃、日本籃球）：每隊 2～3 個主力這季打得怎樣、最近手感、是不是新來的
     try:
         import spotlight
+        from players import _season_year
+        spotlight.nba_prepare(all_games, get, _season_year(), log, ERRORS)
         n_sp = sum(spotlight.build(g, EL_STATE) for g in all_games if g["status"]["state"] != "post" and not g.get("far"))
         log(f"球員看點：{n_sp} 隊")
     except Exception as e:  # noqa: BLE001

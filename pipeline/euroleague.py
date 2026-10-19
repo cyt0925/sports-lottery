@@ -151,12 +151,16 @@ class EuroLeague:
         """隊伍代碼 -> 中文名（今天配到的玩運彩名 → 固定對照 → 國內聯賽對照 → 英文名）。上季的隊也查得到。"""
         from eurodom_names import lookup
         club = self.clubs.get(code) or {}
+        if not club and code not in self.prev_names and getattr(self, "_prev_cache", None) is None:
+            self.prev_games()          # 上季的隊（這季沒打歐戰的）名字在上季的賽程裡
         name = club.get("name") or self.prev_names.get(code) or code
         norm = club.get("norm") or _norm_en(name)
         return self.zh.get(code) or _zh_static(norm) or lookup(name)[0] or name
 
     def prev_games(self):
-        """上一季歐冠、歐盃打完的比賽（給逐場實力分當底子）：[dict(comp, home, away, hs, as_, start)]。"""
+        """上一季歐冠、歐盃打完的比賽（給逐場實力分當底子）：[dict(comp, home, away, hs, as_, start)]。抓過一次就記住。"""
+        if getattr(self, "_prev_cache", None) is not None:
+            return self._prev_cache
         out = []
         for comp in COMPS:
             sc = season_code(comp)
@@ -182,6 +186,7 @@ class EuroLeague:
                                 neutral=bool(re.search(r"final four|championship game|third place", phase, re.I)),
                                 rs=not re.search(r"play.?off|play.?in|final|championship|third place|quarter|semi", phase, re.I)))
             time.sleep(0.3)
+        self._prev_cache = out
         return out
 
     def _club(self, c, comp):
