@@ -29,7 +29,7 @@ MIN_GAP_H = 2          # 事實有變，至少隔 2 小時才重寫
 MIN_GAP_SOON_H = 1     # 6 小時內就要開打：傷兵名單常常臨時更新，隔 1 小時就可以重寫
 MAX_AGE_H = 12         # 事實沒變，超過 12 小時也重寫一次（新聞會變）
 SOON_REFRESH = (4, 3)  # 4 小時內開打、分析已經寫了 3 小時以上：開打前再寫一次最新的
-PROMPT_VER = 5         # 寫法改了就加一：舊的分析不用等 2 小時，馬上重寫
+PROMPT_VER = 6         # 寫法改了就加一：舊的分析不用等 2 小時，馬上重寫
 GAP_S = 7.0            # 每分鐘最多 8～9 次，免費額度比較安全
 KEEP_DAYS = 45
 
@@ -47,6 +47,7 @@ SYSTEM = """你是一位什麼運動都看、很會分析的台灣老球迷，�
 6. 第一行之後寫 120 到 220 字，分 2 到 3 小段：最關鍵的一兩件事、要小心什麼、結論。
 7. 你的看法可以跟網站的計算不同，不同的話要說為什麼。
    「背靠背」只用在資料寫「背靠背第二場」（連兩天出賽）；休 1 天以上就不是背靠背。
+   標明「季前賽」的戰績不能當成近況或手感（季前賽主力打不多），最多提一句。
 8. 讀者是不會去點新聞、也看不懂外文的長輩。資料裡的新聞標題可能是英文、日文、希伯來文、希臘文、土耳其文、西班牙文等，
    請你讀懂，把有用的消息（誰受傷、誰回來、換教練、欠薪、隊內問題、這場對誰特別重要）直接用中文寫進分析，
    可以說「以色列媒體說…」「外電說…」。不要貼原文標題、不要叫讀者去看新聞。
@@ -102,13 +103,16 @@ def facts(g, sport):
             last[n] = f"上季{'例行賽' if p['comp'] == 'nba' else p['comp_zh']}{('前 ' + str(p['partial']) + ' 輪') if p.get('partial') else ''} {p['w']} 勝 {p['l']} 敗，{p['of']} 隊裡排第 {p['rank']}"
     if last:
         f["上季"] = last
-    form = {n: _form_text(t) for t, n in ((H, hn), (A, an)) if _form_text(t)}
+    # 例行賽剛開打、還沒打正式比賽的隊：近況只有季前賽，要講清楚（主力打不多，不能當近況）
+    pre = {side: t.get("form_note") == "季前賽" and g.get("season_type") != 1 for side, t in (("home", H), ("away", A))}
+    form = {n: (("季前賽（主力打不多、不能當成近況）" if pre[side] else "") + _form_text(t))
+            for side, t, n in (("home", H, hn), ("away", A, an)) if _form_text(t)}
     if form:
         f["最近比賽"] = form
     adj = {}
     for side, n in (("home", hn), ("away", an)):
         fv = rt.get("form_" + side)
-        if fv:
+        if fv and not pre[side]:
             adj[n] = f"最近 {fv['n']} 場扣掉對手強弱，平均{'贏' if fv['recent'] >= 0 else '輸'} {abs(fv['recent']):.0f} 分（對手平均強弱 {fv['opp_avg']:+.0f}）"
     if adj:
         f["扣掉對手強弱的近況"] = adj
@@ -301,6 +305,15 @@ def _pick_model(key, log):
 
 
 def _call(key, f, log):
+    """Gemini 偶爾回「現在太忙」（503）：等 15 秒再試一次。"""
+    res = _call_once(key, f, log)
+    if res.get("busy"):
+        time.sleep(15)
+        res = _call_once(key, f, log)
+    return res
+
+
+def _call_once(key, f, log):
     model = _pick_model(key, log)
     body = dict(
         systemInstruction=dict(parts=[dict(text=SYSTEM)]),
@@ -329,7 +342,7 @@ def _call(key, f, log):
         return dict(error=err, rate_limited=True)
     if r.status_code in (400, 401, 403):
         return dict(error=err, denied=True)
-    return dict(error=err)
+    return dict(error=err, busy=r.status_code >= 500)
 
 
 def parse(text, hn, an):
@@ -427,8 +440,9 @@ def run(games, path, now, main_chips, log, errors):
                 time.sleep(GAP_S)
             else:
                 fails += 1
-                errors.append(f"AI 分析失敗 {gid}: {res.get('error')}")
-                log(f"[AI] 失敗：{res.get('error')}")
+                if not res.get("busy"):          # Gemini 一時太忙不算錯，下一次更新會再寫
+                    errors.append(f"AI 分析失敗 {gid}: {res.get('error')}")
+                log(f"[AI] 失敗：{(res.get('error') or '')[:160]}")
                 if res.get("rate_limited"):
                     stop = "Gemini 免費額度這分鐘或今天用完了"
                 elif res.get("denied"):
