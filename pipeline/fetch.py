@@ -44,14 +44,15 @@ LEAGUES = [
     # 以玩運彩為主幹的聯盟（ESPN 沒有）：賽程、台灣盤、國際盤、玩家預測、球隊歷史戰績都從玩運彩來
     dict(key="eurobasket", label="歐洲籃球", sport="basketball", source="playsport", alliance=8,
          injuries=False, gamelog=False, total_th=6, headshot=None),
-    # 歐洲各國國內聯賽（西、義、土、希、法、德、立陶宛、以色列、亞得里亞海）：TheSportsDB，沒有台灣運彩賠率，放在「歐洲籃球」底下
-    dict(key="eurodom", label="歐洲籃球", sport="basketball", source="thesportsdb", chip="eurobasket",
-         injuries=False, gamelog=False, total_th=6, headshot=None),
     dict(key="jpbasket", label="日本籃球", sport="basketball", source="playsport", alliance=97,
          injuries=False, gamelog=False, total_th=6, headshot=None),
     # 日本排球：SV.LEAGUE 官網，沒有盤口
     dict(key="jpvolley", label="日本排球", sport="volleyball", source="svleague",
          injuries=False, gamelog=False, total_th=99, headshot=None),
+    # 歐洲各國國內聯賽（西、義、土、希、法、德、立陶宛、以色列、亞得里亞海）：TheSportsDB，沒有台灣運彩賠率，放在「歐洲籃球」底下
+    # 放在日籃、日排後面：TheSportsDB 要慢慢問（約 3 分鐘），在背景抓的時候先做別的聯盟
+    dict(key="eurodom", label="歐洲籃球", sport="basketball", source="thesportsdb", chip="eurobasket",
+         injuries=False, gamelog=False, total_th=6, headshot=None),
     dict(key="nhl", sport="hockey", path="hockey/nhl", injuries=True, gamelog=True,
          stat="PTS", hot_min=0.5, total_th=0.6, headshot="nhl"),
     dict(key="nfl", sport="football", path="football/nfl", injuries=True, gamelog=False,
@@ -1314,6 +1315,12 @@ def main():
             log(f"[{lg['key']}] 失敗：{e!r}")
             traceback.print_exc()
 
+    # 歐冠、歐盃的比賽併進國內聯賽的賽程（算休息天數）；國內聯賽在背景抓，等聯盟都跑完再併，不卡住其他聯盟
+    if EL_STATE.get("el"):
+        try:
+            add_domestic_schedule([g for g in all_games if g["league"] == "eurobasket"], EL_STATE["el"])
+        except Exception as e:  # noqa: BLE001
+            ERRORS.append(f"歐籃 國內賽程合併失敗: {e!r}")
     all_games.sort(key=lambda g: (g["start"], g["league"]))
     for g in all_games:
         g["far"] = not is_near(g)
@@ -1337,7 +1344,7 @@ def main():
     try:
         import context
         n_sig, n_derby = context.apply(all_games)
-        log(f"場外消息：{n_sig} 隊有換教練、欠薪、禁賽之類的新聞；德比戰 {n_derby} 場")
+        log(f"場外消息：{n_sig} 則（換教練、欠薪、禁賽之類）；德比戰 {n_derby} 場；例：{'；'.join(context.EXAMPLES)}")
     except Exception as e:  # noqa: BLE001
         ERRORS.append(f"場外消息失敗: {e!r}")
     try:
@@ -1706,10 +1713,6 @@ def process_playsport(lg, lo, hi, all_games, standings):
                 log(f"[eurobasket] 玩運彩還沒列的官方賽程 {len(extra)} 場（沒有台灣盤口，先放我們自己的分析）")
                 keep.extend(extra)
                 keep.sort(key=lambda g: g["start"])
-            try:
-                add_domestic_schedule(keep, el)
-            except Exception as e:  # noqa: BLE001
-                ERRORS.append(f"歐籃 國內賽程合併失敗: {e!r}")
             name_fn = lambda t: (t["en_key"], "en") if t.get("en_key") else None  # noqa: E731
         else:
             from bleague import BLeague
@@ -1751,7 +1754,7 @@ def process_playsport(lg, lo, hi, all_games, standings):
                 try:
                     import elbox
                     box = elbox.Box(os.path.join(os.path.dirname(os.path.abspath(OUT_PATH[0])), "el_box.json"), log, ERRORS)
-                    box.sync(EL_STATE["el"], {t.get("el_code") for g in near for t in (g["home"], g["away"]) if t.get("el_code")})
+                    box.sync(EL_STATE["el"], set(EL_STATE["el"].clubs))   # 所有歐戰比賽慢慢補（國內聯賽的歐戰球隊也用得到）
                     box.save()
                     EL_STATE["box"] = box
                     elbox.apply(near, box, log)

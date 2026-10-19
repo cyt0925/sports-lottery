@@ -9,7 +9,7 @@ from datetime import date, datetime, timedelta, timezone
 UTC = timezone.utc
 CHUNK_D = 15
 VERSION = 2
-MAX_CALLS = 80       # 每次最多查幾天（一天一次比分板，查過的日子不重查）
+MAX_CALLS = 150       # 每次最多查幾天（一天一次比分板，查過的日子不重查）
 SEASON_START = (10, 1)
 SEASON_END = (6, 30)
 

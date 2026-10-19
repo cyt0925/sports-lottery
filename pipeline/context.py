@@ -38,6 +38,7 @@ DERBIES = [
 ]
 NBA_DERBIES = [({"LAL", "LAC"}, "洛杉磯德比"), ({"NY", "NYK", "BKN"}, "紐約德比")]
 DERBY_SHRINK = 0.15
+EXAMPLES = []
 
 
 def _ts(s):
@@ -101,7 +102,11 @@ def apply(games, now=None):
                 sig = team_signals(items, now)
                 if sig:
                     g[side]["signals"] = sig
-        n_sig += sum(1 for s in ("home", "away") if g[s].get("signals"))
+        for s in ("home", "away"):
+            for sg in g[s].get("signals") or []:
+                n_sig += 1
+                if len(EXAMPLES) < 8:
+                    EXAMPLES.append(f"{g[s].get('name_zh') or g[s].get('name')}：{sg['zh']}｜{(sg.get('title') or '')[:60]}")
         d = derby(g)
         if d:
             g.setdefault("analysis", {})["derby"] = d
