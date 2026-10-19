@@ -18,6 +18,7 @@ UTC = timezone.utc
 TW = timezone(timedelta(hours=8))
 GAP_S = 6.5          # 每次查詢間隔（免費版問太快會被擋）
 RUN_CALLS = 28       # 每次更新最多查幾次（大約 3 分鐘）
+TIME_CAP = 200       # 最多花幾秒（對方回得慢的時候，不要拖累整個更新）
 REFRESH_MIN = 50     # 快要打、正在打、剛打完的輪次，多久重抓一次
 EMPTY_RETRY_H = 6    # 還沒排出來的下一輪，隔多久再問一次
 LEAGUES = [
@@ -91,7 +92,7 @@ class TSDB:
             self._last = time.time()
             self.calls += 1
             try:
-                r = requests.get(f"{B}/{path}", params=params, timeout=30, headers={"User-Agent": "Mozilla/5.0"})
+                r = requests.get(f"{B}/{path}", params=params, timeout=20, headers={"User-Agent": "Mozilla/5.0"})
                 txt = r.text.strip()
                 if r.status_code == 200 and txt.startswith("{"):
                     return r.json()
@@ -133,8 +134,10 @@ class TSDB:
         if self.data.get("ids_tried", {}).get(lg["key"], 0) > time.time() - 86400:
             return None
         self.data.setdefault("ids_tried", {})[lg["key"]] = time.time()
+        seen = []
         for team in lg.get("find") or ():
             d = self._get("searchteams.php", t=team)
+            seen.append(f"{team}：{len((d or {}).get('teams') or [])} 隊")
             for t in (d or {}).get("teams") or []:
                 if (t.get("strSport") or "") != "Basketball":
                     continue
@@ -144,6 +147,7 @@ class TSDB:
                     if lid and name and any(k in name for k in ("ABA", "Adriatic")):
                         self.data.setdefault("ids", {})[lg["key"]] = str(lid)
                         return str(lid)
+        self.log(f"[eurodom] {lg['zh']}的聯賽代碼找不到（{'、'.join(seen)}），明天再找")
         return None
 
     def _plan(self, tnow, cur, prev):
@@ -156,6 +160,7 @@ class TSDB:
             L = self.data["leagues"].setdefault(lid, dict(key=lg["key"], seasons={}))
             S = L["seasons"].setdefault(cur, dict(rounds={}, empty={}))
             R = S["rounds"]
+            have_n = len(R)
             if not R:
                 if tnow - S["empty"].get("1", 0) >= EMPTY_RETRY_H * 3600:
                     jobs.append((1, 0, lid, cur, 1, "new"))
@@ -169,8 +174,12 @@ class TSDB:
             if R:
                 mx = max(int(r) for r in R)
                 last_ts = max((e[1] for e in R[str(mx)].get("ev") or []), default=0)
-                if last_ts <= tnow + 4 * 86400 and tnow - S["empty"].get(str(mx + 1), 0) >= EMPTY_RETRY_H * 3600:
-                    jobs.append((1, 0, lid, cur, mx + 1, "next"))
+                # 大部分聯賽一週一輪：照日期估現在打到第幾輪，直接跳過去（中間的之後再補）
+                jump = mx + int((tnow - last_ts) // (7 * 86400))
+                if jump > mx + 1 and tnow - S["empty"].get(str(jump), 0) >= EMPTY_RETRY_H * 3600:
+                    jobs.append((1, have_n, lid, cur, jump, "next"))
+                elif last_ts <= tnow + 4 * 86400 and tnow - S["empty"].get(str(mx + 1), 0) >= EMPTY_RETRY_H * 3600:
+                    jobs.append((1, have_n, lid, cur, mx + 1, "next"))
                 for r in range(1, mx):
                     if str(r) not in R and tnow - S["empty"].get(str(r), 0) >= 86400:
                         jobs.append((2, r, lid, cur, r, "backfill"))
@@ -184,7 +193,8 @@ class TSDB:
     def sync(self, now=None):
         now = now or datetime.now(UTC)
         cur, prev = season_of(now)
-        while not self.blocked and self.calls < RUN_CALLS:
+        t0 = time.time()
+        while not self.blocked and self.calls < RUN_CALLS and time.time() - t0 < TIME_CAP:
             jobs = self._plan(now.timestamp(), cur, prev)
             if not jobs:
                 break
@@ -205,7 +215,7 @@ class TSDB:
                 elif why == "refresh":
                     S["rounds"][str(r)]["t"] = int(time.time())
         n_ev = sum(len(rd.get("ev") or []) for L in self.data["leagues"].values() for S in (L.get("seasons") or {}).values() for rd in (S.get("rounds") or {}).values())
-        self.log(f"[eurodom] TheSportsDB：查了 {self.calls} 次（新輪次 {self.stats['new_rounds']}、重抓 {self.stats['refreshed']}、上季 {self.stats['prev']}），"
+        self.log(f"[eurodom] TheSportsDB：{time.time() - t0:.0f} 秒查了 {self.calls} 次（新輪次 {self.stats['new_rounds']}、重抓 {self.stats['refreshed']}、上季 {self.stats['prev']}），"
                  f"存了 {n_ev} 場" + ("；問太快被擋，下次再補" if self.blocked else ""))
 
     def save(self):

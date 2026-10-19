@@ -40,7 +40,7 @@ def estimate(g, lg):
     if rt and rt.get("our_prob_home") is not None:
         parts = rt.get("parts") or {}
         margin = sum(parts.values()) if parts else -(rt.get("our_spread") or 0)
-        src = "prev" if "prev" in (rt.get("src_home"), rt.get("src_away")) else "rating"
+        src = "prev" if "prev" in (rt.get("src_home"), rt.get("src_away")) else ("elo" if rt.get("elo") else "rating")
         return dict(p_home=rt["our_prob_home"], margin=round(margin, 1), total=rt.get("total"), src=src,
                     weak=bool(rt.get("weak")), parts=parts, rating=rt)
     H, A = g["home"], g["away"]
@@ -102,10 +102,17 @@ def factor_lines(est, hn, an):
         hca = rt.get("hca") or 0
         strength = base - hca
         who = hn if strength >= 0 else an
-        src = "（開季場數少，主要看上季）" if est.get("src") == "prev" else ""
-        out.append(dict(key="base", label="整季實力" + src, team=who if abs(strength) >= 0.5 else None, pts=round(abs(strength), 1)))
+        ep = rt.get("elo") or {}
+        if ep:
+            early = min(ep.get("n_home") or 0, ep.get("n_away") or 0) < 5
+            label = "實力（每打一場就更新）" + ("（這季才打幾場，大多是上季帶過來的）" if early else "")
+        else:
+            label = "整季實力" + ("（開季場數少，主要看上季）" if est.get("src") == "prev" else "")
+        out.append(dict(key="base", label=label, team=who if abs(strength) >= 0.5 else None, pts=round(abs(strength), 1)))
         if hca:
-            out.append(dict(key="hca", label="主場", team=hn, pts=round(hca, 1)))
+            off = ep.get("off_home") or 0
+            extra = "（這隊主場特別難打）" if off >= 1.5 else ("（這隊主場沒什麼優勢）" if off <= -1.5 else "")
+            out.append(dict(key="hca", label="主場" + extra, team=hn, pts=round(hca, 1)))
     for k in ("notes", "form", "h2h", "rest", "hot", "motive"):
         v = parts.get(k) or 0
         if abs(v) < 0.3:

@@ -18,6 +18,7 @@ TOTAL_TH = {"basketball": 5.0, "hockey": 0.5, "football": 4.0, "soccer": 0.4}
 TOTAL_MAIN = {"basketball": 7.0, "hockey": 0.8, "football": 6.0, "soccer": 99.0}  # 足球的得失分算法還不可靠，先不拿大小分當主建議
 TOTAL_SIGMA = {"basketball": 17.0, "hockey": 1.9, "football": 13.0, "soccer": 1.4}
 MIN_GP = 4
+ELO_MIN_GAMES = 10   # 逐場實力分：兩季加起來打不到這麼多場，就當還看不準
 
 
 def _num(v):
@@ -158,6 +159,7 @@ def rate_game(g, lg, standings):
     ratings = {k: rating(v, sport) for k, v in table.items()}
     a = g.get("analysis") or {}
     prev = a.get("prev_rating") or {}
+    elo_p = a.get("elo") if sport == "basketball" else None   # 逐場更新的實力分（elo.py）：有就用它當實力
     sides = {}
     for side in ("home", "away"):
         t = g[side]
@@ -170,12 +172,14 @@ def rate_game(g, lg, standings):
         rec_gp = _record_gp(t.get("record")) if g.get("season_type") == 2 else None
         if rec_gp is not None and prev.get(side) is not None and (stat is None or abs(stat["gp"] - rec_gp) >= 1):
             stat = dict(gp=0, pf=None, pa=None, diff=0.0, src="prev")
-        elif rec_gp == 0:
+        elif rec_gp == 0 and not elo_p:
             return None      # 例行賽還沒打、上季資料也沒抓到：寧可不估，也不要拿季前賽來估
         if stat is None:
             stat = from_form(t)
         if stat is None and prev.get(side) is not None:
             stat = dict(gp=0, pf=None, pa=None, diff=0.0, src="prev")   # 本季還沒打：只有上季
+        if stat is None and elo_p:
+            stat = dict(gp=0, pf=None, pa=None, diff=0.0, src="elo")
         if stat is None:
             return None
         sides[side] = stat
@@ -188,7 +192,10 @@ def rate_game(g, lg, standings):
             return rating(stat, sport)
         k = PREV_K.get(sport, 10)
         return (stat["diff"] * stat["gp"] + PREV_W * pv * k) / (stat["gp"] + k)
-    rh, ra = eff(sides["home"], "home"), eff(sides["away"], "away")
+    if elo_p:
+        rh, ra, hca = elo_p["home"], elo_p["away"], elo_p["hca"]
+    else:
+        rh, ra = eff(sides["home"], "home"), eff(sides["away"], "away")
     # 傷兵：新算法（讀備註、限時、輪休習慣）vs 舊算法（只看名單狀態）
     ih = (g["home"].get("injury_impact") or {}) if sport == "basketball" else {}
     ia = (g["away"].get("injury_impact") or {}) if sport == "basketball" else {}
@@ -201,7 +208,8 @@ def rate_game(g, lg, standings):
         if fv and stat.get("gp", 0) >= 10 and fv["n"] >= 4:
             return (1 - FORM_W) * r + FORM_W * fv["recent"]
         return r
-    bh, ba = blend(sides["home"], rh, fh), blend(sides["away"], ra, fa)
+    # 逐場實力分本身就會跟著近況走，不再另外混近況（不然近況算兩次）
+    bh, ba = (rh, ra) if elo_p else (blend(sides["home"], rh, fh), blend(sides["away"], ra, fa))
     # 背靠背
     rest = a.get("rest") or {}
     rest_pts = REST_PTS.get(sport, 0)
@@ -248,10 +256,12 @@ def rate_game(g, lg, standings):
         market = tw["spread"]["line_home"]
     out = dict(
         home=round(rh, 1), away=round(ra, 1), hca=hca,
-        gp_home=int(sides["home"]["gp"]), gp_away=int(sides["away"]["gp"]),
-        src_home=sides["home"].get("src", "standings"), src_away=sides["away"].get("src", "standings"),
+        gp_home=int(elo_p["n_home"] if elo_p else sides["home"]["gp"]), gp_away=int(elo_p["n_away"] if elo_p else sides["away"]["gp"]),
+        src_home="elo" if elo_p else sides["home"].get("src", "standings"), src_away="elo" if elo_p else sides["away"].get("src", "standings"),
         our_spread=round(-edge * 2) / 2, our_prob_home=round(prob_home, 3),
-        market_spread=market, weak=min(sides["home"]["gp"], sides["away"]["gp"]) < MIN_GP,
+        market_spread=market,
+        weak=(min(elo_p["nt_home"], elo_p["nt_away"]) < ELO_MIN_GAMES) if elo_p else min(sides["home"]["gp"], sides["away"]["gp"]) < MIN_GP,
+        elo=elo_p,
         impact_home=imp_h, impact_away=imp_a,
         parts={k: round(v, 1) for k, v in comp.items()}, variants=variants,
         form_home=fh, form_away=fa, season_diff_home=round(sides["home"]["diff"], 1), season_diff_away=round(sides["away"]["diff"], 1),

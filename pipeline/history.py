@@ -169,10 +169,25 @@ def _track_model(hist, g, now):
             e["res"]["var_brier"] = {k: round((v - y) ** 2, 4) for k, v in e["var"].items() if v is not None}
 
 
+def _migrate(hist, games):
+    """同一場換了代碼（歐冠、歐盃先用官方賽程列，玩運彩開盤後換成玩運彩那場）：之前記的搬過去，不要記成兩場。"""
+    for g in games:
+        old, new = g.get("alt_id"), g["id"]
+        if not old or old == new:
+            continue
+        for key in ("entries", "model", "lines", "ai"):
+            d = hist.get(key)
+            if isinstance(d, dict) and old in d and new not in d:
+                d[new] = d.pop(old)
+                if key == "entries":
+                    d[new]["id"] = new
+
+
 def update(hist, games, now=None):
     now = now or datetime.now(TW)
     entries = hist.setdefault("entries", {})
     n_new = n_upd = n_set = 0
+    _migrate(hist, games)
     for g in games:
         try:
             _track_all(hist, g, now)

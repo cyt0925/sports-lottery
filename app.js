@@ -103,6 +103,7 @@
       return;
     }
     reapplyLive();
+    migrateIds();
     settlePicks();
     if (opts.silent) renderKeepScroll(render); else render();
     if (visible) setTimeout(() => showLoader(false), Math.max(0, 700 - (Date.now() - t0)));
@@ -420,6 +421,18 @@
   }
 
   // ---------- 串關（過關）：至少 2 場、同一場不能串、賠率相乘、全中才有錢 ----------
+  // 歐冠、歐盃：玩運彩還沒開盤時先用官方賽程列（代碼 el...），開盤後換成玩運彩那場；之前押的、串的搬過去
+  function migrateIds() {
+    let moved = false;
+    (state.data.games || []).forEach((g) => {
+      const old = g.alt_id;
+      if (!old || old === g.id) return;
+      if (state.picks[old] && !state.picks[g.id]) { state.picks[g.id] = state.picks[old]; delete state.picks[old]; moved = true; }
+      state.parlays.forEach((x) => x.legs.forEach((l) => { if (l.gid === old) { l.gid = g.id; moved = true; } }));
+    });
+    if (moved) { savePicks(); saveParlays(); }
+  }
+
   const PARLAY_KEY = "myparlays.v1";
   function loadParlays() { try { const x = JSON.parse(localStorage.getItem(PARLAY_KEY) || "[]"); return Array.isArray(x) ? x : []; } catch (_) { return []; } }
   function saveParlays() { try { localStorage.setItem(PARLAY_KEY, JSON.stringify(state.parlays)); } catch (_) { /* ignore */ } }

@@ -92,6 +92,8 @@ TEAMS = [
     (("panionios",), "帕尼奧尼奧斯", "Panionios basketball"),
     (("mykonos",), "米科諾斯", "Mykonos basketball"),
     (("apollon",), "阿波羅帕特雷", "Apollon Patras"),
+    (("vikos",), "維科斯", "Vikos Falcons"),
+    (("ionikos",), "伊奧尼科斯", "Ionikos basketball"),
     # 法國 LNB
     (("monaco",), "摩納哥", "AS Monaco Basket"),
     (("paris",), "巴黎", "Paris Basketball"),
@@ -110,7 +112,7 @@ TEAMS = [
     (("boulazac",), "布拉扎克", "Boulazac basket"),
     (("nancy",), "南錫", "SLUC Nancy"),
     (("roanne",), "羅阿訥", "Chorale Roanne"),
-    (("pau",), "波城", "Elan Bearnais Pau"),
+    (("elan bearnais", "bearnais", "pau"), "波城", "Elan Bearnais Pau"),
     (("blois",), "布洛瓦", "ADA Blois"),
     # 德國 BBL
     (("bayern",), "拜仁慕尼黑", "Bayern Munich basketball"),
@@ -161,6 +163,8 @@ TEAMS = [
     (("beer sheva", "be'er sheva"), "貝爾謝巴", "Hapoel Beer Sheva basketball"),
     (("eilat",), "埃拉特", "Hapoel Eilat"),
     (("kiryat ata",), "基里亞特阿塔", "Ironi Kiryat Ata"),
+    (("haemek", "ha'emek", "emek"), "哈波哈埃梅克", "Hapoel HaEmek basketball"),
+    (("ashdod",), "阿什杜德", "Maccabi Ashdod basketball"),
     # 亞得里亞海 ABA
     (("crvena", "zvezda", "red star"), "貝爾格勒紅星", "Crvena Zvezda basketball"),
     (("partizan",), "貝爾格勒游擊隊", "Partizan basketball"),

@@ -511,6 +511,7 @@ def make_game(lg, ev, comp, is_tennis=False, group_name=None):
         news=[],
         suggestion=None,
         season_type=(ev.get("season") or {}).get("type"),
+        neutral=bool(comp.get("neutralSite")),
     )
 
 
@@ -1318,6 +1319,18 @@ def main():
     enrich_games(all_games)
     espn_matchups(all_games, standings)
     try:
+        nba_elo(all_games, os.path.join(os.path.dirname(os.path.abspath(args.out)), "espn_games.json"))
+    except Exception as e:  # noqa: BLE001
+        import traceback
+        ERRORS.append(f"NBA 逐場實力分失敗: {e!r}")
+        traceback.print_exc()
+    try:
+        euro_elo(all_games)
+    except Exception as e:  # noqa: BLE001
+        import traceback
+        ERRORS.append(f"歐籃逐場實力分失敗: {e!r}")
+        traceback.print_exc()
+    try:
         from model import rate_games
         rate_games(all_games, LEAGUES_BY_KEY, standings, log, ERRORS)
     except Exception as e:  # noqa: BLE001
@@ -1376,7 +1389,7 @@ def main():
     # 網頁抓即時比分用：ESPN 的聯盟網頁直接抓；玩運彩、SV.LEAGUE 走 live 分支
     for g in all_games:
         lg = LEAGUES_BY_KEY.get(g["league"]) or {}
-        g["live_src"] = lg.get("source") or (f"espn:{lg['path']}" if lg.get("path") else None)
+        g["live_src"] = None if g.get("official_only") else (lg.get("source") or (f"espn:{lg['path']}" if lg.get("path") else None))
     # AI 寫分析（GitHub 免費 AI 模型；沒有權杖或額度用完就跳過）
     try:
         import ai_note
@@ -1657,6 +1670,11 @@ def process_playsport(lg, lo, hi, all_games, standings):
                 el.enrich(keep)
             st = el.standings_payload()
             EL_STATE["el"] = el
+            extra = el.official_games(lg, lo, hi)
+            if extra:
+                log(f"[eurobasket] 玩運彩還沒列的官方賽程 {len(extra)} 場（沒有台灣盤口，先放我們自己的分析）")
+                keep.extend(extra)
+                keep.sort(key=lambda g: g["start"])
             try:
                 add_domestic_schedule(keep, el)
             except Exception as e:  # noqa: BLE001
@@ -1994,6 +2012,106 @@ def process_tsdb(lg, lo, hi, all_games, standings):
     unnamed = sorted({g[s_]["name"] for g in games for s_ in ("home", "away") if g[s_].get("name_raw")})
     log(f"[{lg['key']}] 國內聯賽 {len(games)} 場（{dict(Counter(g['comp'] for g in games))}），排名 {len(groups)} 個聯賽，跟歐戰對到 {len(el_link)} 隊；"
         f"沒有中文名：{unnamed[:30]}；{time.time() - t0:.1f}s")
+
+
+def nba_elo(all_games, path):
+    """NBA 逐場更新的實力分：兩季所有比賽（ESPN 比分板）一場一場算，上季打折帶過來；季前賽不算。"""
+    if not any(g["league"] == "nba" for g in all_games):
+        return
+    import elo
+    import espn_games
+    from collections import Counter
+    from players import _season_year
+    lg = LEAGUES_BY_KEY["nba"]
+    yr = _season_year()
+    store = espn_games.Store(path, log, ERRORS)
+    store.sync(get, SITE, "nba", lg["path"], yr)
+    store.save()
+    rows = store.games("nba", yr)
+    cnt = Counter()
+    for r in rows:
+        cnt[r[1]] += 1
+        cnt[r[2]] += 1
+    games = [dict(ts=r[0], h=r[1], a=r[2], hs=r[3], as_=r[4], neutral=r[5], comp="nba", season=r[6]) for r in rows if cnt[r[1]] >= 20 and cnt[r[2]] >= 20]
+    if len(games) < 300:
+        log(f"[nba] 逐場實力分：比賽才 {len(games)} 場，先不用")
+        return
+    now = datetime.now(timezone.utc)
+    st, sc, base_sc = elo.tune(games, {"nba": 2.8}, 2.8, since_ts=(now - timedelta(days=400)).timestamp())
+    n = 0
+    for g in all_games:
+        if g["league"] != "nba" or g["status"]["state"] == "post" or g.get("season_type") not in (2, 3, 5):
+            continue
+        hid, aid = str(g["home"].get("id") or ""), str(g["away"].get("id") or "")
+        if hid in st["R"] and aid in st["R"]:
+            g.setdefault("analysis", {})["elo"] = elo.predict(st, hid, aid, "nba", 2.8, neutral=bool(g.get("neutral")))
+            n += 1
+    P = st["params"]
+    offs = sorted(((v, k) for k, v in st["OFF"].items()), reverse=True)
+    log(f"[nba] 逐場實力分：{len(games)} 場比賽，用在 {n} 場；挑的參數 K={P['k']} 開季加 {P['k0']} 上季打 {P['regress']} 折；"
+        f"最近一年預測 {sc}（預設參數 {base_sc}）；主場 {round(st['HC'].get('nba', 0), 1)} 分；主場特別兇 {[(k, round(v, 1)) for v, k in offs[:4]]}")
+
+
+def euro_elo(all_games):
+    """歐籃（歐冠、歐盃、各國國內聯賽）一起算逐場更新的實力分：同一支球隊歐戰和國內賽用同一個分數，
+    上季的比賽當底子；每次都挑過去一年預測最準的參數（elo.tune）。"""
+    import elo
+    import tsdb as T
+    el = EL_STATE.get("el")
+    td = TSDB_LOADER.get() if TSDB_LOADER else None
+    if not el and not td:
+        return
+    now = datetime.now(timezone.utc)
+    cur, prev = T.season_of(now)
+    link = {}
+    if el and td:
+        names = {c: v.get("name") for c, v in el.clubs.items() if v.get("name")}
+        names.update({c: n for c, n in el.prev_names.items() if c not in names})
+        link = {tid: code for code, tid in T.link_clubs(td, names).items()}
+    hca0 = {"E": 3.5, "U": 3.5}
+    games = []
+    if el:
+        for g in el.prev_games():
+            games.append(dict(ts=g["start"].timestamp(), h="el:" + g["home"], a="el:" + g["away"], hs=g["hs"], as_=g["as_"], comp=g["comp"], season=0, neutral=g["neutral"]))
+        for g in el.games:
+            if g["played"] and g["start"] and g["hs"] is not None and g["as_"] is not None:
+                games.append(dict(ts=g["start"].timestamp(), h="el:" + g["home"], a="el:" + g["away"], hs=int(g["hs"]), as_=int(g["as_"]), comp=g["comp"], season=1))
+    if td:
+        for season, idx in ((prev, 0), (cur, 1)):
+            for meta, _r, e in td.events(season):
+                if not meta or e[4] is None or e[5] is None:
+                    continue
+                hca0.setdefault(meta["key"], meta["hca"])
+                kh = f"el:{link[e[2]]}" if e[2] in link else f"tsdb:{e[2]}"
+                ka = f"el:{link[e[3]]}" if e[3] in link else f"tsdb:{e[3]}"
+                games.append(dict(ts=e[1], h=kh, a=ka, hs=e[4], as_=e[5], comp=meta["key"], season=idx))
+    games.sort(key=lambda x: x["ts"])
+    if len(games) < 60:
+        log(f"[歐籃] 逐場實力分：比賽才 {len(games)} 場，先不用")
+        return
+    st, sc, base_sc = elo.tune(games, hca0, 3.0, since_ts=(now - timedelta(days=400)).timestamp())
+    n = 0
+    for g in all_games:
+        if g["league"] not in ("eurobasket", "eurodom") or g["status"]["state"] == "post":
+            continue
+        def key(t):
+            if t.get("el_code"):
+                return "el:" + t["el_code"]
+            return f"tsdb:{t['tsdb_id']}" if t.get("tsdb_id") else None
+        kh, ka = key(g["home"]), key(g["away"])
+        comp = g.get("dom_league") or ("E" if str(g.get("comp") or "").startswith("歐冠") else "U" if str(g.get("comp") or "").startswith("歐盃") else None)
+        if not kh or not ka or not comp or kh not in st["R"] or ka not in st["R"]:
+            continue
+        p = elo.predict(st, kh, ka, comp)
+        if p:
+            g.setdefault("analysis", {})["elo"] = p
+            n += 1
+    P = st["params"]
+    offs = sorted(((v, k) for k, v in st["OFF"].items()), reverse=True)
+    log(f"[歐籃] 逐場實力分：{len(games)} 場比賽、{len(st['R'])} 隊（歐戰跟國內賽對到 {len(link)} 隊），用在 {n} 場；"
+        f"挑的參數 K={P['k']} 開季加 {P['k0']} 上季打 {P['regress']} 折；"
+        f"最近一年預測 {sc}（預設參數 {base_sc}）；主場值幾分 {dict((k, round(v, 1)) for k, v in st['HC'].items())}；"
+        f"主場特別兇 {[(k, round(v, 1)) for v, k in offs[:5]]}")
 
 
 def process_league(lg, dates, lo, hi, all_games, standings):

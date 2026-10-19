@@ -112,6 +112,8 @@ class EuroLeague:
         self.standings = {}  # comp -> groups
         self.group_of = {}   # club code -> 分組字母（歐盃）
         self.zh = {}         # club code -> 玩運彩中文名（今天配到的）
+        self.prev_names = {}  # 上季才有、這季沒有的球隊代碼 -> 英文名
+        self.matched = set()  # 今天跟玩運彩配到的官方賽事
         self.loaded = False
 
     def load(self):
@@ -139,6 +141,33 @@ class EuroLeague:
                 self.errors.append(f"歐籃 {label} 排名解析失敗: {e!r}")
         for code, rows in self.results.items():
             rows.sort(key=lambda r: r["ts"])
+
+    def prev_games(self):
+        """上一季歐冠、歐盃打完的比賽（給逐場實力分當底子）：[dict(comp, home, away, hs, as_, start)]。"""
+        out = []
+        for comp in COMPS:
+            sc = season_code(comp)
+            prev = f"{comp}{int(sc[1:]) - 1}"
+            js = fetch(f"{BASE}/v2/competitions/{comp}/seasons/{prev}/games", as_json=True)
+            if not isinstance(js, dict):
+                continue
+            for g in js.get("data") or []:
+                hc = ((g.get("local") or {}).get("club") or {}).get("code")
+                ac = ((g.get("road") or {}).get("club") or {}).get("code")
+                hs, as_ = (g.get("local") or {}).get("score"), (g.get("road") or {}).get("score")
+                dt = g.get("utcDate") or g.get("date")
+                if not (hc and ac and g.get("played") and hs is not None and as_ is not None and dt):
+                    continue
+                st = datetime.fromisoformat(dt.replace("Z", "+00:00"))
+                if st.tzinfo is None:
+                    st = st.replace(tzinfo=UTC)
+                for c in ((g.get("local") or {}).get("club") or {}, (g.get("road") or {}).get("club") or {}):
+                    if c.get("code") and c["code"] not in self.clubs:
+                        self.prev_names[c["code"]] = c.get("name") or c["code"]
+                out.append(dict(comp=comp, home=hc, away=ac, hs=int(hs), as_=int(as_), start=st,
+                                neutral=bool(re.search(r"final four|championship game|third place", str(g.get("phaseType") or g.get("roundName") or ""), re.I))))
+            time.sleep(0.3)
+        return out
 
     def _club(self, c, comp):
         club = c.get("club") or {}
@@ -169,7 +198,8 @@ class EuroLeague:
             self.group_of.setdefault(ac, grp)
         row = dict(comp=comp, label=label, home=hc, away=ac, start=start, played=bool(g.get("played")),
                    hs=(g.get("local") or {}).get("score"), as_=(g.get("road") or {}).get("score"),
-                   round=g.get("roundAlias") or g.get("roundName"), group=(g.get("group") or {}).get("rawName"))
+                   round=re.sub(r"^Round (\d+)$", r"第 \1 輪", str(g.get("roundAlias") or g.get("roundName") or "")) or None,
+                   group=(g.get("group") or {}).get("rawName"))
         self.games.append(row)
         if row["played"] and start and row["hs"] is not None and row["as_"] is not None:
             for me, opp, home in ((hc, ac, True), (ac, hc, False)):
@@ -270,6 +300,8 @@ class EuroLeague:
                 continue
             hit += 1
             g["el_match"] = how
+            g["alt_id"] = og_id(og)
+            self.matched.add(og_id(og))
             g["comp"] = g["round"] = og["label"] + (f" {og['round']}" if og.get("round") else "")
             if og.get("group") and og["comp"] == "U":
                 g["round"] += f"（{og['group']} 組）"
@@ -313,6 +345,57 @@ class EuroLeague:
         self.log(f"[eurobasket] 官方資料配對 {hit}/{len(games)} 場" + (f"；沒配到：{'；'.join(unmatched[:8])}" if unmatched else ""))
         return hit
 
+    def official_games(self, lg, lo, hi, now=None):
+        """玩運彩還沒列（通常開打前一天才開盤）的歐冠、歐盃比賽，先用官方賽程列出來：沒有台灣盤口，只有我們自己的分析。"""
+        from playsport import _blank_team, summarize_form
+        now = now or datetime.now(UTC)
+        out = []
+        for og in self.games:
+            st = og.get("start")
+            if not st or not (lo <= st <= hi) or og_id(og) in self.matched:
+                continue
+            teams = {}
+            for side, code in (("home", og["home"]), ("away", og["away"])):
+                club = self.clubs.get(code) or {}
+                zh = self.zh.get(code) or _zh_static(club.get("norm", "")) or club.get("abbr") or code
+                t = _blank_team(zh, code, "el")
+                t.update(id=f"el-{code}", el_code=code, name=club.get("name") or code, short=club.get("abbr") or code, name_zh=zh,
+                         abbr=code, logo=club.get("crest"), en_key=query_name(club.get("norm", ""), club.get("abbr") or club.get("editorial")))
+                rows = [dict(r) for r in self.results.get(code) or []]
+                if rows:
+                    summarize_form(t, rows, note=f"{og['label']}官方賽果")
+                for grp in self.standings.get(og["comp"]) or []:
+                    for r in grp["rows"]:
+                        if r["team_id"] == code:
+                            t["record"] = f"{r['w']}-{r['l']}"
+                            t["rank"] = r["pos"]
+                            t["rank_note"] = f"{og['label']}第 {r['pos']} 名"
+                teams[side] = t
+            if og["played"] and og.get("hs") is not None and og.get("as_") is not None:
+                state, detail = "post", "已結束"
+                teams["home"]["score"], teams["away"]["score"] = str(og["hs"]), str(og["as_"])
+                teams["home"]["winner"], teams["away"]["winner"] = og["hs"] > og["as_"], og["as_"] > og["hs"]
+            elif now < st:
+                state, detail = "pre", "未開賽"
+            elif now < st + timedelta(minutes=160):
+                state, detail = "in", "進行中（比分打完才會更新）"
+            else:
+                state, detail = "post", "比分還沒出來"
+            st_tw = st.astimezone(TW)
+            rnd = og["label"] + (f" {og['round']}" if og.get("round") else "") + (f"（{og['group']} 組）" if og.get("group") and og["comp"] == "U" else "")
+            out.append(dict(
+                id=og_id(og), alt_id=og_id(og), league=lg["key"], league_zh=lg["label"], sport=lg["sport"], chip=lg["key"],
+                tennis=False, tournament=None, round=rnd, comp=og["label"] + (f" {og['round']}" if og.get("round") else ""),
+                comp_source="EuroLeague" if og["comp"] == "E" else "EuroCup",
+                name=f"{teams['away']['name']} @ {teams['home']['name']}",
+                start=st.isoformat(timespec="minutes"), start_tw=st_tw.isoformat(timespec="minutes"),
+                day_tw=st_tw.strftime("%Y-%m-%d"), time_tw=st_tw.strftime("%H:%M"),
+                status=dict(state=state, completed=state == "post" and og["played"], detail=detail, clock=None, period=None),
+                venue=None, broadcast=None, home=teams["home"], away=teams["away"], odds=None, headline=None, news=[], suggestion=None,
+                tw=None, analysis={}, official=None, official_only=True, el_match="官方賽程",
+            ))
+        return out
+
     def standings_payload(self):
         groups = []
         for comp in ("E", "U"):
@@ -337,6 +420,11 @@ ZH_STATIC = {
     "aris": "阿里斯", "tenerife": "特內里費", "napoli": "拿坡里", "tofas": "托法什", "derthona": "德托納", "riga": "里加",
     "roma": "羅馬", "paok": "薩洛尼卡PAOK", "jerusalem": "哈波耶路撒冷", "jlm": "哈波耶路撒冷", "slask": "弗羅茨瓦夫",
 }
+
+
+def og_id(og):
+    """官方賽事的固定代碼（玩運彩那場配到之後也帶著，成績單才不會記成兩場）。"""
+    return f"el{og['comp']}{og['home']}{og['away']}{og['start'].strftime('%Y%m%d') if og.get('start') else ''}"
 
 
 def _zh_static(norm):
