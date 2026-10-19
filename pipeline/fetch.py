@@ -2143,7 +2143,21 @@ def euro_elo(all_games):
     if len(games) < 60:
         log(f"[歐籃] 逐場實力分：比賽才 {len(games)} 場，先不用")
         return
-    st, sc, base_sc = elo.tune(games, hca0, 3.0, since_ts=(now - timedelta(days=400)).timestamp())
+    # 起點：歐冠球隊最強、歐盃次之，只打國內聯賽的照聯賽強弱往下（老球迷的常識；之後照比賽結果慢慢修）
+    comps = {}
+    for x in games:
+        for k in (x["h"], x["a"]):
+            comps.setdefault(k, []).append(x["comp"])
+    prior = {}
+    for k, cs in comps.items():
+        if "E" in cs:
+            prior[k] = 0.0
+        elif "U" in cs:
+            prior[k] = -4.0
+        else:
+            dom = [c for c in cs if c not in ("E", "U")]
+            prior[k] = elo.LEAGUE_PRIOR.get(dom[0], -8.0) if dom else -6.0
+    st, sc, base_sc = elo.tune(games, hca0, 3.0, since_ts=(now - timedelta(days=400)).timestamp(), prior=prior)
     n = 0
     for g in all_games:
         if g["league"] not in ("eurobasket", "eurodom") or g["status"]["state"] == "post":
