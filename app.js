@@ -1,4 +1,4 @@
-/* 今日運彩總覽：讀 data/today.json，純前端。手機優先：一層看重點，點一下看詳細。 */
+/* 運彩大叔：讀 data/today.json，純前端。手機優先：一層看重點，點一下看詳細。 */
 (function () {
   "use strict";
 

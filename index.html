@@ -3,14 +3,16 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>今日運彩總覽</title>
+<title>運彩大叔</title>
 <meta name="description" content="今天的比賽、該押誰、傷兵、近況，一頁看完。">
 <meta name="theme-color" content="#0b0a14">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="運彩總覽">
+<meta name="apple-mobile-web-app-title" content="運彩大叔">
 <link rel="manifest" href="manifest.webmanifest">
-<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="icon" href="icons/favicon-32.png" sizes="32x32" type="image/png">
+<link rel="icon" href="icons/favicon-16.png" sizes="16x16" type="image/png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@600;800&family=Noto+Sans+TC:wght@400;500;700;900&display=swap" rel="stylesheet">
@@ -46,9 +48,9 @@
 
 <header class="top">
   <div class="brand">
-    <span class="brand-mark"><svg><use href="#i-star"/></svg></span>
+    <img class="brand-logo" src="icons/logo-96.png" alt="運彩大叔" width="44" height="44">
     <div>
-      <div class="brand-name">今日運彩總覽</div>
+      <div class="brand-name">運彩大叔</div>
       <div class="brand-sub" id="hdr-date">載入中…</div>
     </div>
   </div>
@@ -91,9 +93,9 @@
 
 <div id="loader" class="loader on" aria-live="polite" aria-label="資料載入中">
   <div class="loader-box">
-    <img src="loader.svg" alt="" width="240" height="288">
+    <img class="loader-mascot" src="icons/mascot.webp" alt="" width="280" height="268">
     <div class="loader-text">資料載入中<i>.</i><i>.</i><i>.</i></div>
-    <div class="loader-sub">爸爸正在跑去拿今天的賽事</div>
+    <div class="loader-sub">運彩大叔正在幫你看今天的比賽</div>
   </div>
 </div>
 
