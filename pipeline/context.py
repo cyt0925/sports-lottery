@@ -21,9 +21,13 @@ KINDS = {
         r"|(?:απολυ|απελυσ|λυση συνεργασιας|αποχωρ|τελος).{0,40}προπονητ|προπονητ.{0,40}(?:απολυ|απελυ|λυση συνεργασιας|αποχωρ)|νεος προπονητης|νεο προπονητη"
         r"|(?:פוטר|פיטר|פיטורי|נפרד).{0,30}מאמן|מאמן.{0,30}(?:פוטר|פיטר|נפרד)|מאמן חדש|המאמן החדש", re.I)),
     "money": dict(days=21, pts=-1.0, zh="欠薪、財務問題", re=re.compile(
-        r"(unpaid|not been paid|salar(?:y|ies) (?:delay|owed|unpaid|arrears)|wages|financial (?:trouble|problems|crisis|difficult)|bankrupt\w*|insolven\w*|"
-        r"stipendi|impag\w*|sueldos|maa[sş]|finanzielle|給料未払い|欠薪|財務危機|salaires impayes|difficultes financieres|gehalter|insolvenz|"
-        r"atlyginim|finansin\w* (?:problem|sunkum)|απληρωτ|οικονομικα προβληματα|οφειλες|משכורות|הלנת שכר|קשיים כלכליים)", re.I)),
+        # 只說「薪水」不算，要「沒付、拖欠、財務出問題」才算
+        r"(unpaid|not been paid|salar(?:y|ies) (?:delay|owed|unpaid|arrears)|wages (?:owed|unpaid|delay)|financial (?:trouble|problems|crisis|difficult)|bankrupt\w*|insolven\w*|"
+        r"stipendi (?:non pagati|arretrati)|ritardo (?:nei|negli|degli) stipendi|impag\w*|sueldos (?:impagados|atrasados|pendientes)|"
+        r"maa[sş]lar[ıi]n[ıi] alamad|maa[sş] (?:sorunu|krizi)|maa[sş]lar (?:odenmedi|yatmad)|finanzielle (?:probleme|schwierigkeiten)|"
+        r"給料未払い|欠薪|財務危機|salaires impayes|difficultes financieres|ausstehende gehalter|gehalter (?:nicht|ausstehend)|"
+        r"nesumoket\w* atlyginim|atlyginim\w* (?:skol|nemok|velu)|finansin\w* (?:problem|sunkum)|απληρωτ|οικονομικα προβληματα|"
+        r"הלנת שכר|לא קיבלו משכורת|משכורות לא שולמו|קשיים כלכליים)", re.I)),
     "turmoil": dict(days=7, pts=-0.5, zh="禁賽、隊內不和", re=re.compile(
         r"(locker[- ]room (?:issue|problem|tension|drama)|\brift\b|\bfeud\b|\bsuspen(?:ded|sion)\b|\bbrawl\b|disciplinary|fight with (?:teammate|coach)|"
         r"squalifica|sanci[oó]n|ihra[cç]|出場停止|内紛|內鬨|禁賽|gesperrt|diskvalifik|τιμωρια|αποβολ|καβγα|הורחק|הרחקה|קטטה)", re.I)),

@@ -55,7 +55,6 @@ INJ_TERMS = {
 }
 _cache = {}
 STATS = {"calls": 0, "fail": 0}
-EXAMPLES = []
 
 
 def _query(q, lang):
@@ -177,7 +176,7 @@ def attach(games, name_fn, log, errors, label, hint=None, local_fn=None):
     """name_fn(team) -> (查詢用隊名, 語言) 或 None。掛上 t["injury_news"]、t["injury_note"]、g["news"]。
     local_fn(team) -> eurodom_names.local_query 的結果或 None：另外用當地語言查一次（國內的消息當地媒體最快）。"""
     n_team = n_news = n_sig = 0
-    n_local = {}
+    n_local, examples = {}, []
     done = {}
     for g in games:
         if g["status"]["state"] == "post":
@@ -213,8 +212,8 @@ def attach(games, name_fn, log, errors, label, hint=None, local_fn=None):
                         n_local[spec[1]][0] += 1
                         n_local[spec[1]][1] += len(l_all)
                         n_local[spec[1]][2] += len(l_inj)
-                        if l_all and len(EXAMPLES) < 4:
-                            EXAMPLES.append(f"{spec[0]}：{l_all[0]['title'][:60]}")
+                        if l_all and len(examples) < 4:
+                            examples.append(f"{spec[0]}：{l_all[0]['title'][:60]}")
                         seen = {x.get("title") for x in inj + tn}
                         inj = sorted(inj + [x for x in l_inj if x["title"] not in seen], key=lambda x: x.get("published") or "", reverse=True)[:4]
                         tn = sorted(tn + [x for x in l_tn if x["title"] not in seen], key=lambda x: x.get("published") or "", reverse=True)[:4]
@@ -242,4 +241,4 @@ def attach(games, name_fn, log, errors, label, hint=None, local_fn=None):
     log(f"[{label}] 新聞：{n_team} 隊有傷兵相關新聞，{n_sig} 隊有場外消息（換教練、欠薪、禁賽），{n_news} 場有一般新聞，呼叫 {STATS['calls']} 次、失敗 {STATS['fail']} 次")
     if n_local:
         log(f"[{label}] 當地語言新聞：" + "、".join(f"{LANG_ZH.get(k, k)} {v[0]} 隊 {v[1]} 則（傷兵 {v[2]}）" for k, v in n_local.items())
-            + (f"；例：{' / '.join(EXAMPLES)}" if EXAMPLES else ""))
+            + (f"；例：{' / '.join(examples)}" if examples else ""))

@@ -230,8 +230,9 @@ def same_club(a, b):
 # 國內的消息（誰受傷、換教練、欠薪）常常當地媒體先報，英文新聞晚一兩天、小球隊甚至不報。
 # 每個聯賽用當地語言查 Google 新聞：西、義、土、法、德、立陶宛文用當地媒體習慣的隊名；希臘文、希伯來文用當地文字。
 LOCAL_LANG = {"acb": "es", "lba": "it", "bsl": "tr", "gbl": "el", "lnb": "fr", "bbl": "de", "lkl": "lt", "isr": "he"}
-# 查詢時加的「籃球」（很多隊跟足球隊同名）；立陶宛的聯賽球隊幾乎都只有籃球，不加
-LOCAL_HINT = {"es": "baloncesto", "it": "basket", "tr": "basketbol", "fr": "basket", "de": "Basketball", "lt": "", "el": "μπάσκετ", "he": "כדורסל"}
+# 查詢時加的「籃球」（很多隊跟足球隊同名，立陶宛很多隊名就是城市名）
+LOCAL_HINT = {"es": "baloncesto", "it": "basket", "tr": "basketbol", "fr": "basket", "de": "Basketball", "lt": "(krepšinis OR krepšinio OR LKL)",
+              "el": "μπάσκετ", "he": "כדורסל"}
 # 第一個關鍵字 -> 當地媒體的叫法（希臘、以色列：(當地文字隊名, 標題裡要出現的字)）
 LOCAL = {
     "acb": {"real madrid": "Real Madrid", "barcelona": "Barça", "baskonia": "Baskonia", "valencia": "Valencia Basket", "1939 canarias": "La Laguna Tenerife",
