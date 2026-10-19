@@ -487,6 +487,24 @@ def build_story(g, sport):
         efav = hn if ep >= 0.5 else an
         same = (ep >= 0.5) == (est["p_home"] >= 0.5)
         outside_lines.append(f"ESPN 的電腦預測：{efav}{_cheng(max(ep, 1 - ep))}會贏，{'跟我們看法一樣' if same else '跟我們看法相反，要多想一下'}。")
+    # 場外消息、德比（context.py 從新聞挖的）：老球迷最在意的，放最前面
+    if g["status"]["state"] != "post":
+        extra = []
+        for t, name in ((H, hn), (A, an)):
+            for sg in t.get("signals") or []:
+                if sg["kind"] == "coach":
+                    extra.append(f"{name}剛換教練，新教練頭幾場球員通常比較拚，但戰術還在磨合。")
+                elif sg["kind"] == "money":
+                    extra.append(f"{name}傳出欠薪或財務問題，這種隊伍場上常常不夠拚。")
+                elif sg["kind"] == "turmoil":
+                    extra.append(f"{name}最近有禁賽或隊內不和的消息，要小心。")
+                if sg.get("title"):
+                    outside_lines.append(f"新聞（{sg['zh']}）：{sg['title'][:70]}")
+        if a.get("derby"):
+            extra.append(f"這是{a['derby']}，兩隊碰面火氣大，強弱常常不準，別押太重。")
+        for x in reversed(extra):
+            if x not in care and x not in fan:
+                care.insert(0, x)
     if g.get("season_type") == 1 and g["status"]["state"] != "post" and not any("季前賽" in x for x in care) and "季前賽" not in fan:
         care.insert(0, "現在是季前賽，主力常常輪休、打不久，戰績跟數據都不能當真。")
     if value_line and value_line not in why and value_line not in care:

@@ -218,6 +218,7 @@ body[data-view="today"] .view[data-for="today"],body[data-view="injuries"] .view
 :root[data-theme="light"] .rec .mark{color:#fff}
 .rec .t1{font-weight:800}
 .rec .t2{color:var(--muted);font-size:.86rem}
+.rec .t3{color:var(--ink-2);font-size:.84rem;margin-top:2px}
 .rec .sc{font-family:var(--num);font-weight:800;text-align:right}
 .rec .sc small{display:block;color:var(--muted);font-weight:500;font-size:.8rem}
 .explain{color:var(--muted);font-size:.9rem;line-height:1.5;margin:6px 0 14px}

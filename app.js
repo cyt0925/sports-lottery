@@ -732,7 +732,9 @@
       <div class="list">${(m.factors || []).map((f) => `<div class="item"><div class="grow"><div class="pn">${esc(f.label)}</div><div class="ps">${f.n ? `${word(f)}：有算 ${f.with_}、沒算 ${f.without}（越低越準），${f.n} 場裡 ${f.better} 場有算的比較準` : "還沒有打完的比賽用到它"}</div></div><span class="badge ${f.verdict === "有幫助" ? "ok" : f.verdict === "反而變差" ? "out" : "muted"}">${f.n ? esc(f.verdict) : "等資料"}</span></div>`).join("")}</div>`;
     const ai = rec.ai;
     const aiTile = ai && ai.n ? `<div class="grp">AI 的看法準不準（近 ${ai.days} 天）</div><div class="stat-grid"><div class="stat"><div class="sl">AI 看好的</div><b>${ai.hit}/${ai.n}</b><small>命中 ${Math.round(ai.hit / ai.n * 100)}%${ai.pending ? ` · 還有 ${ai.pending} 場等結果` : ""}</small></div><div class="stat"><div class="sl">同樣這些場</div><b>網站 ${ai.n_ours ? Math.round(ai.ours_hit / ai.n_ours * 100) + "%" : "–"}　盤口 ${ai.n_mkt ? Math.round(ai.mkt_hit / ai.n_mkt * 100) + "%" : "–"}</b><small>網站的計算 ${ai.ours_hit}/${ai.n_ours}、盤口 ${ai.mkt_hit}/${ai.n_mkt}</small></div></div>` : "";
-    return `${aiTile}${fs.length || (m.factors || []).length ? factorHtml : ""}<div class="grp">我們的分析 vs 盤口（對照組，近 ${m.days} 天）</div>
+    const L = rec.learn;
+    const learnHtml = L ? `<div class="grp">網站自己學的分量</div><div class="explain">${L.lines ? `拿最近 90 天打完的 ${L.n} 場籃球，試每個因素乘幾倍預測最準（場數少的不太動）。預測準度 ${L.brier_before} → ${L.brier_after}（越低越準）。` : esc(L.note || "")}</div>${L.lines ? `<div class="list">${L.lines.map((x) => `<div class="item"><div class="grow"><div class="pn">${esc(x.label)}</div><div class="ps">${x.n} 場用到它</div></div><span class="badge ${x.w > 1.05 ? "ok" : x.w < 0.95 ? "out" : "muted"}">×${x.w}</span></div>`).join("")}</div>` : ""}` : "";
+    return `${aiTile}${fs.length || (m.factors || []).length ? factorHtml : ""}${learnHtml}<div class="grp">我們的分析 vs 盤口（對照組，近 ${m.days} 天）</div>
       <div class="explain">網站的建議只看兩隊實力、近況、傷兵、休息、交手、手感、戰意，不看賠率；盤口只拿來當對照組，看我們長期比它準還是不準。Brier 分數越低越準，0.25 等於丟銅板。</div>
       <div class="stat-grid">${tile("全部", o)}${leagues.map((k) => tile((state.data.sports || []).find((s) => s.key === k)?.label || k, m.by_league[k])).join("")}</div>`;
   }
@@ -768,10 +770,13 @@
       if (!totalsMain && r.ats) bits.push(`讓分${r.line != null ? "（" + (r.line > 0 ? "+" : "") + r.line + "）" : ""}${r.ats === "win" ? "過" : r.ats === "loss" ? "沒過" : "平"}`);
       if (!totalsMain && r.ou) bits.push(`大小看${esc(r.total_lean)} ${r.ou === "win" ? "對" : "錯"}`);
       if (totalsMain && r.total_line != null) bits.push(`盤口 ${r.total_line}，打了 ${r.as_ + r.hs} 分`);
-      return `<button class="rec" data-goto="${esc(r.id)}"><span class="mark ${cls}">${mark}</span><div><div class="t1">${totalsMain ? "玩 " + esc(r.pick_label) : "押 " + esc(r.pick_label) + " · " + esc(r.play)}${r.confidence ? " · 信心" + esc(r.confidence) : ""}</div><div class="t2">${esc(r.league_zh)} ${esc(r.day_tw.slice(5))} · ${esc(r.away)} 對 ${esc(r.home)}${bits.length ? " · " + bits.join("，") : ""}</div></div><div class="sc">${r.as_}:${r.hs}<small>${r.dec ? "賠 " + Number(r.dec).toFixed(2) : ""}</small></div></button>`;
+      return `<button class="rec" data-goto="${esc(r.id)}"><span class="mark ${cls}">${mark}</span><div><div class="t1">${totalsMain ? "玩 " + esc(r.pick_label) : "押 " + esc(r.pick_label) + " · " + esc(r.play)}${r.confidence ? " · 信心" + esc(r.confidence) : ""}</div><div class="t2">${esc(r.league_zh)} ${esc(r.day_tw.slice(5))} · ${esc(r.away)} 對 ${esc(r.home)}${bits.length ? " · " + bits.join("，") : ""}</div>${r.review ? `<div class="t3">錯在哪：${esc(r.review)}</div>` : ""}</div><div class="sc">${r.as_}:${r.hs}<small>${r.dec ? "賠 " + Number(r.dec).toFixed(2) : ""}</small></div></button>`;
     }).join("");
+    const rv = rec.reviews;
+    const rvHtml = rv && rv.n ? `<div class="grp">押錯的 ${rv.n} 場，錯在哪</div><div class="explain">每場押錯都回頭看：差一點的算運氣；差很多的是實力看錯；因為某個因素才押這邊的，就記那個因素，網站之後會少信它一點。</div>
+      <div class="stat-grid">${rv.kinds.map((k) => `<div class="stat"><div class="sl">${esc(k.label)}</div><b>${k.n} 場</b></div>`).join("")}</div>${rv.factors.length ? `<div class="explain">因為這些因素押錯：${rv.factors.map((f) => `${esc(f.label)} ${f.n} 場`).join("、")}</div>` : ""}` : "";
     el.innerHTML = segTabs() + `<div class="explain">每次建議都先記下來，比賽打完對答案，不改分。</div>
-      <div class="stat-grid">${tiles.join("")}</div>${lgRows ? `<div class="grp">各聯盟</div><div class="stat-grid">${lgRows}</div>` : ""}
+      <div class="stat-grid">${tiles.join("")}</div>${lgRows ? `<div class="grp">各聯盟</div><div class="stat-grid">${lgRows}</div>` : ""}${rvHtml}
       ${modelBlock(rec)}
       <div class="grp">最近對過答案的</div><div class="list">${list || `<div class="empty">這個球種還沒有結算的建議。</div>`}</div>`;
   }

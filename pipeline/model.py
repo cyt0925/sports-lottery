@@ -18,6 +18,15 @@ TOTAL_TH = {"basketball": 5.0, "hockey": 0.5, "football": 4.0, "soccer": 0.4}
 TOTAL_MAIN = {"basketball": 7.0, "hockey": 0.8, "football": 6.0, "soccer": 99.0}  # 足球的得失分算法還不可靠，先不拿大小分當主建議
 TOTAL_SIGMA = {"basketball": 17.0, "hockey": 1.9, "football": 13.0, "soccer": 1.4}
 MIN_GP = 4
+LEARN_SPORTS = ("basketball",)
+WEIGHTS = {}         # 每個因素乘幾倍（main() 一開始從 history.json 讀進來）
+
+
+def load_weights(hist):
+    w = ((hist or {}).get("learn") or {}).get("weights") or {}
+    WEIGHTS.clear()
+    WEIGHTS.update({k: float(v) for k, v in w.items() if k in FACTORS})
+    return dict(WEIGHTS)
 ELO_MIN_GAMES = 10   # 逐場實力分：兩季加起來打不到這麼多場，就當還看不準
 
 
@@ -89,9 +98,10 @@ DENSE_MIN = {"nba": 3}   # 一週打到幾場才算累（NBA 本來就打得密�
 FORM_W = 0.3        # 近況（扣掉對手強弱）佔多少；整季 10 場以上才混
 PREV_W = 0.7        # 上季實力打七折（換人、老化），開季從這裡出發，打越多場越看本季
 PREV_K = {"basketball": 10, "hockey": 12}   # 本季打幾場之後，本季跟上季各佔一半
-FACTORS = ("notes", "form", "h2h", "rest", "hot", "motive")
+FACTORS = ("notes", "form", "h2h", "rest", "hot", "motive", "news", "derby")
 FACTOR_ZH = {"notes": "傷兵備註、上場時間、輪休習慣", "form": "近況（扣掉對手強弱）", "h2h": "交手剋星", "rest": "背靠背、賽程密度（體力）",
-             "hot": "主力手感（火燙／冰冷）", "motive": "戰意（拚季後賽、已經沒希望、名次已定）"}
+             "hot": "主力手感（火燙／冰冷）", "motive": "戰意（拚季後賽、已經沒希望、名次已定）",
+             "news": "場外消息（換教練、欠薪、禁賽）", "derby": "德比戰（強弱常常不準）"}
 HOT_PTS = 0.12      # 主力近 5 場比季平均多（少）1 分，球隊大概多（少）0.12 分
 HOT_CAP = 1.5
 # 戰意：球季打到七成以後才看。每組前幾名進季後賽（含附加賽）
@@ -243,6 +253,16 @@ def rate_game(g, lg, standings):
         hot=hot_d,
         motive=mh - ma,
     )
+    # 場外消息：換教練、欠薪、禁賽（context.py 從新聞挖的）
+    from context import signal_pts, DERBY_SHRINK
+    comp["news"] = signal_pts(g["home"]) - signal_pts(g["away"]) if sport == "basketball" else 0.0
+    # 德比：火氣大、強弱常常不準，把差距往中間拉一點
+    comp["derby"] = -DERBY_SHRINK * sum(comp.values()) if a.get("derby") else 0.0
+    raw = dict(comp)
+    # 每個因素的分量：網站從打完的比賽自己學的（learn.py），還沒學到就是 1 倍
+    if sport in LEARN_SPORTS:
+        for f in FACTORS:
+            comp[f] *= WEIGHTS.get(f, 1.0)
     edge = sum(comp.values())        # 正數 = 主隊比較強
     sigma = SIGMA.get(sport, 11.0)
     prob_home = _prob(edge, sigma)
@@ -263,7 +283,7 @@ def rate_game(g, lg, standings):
         weak=(min(elo_p["nt_home"], elo_p["nt_away"]) < ELO_MIN_GAMES) if elo_p else min(sides["home"]["gp"], sides["away"]["gp"]) < MIN_GP,
         elo=elo_p,
         impact_home=imp_h, impact_away=imp_a,
-        parts={k: round(v, 1) for k, v in comp.items()}, variants=variants,
+        parts={k: round(v, 1) for k, v in comp.items()}, parts_raw={k: round(v, 2) for k, v in raw.items()}, variants=variants,
         form_home=fh, form_away=fa, season_diff_home=round(sides["home"]["diff"], 1), season_diff_away=round(sides["away"]["diff"], 1),
         prev_home=prev.get("home"), prev_away=prev.get("away"),
         motive_home=mh_why, motive_away=ma_why,

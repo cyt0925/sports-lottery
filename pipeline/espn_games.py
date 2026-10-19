@@ -1,13 +1,15 @@
 # -*- coding: utf-8 -*-
-"""NBA 兩季所有比賽的比分（ESPN 比分板，一次查半個月），給逐場實力分（elo.py）用。
+"""NBA 兩季所有比賽的比分（ESPN 比分板，一天查一次），給逐場實力分（elo.py）用。
 
-打完的半個月存在 data/espn_games.json 不重抓；每次只重抓最近幾天。季前賽、明星賽不算。"""
+查過的日子存在 data/espn_games.json 不重抓；最近兩天每次重抓。季前賽、明星賽不算。"""
 import json
 import os
 from datetime import date, datetime, timedelta, timezone
 
 UTC = timezone.utc
 CHUNK_D = 15
+VERSION = 2
+MAX_CALLS = 80       # 每次最多查幾天（一天一次比分板，查過的日子不重查）
 SEASON_START = (10, 1)
 SEASON_END = (6, 30)
 
@@ -31,43 +33,54 @@ class Store:
         try:
             with open(path, encoding="utf-8") as f:
                 d = json.load(f)
-            if isinstance(d, dict):
+            if isinstance(d, dict) and d.get("v") == VERSION:
                 self.data = d
         except (OSError, ValueError):
             pass
+        self.data["v"] = VERSION
 
     def save(self):
         os.makedirs(os.path.dirname(os.path.abspath(self.path)), exist_ok=True)
         with open(self.path, "w", encoding="utf-8") as f:
             json.dump(self.data, f, separators=(",", ":"))
 
-    def sync(self, get, site, lg_key, path, season_year, max_calls=30):
-        """season_year：這季的結束年（players._season_year()）。上季整季補齊，這季補到今天、最近 3 天每次重抓。"""
+    def sync(self, get, site, lg_key, path, season_year, max_calls=MAX_CALLS):
+        """season_year：這季的結束年（players._season_year()）。一天查一次比分板：這季先補（新的先），再補上季；
+        兩天前以前的日子查過就不再查。"""
         today = datetime.now(UTC).date()
         L = self.data.setdefault(lg_key, {})
         calls = new = 0
-        for yr in (season_year - 1, season_year):
+        todo = []
+        for yr in (season_year, season_year - 1):
             S = L.setdefault(str(yr), dict(games={}, done=[]))
+            done = set(S["done"])
+            days = []
             for d0, d1 in _season_ranges(yr, today):
-                tag = f"{d0:%Y%m%d}-{d1:%Y%m%d}"
-                if tag in S["done"]:
-                    continue
-                if calls >= max_calls:
-                    break
-                calls += 1
-                js = get(f"{site}/{path}/scoreboard", params={"dates": tag, "limit": 1000}, quiet=True)
-                if not isinstance(js, dict):
-                    continue
-                for ev in js.get("events") or []:
-                    row = _row(ev)
-                    if row:
-                        if ev["id"] not in S["games"]:
-                            new += 1
-                        S["games"][str(ev["id"])] = row
-                if d1 < today - timedelta(days=3):
-                    S["done"].append(tag)
-        n = sum(len(S["games"]) for S in L.values())
-        self.log(f"[{lg_key}] 兩季比分：查了 {calls} 次、新增 {new} 場，共 {n} 場")
+                d = d0
+                while d <= d1:
+                    if d.strftime("%Y%m%d") not in done:
+                        days.append(d)
+                    d += timedelta(days=1)
+            todo += [(yr, d) for d in sorted(days, reverse=True)]
+        for yr, d in todo:
+            if calls >= max_calls:
+                break
+            S = L[str(yr)]
+            calls += 1
+            js = get(f"{site}/{path}/scoreboard", params={"dates": d.strftime("%Y%m%d"), "limit": 300}, quiet=True)
+            if not isinstance(js, dict):
+                continue
+            for ev in js.get("events") or []:
+                row = _row(ev)
+                if row:
+                    if str(ev["id"]) not in S["games"]:
+                        new += 1
+                    S["games"][str(ev["id"])] = row
+            if d < today - timedelta(days=2):
+                S["done"].append(d.strftime("%Y%m%d"))
+        n = sum(len(S["games"]) for k, S in L.items() if isinstance(S, dict))
+        left = len(todo) - calls
+        self.log(f"[{lg_key}] 兩季比分：查了 {calls} 天、新增 {new} 場，共 {n} 場" + (f"；還有 {left} 天沒補，下次繼續" if left > 0 else ""))
         return calls
 
     def games(self, lg_key, season_year):

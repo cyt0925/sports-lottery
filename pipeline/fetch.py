@@ -99,6 +99,7 @@ SESSION.headers.update(HEADERS)
 ERRORS = []
 CALLS = {"n": 0}
 TSDB_LOADER = None     # 國內聯賽（main() 一開始就在背景抓）
+OUT_PATH = [""]        # data/today.json 的位置（其他快取檔放同一個資料夾）
 EL_STATE = {}          # 歐冠、歐盃官方資料（國內聯賽要用同一支球隊的歐戰賽程）
 
 
@@ -1267,6 +1268,7 @@ def main():
     args = ap.parse_args()
 
     global NEAR_HI
+    OUT_PATH[0] = args.out
     now = datetime.now(timezone.utc)
     now_tw = now.astimezone(TW)
     dates = [now.date() - timedelta(days=1), now.date(), now.date() + timedelta(days=1)]
@@ -1282,6 +1284,15 @@ def main():
 
     all_games = []
     standings = {}
+    # 網站自己學到的每個因素分量（learn.py 上次算的）
+    try:
+        import history as _h
+        import model as _m
+        w = _m.load_weights(_h.load(os.path.join(os.path.dirname(os.path.abspath(args.out)), "history.json")))
+        if w:
+            log("每個因素的分量（自己學的）：" + "、".join(f"{k}×{v:g}" for k, v in w.items()))
+    except Exception as e:  # noqa: BLE001
+        ERRORS.append(f"讀因素分量失敗: {e!r}")
     global TSDB_LOADER
     if (not only or "eurodom" in only):
         try:
@@ -1318,6 +1329,12 @@ def main():
     log(f"台灣盤口：配對到 {tw_count} 場")
     enrich_games(all_games)
     espn_matchups(all_games, standings)
+    try:
+        import context
+        n_sig, n_derby = context.apply(all_games)
+        log(f"場外消息：{n_sig} 隊有換教練、欠薪、禁賽之類的新聞；德比戰 {n_derby} 場")
+    except Exception as e:  # noqa: BLE001
+        ERRORS.append(f"場外消息失敗: {e!r}")
     try:
         nba_elo(all_games, os.path.join(os.path.dirname(os.path.abspath(args.out)), "espn_games.json"))
     except Exception as e:  # noqa: BLE001
@@ -1363,7 +1380,8 @@ def main():
             if rt.get("our_prob_home") is not None:
                 ph = rt["our_prob_home"]
                 g["suggestion"]["model"] = dict(pick="home" if ph >= 0.5 else "away", prob_home=round(ph, 3),
-                                                spread=rt.get("our_spread"), weak=bool(rt.get("weak")), variants=rt.get("variants"))
+                                                spread=rt.get("our_spread"), weak=bool(rt.get("weak")), variants=rt.get("variants"),
+                                                parts=rt.get("parts_raw"))
             # 季前賽：主力常常輪休、打不久；48 小時後的比賽傷兵和盤口都還沒出來：信心最多給「中」
             if (g.get("season_type") == 1 or g.get("far")) and g["suggestion"].get("confidence") == "高":
                 g["suggestion"]["confidence"] = "中"
@@ -1425,8 +1443,16 @@ def main():
             log("串關：" + (f"{'已鎖定' if cur.get('locked') else '推薦'} " + "＋".join(x["label"] for x in cur["legs"]) + f"，總賠率 {cur['dec']}、全中約 {round(cur['p'] * 100)}%" if cur else parlay_out.get("note", "")))
         except Exception as e:  # noqa: BLE001
             ERRORS.append(f"串關失敗: {e!r}")
+        try:
+            import learn
+            hist["learn"] = learn.fit(hist, now_tw)
+            L = hist["learn"]
+            log("自己學因素分量：" + (L.get("note") or f"{L['n']} 場，Brier {L['brier_before']} → {L['brier_after']}；" + "、".join(f"{x['label'][:6]}×{x['w']:g}（{x['n']} 場）" for x in L["lines"])))
+        except Exception as e:  # noqa: BLE001
+            ERRORS.append(f"學因素分量失敗: {e!r}")
         history.save(hpath, hist)
         record = history.summarize(hist, now_tw)
+        record["learn"] = hist.get("learn")
         record["model"] = history.model_summary(hist, now_tw)
         try:
             record["parlay"] = parlay.summary(hist, now_tw)
@@ -1717,6 +1743,17 @@ def process_playsport(lg, lo, hi, all_games, standings):
                     ERRORS.append(f"eurobasket 傷兵報告失敗: {e!r}")
                     articles = []
                 el_player_layer(near, rosters, log, ERRORS, articles)
+                try:
+                    import elbox
+                    box = elbox.Box(os.path.join(os.path.dirname(os.path.abspath(OUT_PATH[0])), "el_box.json"), log, ERRORS)
+                    box.sync(EL_STATE["el"], {t.get("el_code") for g in near for t in (g["home"], g["away"]) if t.get("el_code")})
+                    box.save()
+                    EL_STATE["box"] = box
+                    elbox.apply(near, box, log)
+                except Exception as e:  # noqa: BLE001
+                    import traceback
+                    ERRORS.append(f"eurobasket 歐戰球員數據失敗: {e!r}")
+                    traceback.print_exc()
                 for g in near:
                     for side in ("home", "away"):
                         finalize_team(g[side], lg)
@@ -1985,6 +2022,15 @@ def process_tsdb(lg, lo, hi, all_games, standings):
             newsinj.attach(near, lambda t: (t["en_key"], "en") if t.get("en_key") else None, log, ERRORS, lg["key"], hint=" basketball")
         except Exception as e:  # noqa: BLE001
             ERRORS.append(f"{lg['key']} 新聞失敗: {e!r}")
+        if EL_STATE.get("box"):
+            try:
+                import elbox
+                elbox.apply(near, EL_STATE["box"], log)     # 有打歐戰的球隊：主力手感、上一場沒上（歐戰官方數據）
+            except Exception as e:  # noqa: BLE001
+                ERRORS.append(f"{lg['key']} 歐戰球員數據失敗: {e!r}")
+        for g in near:
+            for side in ("home", "away"):
+                finalize_team(g[side], lg)
     all_games.extend(games)
     groups = []
     for meta in T.LEAGUES:

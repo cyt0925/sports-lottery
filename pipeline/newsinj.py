@@ -77,6 +77,22 @@ def _excluded(title, name, ex):
     return any(m.group(0).lower() not in nm for m in ex.finditer(title or ""))
 
 
+SIG_TERMS = {
+    "en": '(coach OR fired OR sacked OR "parts ways" OR salary OR unpaid OR wages OR suspended OR suspension OR "locker room")',
+    "ja": "(解任 OR ヘッドコーチ OR 出場停止 OR 給料)",
+    "zh": "(換帥 OR 教練 OR 欠薪 OR 禁賽)",
+}
+
+
+def signal_news(name, lang, days=21, hint=None):
+    """場外消息（換教練、欠薪、禁賽）：多查一次，交給 context.team_signals 挑。"""
+    if not name:
+        return []
+    hint = SPORT_HINT.get(lang, "") if hint is None else hint
+    ex = EXCLUDE.get(lang)
+    return [x for x in _query(f'"{name}"{hint} {SIG_TERMS.get(lang, SIG_TERMS["en"])} when:{days}d', lang) if not _excluded(x.get("title"), name, ex)]
+
+
 def injury_news(name, lang, days=10, limit=3, hint=None):
     if not name:
         return []
@@ -121,7 +137,7 @@ def probe_injury_report(items, log):
 
 def attach(games, name_fn, log, errors, label, hint=None):
     """name_fn(team) -> (查詢用隊名, 語言) 或 None。掛上 t["injury_news"]、t["injury_note"]、g["news"]。"""
-    n_team = n_news = 0
+    n_team = n_news = n_sig = 0
     done = {}
     for g in games:
         if g["status"]["state"] == "post":
@@ -135,25 +151,33 @@ def attach(games, name_fn, log, errors, label, hint=None):
                 continue
             name, lang = nl
             if name in done:
-                t["injury_news"], t["injury_note"], tn = done[name]
+                t["injury_news"], t["injury_note"], tn = done[name][:3]
+                if done[name][3]:
+                    t["signals"] = done[name][3]
             else:
+                sig = []
                 try:
                     inj = injury_news(name, lang, hint=hint)
                     tn = team_news(name, lang, hint=hint)
+                    import context
+                    sig = context.team_signals(signal_news(name, lang, hint=hint) + tn)
                 except Exception as e:  # noqa: BLE001
                     errors.append(f"{label} 新聞 {name} 失敗: {e!r}")
                     inj, tn = [], []
+                if sig:
+                    t["signals"] = sig
+                    n_sig += 1
                 if inj:
                     note = f"沒有官方傷兵名單，近 10 天新聞有提到傷兵相關消息（{len(inj)} 則，點進去看）"
                     n_team += 1
                 else:
                     note = "沒有官方傷兵名單；近 10 天新聞沒有提到這隊的傷兵消息，通常代表陣容完整，但賽前仍可能臨時缺陣"
                 t["injury_news"], t["injury_note"] = inj, note
-                done[name] = (inj, note, tn)
+                done[name] = (inj, note, tn, sig)
             for a in tn[:2]:
                 picked.append(dict(a, team=side))
         if picked:
             picked.sort(key=lambda x: x.get("published") or "", reverse=True)
             g["news"] = picked[:4]
             n_news += 1
-    log(f"[{label}] 新聞：{n_team} 隊有傷兵相關新聞，{n_news} 場有一般新聞，呼叫 {STATS['calls']} 次、失敗 {STATS['fail']} 次")
+    log(f"[{label}] 新聞：{n_team} 隊有傷兵相關新聞，{n_sig} 隊有場外消息（換教練、欠薪、禁賽），{n_news} 場有一般新聞，呼叫 {STATS['calls']} 次、失敗 {STATS['fail']} 次")

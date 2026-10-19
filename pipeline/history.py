@@ -52,6 +52,58 @@ def _snap(g, s, now):
     return dict(t=now.isoformat(timespec="minutes"), dec=dec, spread_home=spread_home, total=total, prob=prob, tw=has_tw)
 
 
+def _why(g, s):
+    """押的時候為什麼押：我們估幾成、贏幾分、總分，哪些因素幫哪一隊加分（賽後檢討用）。"""
+    est = s.get("est") or {}
+    names = {}
+    for side in ("home", "away"):
+        t = g[side]
+        names[t.get("name_zh") or t.get("short") or t.get("name") or ""] = side
+    fs = [[f["key"], names.get(f.get("team")), f.get("pts")] for f in s.get("factors") or [] if f.get("team")]
+    return dict(p=s.get("prob") or s.get("p_est"), margin=est.get("margin"), total=est.get("total"), f=[x for x in fs if x[1]])
+
+
+REVIEW_ZH = {"luck": "差一點（運氣）", "strength": "實力看錯", "upset": "爆冷", "total": "總分節奏看錯", "factor": "某個因素看錯"}
+
+
+def review(e, res):
+    """押錯的比賽回頭看錯在哪：差一點的算運氣、差很多的是實力看錯、因為某個因素才押這邊的就記那個因素。"""
+    from model import FACTOR_ZH
+    play = e.get("play") or "不讓分"
+    main = res.get("ou") if play == "大小分" else (res.get("ats") if play == "讓分" else res.get("ml"))
+    if main != "loss":
+        return None
+    w = e.get("why") or {}
+    if play == "大小分":
+        tot, line, exp_t = res.get("total"), res.get("total_line"), w.get("total")
+        if tot is None or line is None:
+            return None
+        if abs(tot - line) <= 4:
+            return dict(kind="luck", text=f"總分 {tot:g}，跟 {line:g} 只差 {abs(tot - line):g} 分，差一點。")
+        if exp_t is not None:
+            return dict(kind="total", text=f"總分 {tot:g}，我們估 {exp_t:g}，差了 {abs(tot - exp_t):.0f} 分，節奏看錯了。")
+        return dict(kind="total", text=f"總分 {tot:g}，離 {line:g} 差 {abs(tot - line):g} 分。")
+    pick = e["pick"]
+    side_m = res["margin"] if pick == "home" else -res["margin"]        # 我們押的那隊贏幾分（負數＝輸）
+    exp = w.get("margin")
+    exp_side = (exp if pick == "home" else -exp) if exp is not None else None
+    if play == "讓分" and res.get("ats_line") is not None:
+        short = -(side_m + res["ats_line"])        # 差幾分才過盤
+        if short <= 3:
+            return dict(kind="luck", text=f"讓分差 {short:g} 分沒過，差一點。")
+    elif side_m > -5:
+        return dict(kind="luck", text=f"只輸 {abs(side_m):g} 分，差一點，這種算運氣。")
+    ours = [(k, pts) for k, sd, pts in w.get("f") or [] if sd == pick and k not in ("base", "hca") and pts]
+    if exp_side is not None and ours:
+        push = sum(p for _k, p in ours)
+        if exp_side - push < 0:      # 沒有這些因素就會押另一邊
+            k = max(ours, key=lambda x: x[1])[0]
+            return dict(kind="factor", factor=k, text=f"主要是因為「{FACTOR_ZH.get(k, k)}」才押這邊，這場它沒準（輸 {abs(side_m):g} 分）。")
+    if exp_side is not None and exp_side - side_m >= 18:
+        return dict(kind="strength", text=f"我們以為會贏 {exp_side:.0f} 分，結果輸 {abs(side_m):g} 分，實力看錯了（可能有人臨時沒上，或對手狀況特別好）。")
+    return dict(kind="upset", text=f"照實力該贏，結果輸了 {abs(side_m):g} 分，算爆冷。")
+
+
 def _score(t):
     try:
         return float(str(t.get("score")).strip())
@@ -97,6 +149,12 @@ def settle(e, g):
     if first.get("dec") and close.get("dec"):
         res["clv_dec"] = round(first["dec"] - close["dec"], 2)
     e["result"] = res
+    try:
+        rv = review(e, res)
+        if rv:
+            e["review"] = rv
+    except Exception:  # noqa: BLE001
+        pass
     return True
 
 
@@ -152,6 +210,8 @@ def _track_model(hist, g, now):
         e.update(model_home=m["prob_home"], mkt_home=o["prob_home"] if has_mkt else None, weak=bool(m.get("weak")))
         if m.get("variants"):
             e["var"] = m["variants"]
+        if m.get("parts"):
+            e["parts"] = m["parts"]
         models[gid] = e
     elif state == "post" and gid in models and "res" not in models[gid]:
         hs, as_ = _score(g["home"]), _score(g["away"])
@@ -209,16 +269,28 @@ def update(hist, games, now=None):
                     pick=s["pick"], pick_label=s.get("pick_label"), play=s.get("play"), confidence=s.get("confidence"),
                     total_lean=tot.get("lean") if tot.get("lean") in ("大", "小") else None,
                     side=(s.get("side") or {}).get("pick_label") if s.get("play") == "大小分" else None,
-                    first=snap, latest=snap,
+                    first=snap, latest=snap, why=_why(g, s),
                 )
                 n_new += 1
             else:
                 e["latest"] = snap
                 e["confidence"] = s.get("confidence") or e.get("confidence")
+                if e.get("pick") == s.get("pick"):
+                    e["why"] = _why(g, s)
                 n_upd += 1
         elif state == "post" and e is not None and not e.get("result"):
             if settle(e, g):
                 n_set += 1
+    # 以前結算、還沒檢討過的押錯場次，補一次檢討
+    for e in entries.values():
+        if e.get("result") and "review" not in e and not e.get("review_done"):
+            e["review_done"] = True
+            try:
+                rv = review(e, e["result"])
+                if rv:
+                    e["review"] = rv
+            except Exception:  # noqa: BLE001
+                pass
     # 太舊的清掉
     cutoff = (now - timedelta(days=KEEP_DAYS)).strftime("%Y-%m-%d")
     for k in [k for k, v in entries.items() if v.get("day_tw", "") < cutoff]:
@@ -362,6 +434,13 @@ def summarize(hist, now=None, days=30):
         _add(by_conf.setdefault(e.get("confidence") or "中", _bucket()), e)
         _add(by_play.setdefault(e.get("play") or "不讓分", _bucket()), e)
     recent = sorted(settled, key=lambda e: (e["day_tw"], e["time_tw"]), reverse=True)[:30]
+    from collections import Counter
+    from model import FACTOR_ZH
+    rv = [e["review"] for e in settled if e.get("review")]
+    kinds = Counter(r["kind"] for r in rv)
+    blame = Counter(r.get("factor") for r in rv if r.get("factor"))
+    reviews = dict(n=len(rv), kinds=[dict(kind=k, label=REVIEW_ZH.get(k, k), n=n) for k, n in kinds.most_common()],
+                   factors=[dict(key=k, label=FACTOR_ZH.get(k, k), n=n) for k, n in blame.most_common()])
     pending = sum(1 for e in hist.get("entries", {}).values() if not e.get("result"))
     return dict(
         days=days, since=hist.get("since"), settled=len(settled), pending=pending,
@@ -369,9 +448,11 @@ def summarize(hist, now=None, days=30):
         by_league={k: _fin(v) for k, v in by_league.items()},
         by_conf={k: _fin(v) for k, v in by_conf.items()},
         by_play={k: _fin(v) for k, v in by_play.items()},
+        reviews=reviews,
         recent=[dict(id=e["id"], league_zh=e["league_zh"], chip=e.get("chip"), day_tw=e["day_tw"], time_tw=e["time_tw"],
                      home=e["home"], away=e["away"], pick=e["pick"], pick_label=e.get("pick_label"), play=e.get("play"),
                      confidence=e.get("confidence"), dec=(e.get("first") or {}).get("dec"), line=(e.get("result") or {}).get("ats_line"),
                      hs=e["result"]["hs"], as_=e["result"]["as_"], ml=e["result"].get("ml"), ats=e["result"].get("ats"), ou=e["result"].get("ou"),
-                     clv=e["result"].get("clv_spread"), total_lean=e.get("total_lean"), total_line=e["result"].get("total_line")) for e in recent],
+                     clv=e["result"].get("clv_spread"), total_lean=e.get("total_lean"), total_line=e["result"].get("total_line"),
+                     review=(e.get("review") or {}).get("text")) for e in recent],
     )

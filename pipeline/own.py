@@ -113,7 +113,7 @@ def factor_lines(est, hn, an):
             off = ep.get("off_home") or 0
             extra = "（這隊主場特別難打）" if off >= 1.5 else ("（這隊主場沒什麼優勢）" if off <= -1.5 else "")
             out.append(dict(key="hca", label="主場" + extra, team=hn, pts=round(hca, 1)))
-    for k in ("notes", "form", "h2h", "rest", "hot", "motive"):
+    for k in ("notes", "form", "h2h", "rest", "hot", "motive", "news", "derby"):
         v = parts.get(k) or 0
         if abs(v) < 0.3:
             continue
@@ -219,7 +219,7 @@ def _model(est):
         return None
     ph = est["p_home"]
     return dict(pick="home" if ph >= 0.5 else "away", prob_home=round(ph, 3), spread=rt.get("our_spread"),
-                weak=bool(est.get("weak")), variants=rt.get("variants"))
+                weak=bool(est.get("weak")), variants=rt.get("variants"), parts=rt.get("parts_raw"))
 
 
 def outside(g):

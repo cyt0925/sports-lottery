@@ -196,7 +196,7 @@ class EuroLeague:
         if grp and comp == "U":
             self.group_of.setdefault(hc, grp)
             self.group_of.setdefault(ac, grp)
-        row = dict(comp=comp, label=label, home=hc, away=ac, start=start, played=bool(g.get("played")),
+        row = dict(comp=comp, label=label, home=hc, away=ac, start=start, played=bool(g.get("played")), code=g.get("gameCode", g.get("code")),
                    hs=(g.get("local") or {}).get("score"), as_=(g.get("road") or {}).get("score"),
                    round=re.sub(r"^Round (\d+)$", r"第 \1 輪", str(g.get("roundAlias") or g.get("roundName") or "")) or None,
                    group=(g.get("group") or {}).get("rawName"))
