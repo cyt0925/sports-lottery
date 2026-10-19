@@ -92,6 +92,49 @@ def value(p, dec):
     return dict(back=round(back * 100), label=label, dec=dec, p=round(p, 3))
 
 
+# 第二選擇：主推之外，另一個也值得考慮的玩法（門檻比主推低一點，但要有台灣運彩的線和賠率、不能跟主推矛盾、不能不划算）
+ALT_P = {"不讓分": 0.62, "讓分": 0.55, "大小分": 0.56}
+
+
+def second_choice(g, res, probs, hn, an):
+    play0, pick0 = res.get("play"), res.get("pick")
+    if not pick0:
+        return None
+    # 輸贏看哪邊：主推是大小分的話看「輸贏偏哪邊」，第二選擇不能押反方向
+    side = pick0 if play0 in ("不讓分", "讓分") else ((res.get("side") or {}).get("pick") or res.get("fav"))
+    tw = g.get("tw") or {}
+    cands = []
+    if play0 != "不讓分" and side in ("home", "away"):
+        p, dec = probs.get(side), tw_dec(g, side)
+        if p and dec and p >= ALT_P["不讓分"] and dec >= ML_MIN_DEC:
+            cands.append(("不讓分", side, p, dec))
+    lh = (tw.get("spread") or {}).get("line_home")
+    if play0 != "讓分" and lh is not None:
+        for s_ in ("home", "away"):
+            # 押另一隊只限「受讓」那邊（意思是：主推那隊會贏，但贏不了那麼多），押另一隊讓分就跟主推矛盾了
+            if side in ("home", "away") and s_ != side and (lh if s_ == "home" else -lh) <= 0:
+                continue
+            p, dec = probs.get("ats_" + s_), tw_dec(g, "ats_" + s_)
+            if p and dec and p >= ALT_P["讓分"]:
+                cands.append(("讓分", s_, p, dec))
+    if play0 != "大小分" and (tw.get("total") or {}).get("line") is not None:
+        for s_ in ("over", "under"):
+            p, dec = probs.get(s_), tw_dec(g, s_)
+            if p and dec and p >= ALT_P["大小分"]:
+                cands.append(("大小分", s_, p, dec))
+    cands = [c for c in cands if (value(c[2], c[3]) or {}).get("label") != "不划算"]
+    if not cands:
+        return None
+    play, pick, p, dec = max(cands, key=lambda c: (c[2] - ALT_P[c[0]]) + 0.5 * (c[2] * c[3] - 1))
+    if play == "大小分":
+        label = "大分" if pick == "over" else "小分"
+        line = (tw.get("total") or {}).get("line")
+    else:
+        label = hn if pick == "home" else an
+        line = (lh if pick == "home" else -lh) if (play == "讓分" and lh is not None) else None
+    return dict(play=play, pick=pick, pick_label=label, prob=round(p, 3), dec=dec, line=line, value=value(p, dec))
+
+
 def factor_lines(est, hn, an):
     """這場怎麼算的：每個因素讓哪一隊多幾分（給網頁和 AI 看）。"""
     parts = est.get("parts") or {}
@@ -209,6 +252,8 @@ def build(g, lg):
     else:
         res["summary"] = f"押 {label}，玩不讓分，信心{pconf}"
     res["reasons"] = [f"{f['label']}：{f['team']}多 {f['pts']:g} 分" for f in res["factors"] if f.get("team")]
+    if g["status"]["state"] == "pre":
+        res["alt"] = second_choice(g, res, probs, hn, an)
     res["model"] = _model(est)
     return res
 

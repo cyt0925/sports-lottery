@@ -83,6 +83,9 @@ def _prev_one(p, name, first=True):
         return f"上季{p['comp_zh']}的資料裡沒有{name}（可能剛升上來）"
     head = ("上季" if p["comp"] == "nba" else f"上季{p['comp_zh']}") if first else ""
     part = f"前 {p['partial']} 輪" if p.get("partial") and first else ""
+    if p["comp"] == "nba" and p.get("conf"):
+        # NBA 老球迷講的是「東區第幾、季後賽打到哪」
+        return f"{name}{head} {p['w']} 勝 {p['l']} 敗、{p['conf']}第 {p['conf_rank']}，{p.get('playoff_zh') or ''}".strip("，").strip()
     rk = f"排聯盟第 {p['rank']}" if p["comp"] == "nba" else f"排第 {p['rank']}"
     return f"{name}{head}{part} {p['w']} 勝 {p['l']} 敗、{rk}".strip()
 
@@ -706,10 +709,34 @@ def build_story(g, sport):
     if value_line and value_line not in why and value_line not in care:
         odds_line = (odds_line + value_line) if odds_line else value_line
     talk = dict(verdict=verdict, fan=fan, why=why[:5], care=care[:3], matchup=matchup[:4], odds=odds_line)
+    talk["alt"] = alt_line(g, s, est, hn, an)
     talk["ai"] = ai_paragraphs(g, hn, an, fan, why, care, matchup)
     if sets:
         talk["note"] = "排球看局數，五局三勝。"
     return talk
+
+
+def alt_line(g, s, est, hn, an):
+    """第二選擇（own.second_choice 挑的）講成一句話；沒有就空字串。"""
+    alt = s.get("alt") or {}
+    if not alt or g["status"]["state"] != "pre":
+        return ""
+    p = _cheng(alt["prob"])
+    if alt["play"] == "大小分":
+        exp = est.get("total")
+        how = f"我們算總分大概 {exp:.0f} 分，" if exp is not None else ""
+        line = f"第二選擇：玩{alt['pick_label']} {alt['line']:g}。{how}{alt['pick_label']}大概{p}會中，賠 {alt['dec']:g}。"
+    elif alt["play"] == "讓分" and alt.get("line") is not None:
+        m = est.get("margin")
+        how = f"我們算{hn if m >= 0 else an}大概贏 {_r(m)} 分，" if m is not None else ""
+        main = s.get("pick") if s.get("play") in ("不讓分", "讓分") else None
+        mean = ""
+        if main in ("home", "away") and alt["pick"] != main and alt["line"] > 0:
+            mean = f"（意思是{hn if main == 'home' else an}應該會贏，但贏不到 {alt['line']:g} 分）"
+        line = f"第二選擇：押{alt['pick_label']}{'讓' if alt['line'] < 0 else '受讓'} {abs(alt['line']):g} 分{mean}。{how}過的機會大概{p}，賠 {alt['dec']:g}。"
+    else:
+        line = f"第二選擇：押{alt['pick_label']}不讓分，贏球大概{p}，賠 {alt['dec']:g}。"
+    return line + "主推不放心的話可以考慮，注碼小一點。"
 
 
 def _sentences(text):

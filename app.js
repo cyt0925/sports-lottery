@@ -647,6 +647,13 @@
     if (!g.odds || g.odds.prob_home == null) return `<span class="pill wait">還沒開盤</span>`;
     return `<span class="pill wait">先不下</span>`;
   }
+  // 第二選擇：主推之外另一個也值得考慮的玩法（沒有就不顯示）
+  function altPill(g) {
+    const a = (g.suggestion || {}).alt;
+    if (!a || g.status.state !== "pre") return "";
+    const what = a.play === "大小分" ? `玩 ${esc(a.pick_label)} ${a.line}` : a.play === "讓分" ? `押 ${esc(a.pick_label)} ${fmtLine(a.line)}` : `押 ${esc(a.pick_label)} 不讓分`;
+    return `<span class="pill alt">第二選擇 · ${what}</span>`;
+  }
   function twLine(g) {
     const tw = g.tw;
     if (!tw) return (g.notes && g.notes.tw) || "";
@@ -687,7 +694,7 @@
     return `<div class="g-wrap"><button class="g ${live ? "is-live" : ""} ${post ? "is-post" : ""} ${strong ? "strong" : ""}" data-goto="${esc(g.id)}">
       <div class="g-top"><span>${icon(SPORT_ICON[chipOf(g)] || "i-grid")} <b>${esc(g.league_zh)}</b>${g.round ? " · " + esc(g.round) : ""}</span>${whenText(g)}</div>
       <div class="g-teams">${teamCol(g.away, "away", g)}${midCol(g)}${teamCol(g.home, "home", g)}</div>
-      <div class="g-verdict">${verdictPill(g)}</div>
+      <div class="g-verdict">${verdictPill(g)}${altPill(g)}</div>
       ${!post ? `<div class="g-why">${esc(firstSentence(aiBody(g)[0]) || firstSentence((t.ai || [])[0]) || firstSentence(t.fan) || (t.why || [])[0] || t.verdict)}</div>` : ""}
       ${twLine(g) ? `<div class="g-odds">${twLine(g)}</div>` : g.far ? `<div class="g-odds">台灣運彩還沒開盤，傷兵名單也還沒出來，先看看就好</div>` : ""}
       <div class="g-tap">點一下看詳細 ${icon("i-chev")}</div>
@@ -1129,6 +1136,7 @@
         <div class="g-top"><span></span>${whenText(g)}</div>
         <div class="g-teams">${teamCol(g.away, "away", g)}${midCol(g)}${teamCol(g.home, "home", g)}</div>
         <div class="verdict ${wait ? "wait" : ""}">${esc(t.verdict)}${g.status.state === "pre" ? `<small>${esc(dayLabel(g.day_tw).name)} ${esc(g.time_tw)} 開打${g.venue ? " · " + esc(g.venue) : ""}</small>` : ""}</div>
+        ${t.alt && g.status.state === "pre" ? `<div class="alt-pick"><b>第二選擇</b>${esc(t.alt.replace(/^第二選擇：/, ""))}</div>` : ""}
         ${analysisBlock(g, t)}
         <div class="h">${icon("i-star")}你的預測</div><div id="mypick">${pickButtons(g, false)}</div>
         ${t.matchup && t.matchup.length ? `<div class="h">${icon("i-trophy")}對位跟交手</div>${pts(t.matchup, "info", "i-chev")}` : ""}

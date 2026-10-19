@@ -126,7 +126,9 @@ def team_words(t):
 
 # 不算新聞的：博彩網站的賠率、預測頁（網站不看賭盤），球員數據頁
 NOISE = re.compile(r"\bodds\b|betting|\btips\b|sportsbook|\bpicks?\b|prediction|pronostic|apuestas|scommesse|iddaa|wetten|"
-                   r"stats, game log|game log|statistika, rungtyn|maçı hangi kanalda|canlı izle|live stream", re.I)
+                   r"stats, game log|game log|statistika, rungtyn|maçı hangi kanalda|canlı izle|live stream|"
+                   # 賽程表、購票、名單頁（不是新聞）
+                   r"\d{4}-\d{2}-\d{2}\s+\d{1,2}:\d{2}|\btickets?\b|roster - |game notes|maçı .{0,30}saat|\bboxscore\b|\bhighlights\b", re.I)
 
 
 def relevant(item, t, words=None):

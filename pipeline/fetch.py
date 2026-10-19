@@ -1424,6 +1424,22 @@ def main():
         import traceback
         ERRORS.append(f"AI 分析整個失敗: {e!r}")
         traceback.print_exc()
+    # AI 讀完新聞、想過球隊狀態後看法跟網站的計算不一樣：網站的信心最多給「中」（數字看不到的東西，可能是 AI 對）
+    n_diff = 0
+    for g in all_games:
+        s, ai = g.get("suggestion") or {}, g.get("ai") or {}
+        side = s.get("fav") or s.get("pick")
+        if ai.get("lean") in ("home", "away") and side in ("home", "away") and ai["lean"] != side and g["status"]["state"] == "pre":
+            n_diff += 1
+            s["ai_differs"] = True
+            if s.get("confidence") == "高":
+                s["confidence"] = "中"
+                s["summary"] = (s.get("summary") or "").replace("信心高", "信心中")
+                t = s.get("talk") or {}
+                if t.get("verdict"):
+                    t["verdict"] = t["verdict"].replace("信心高", "信心中")
+    if n_diff:
+        log(f"AI 看法跟網站計算不同：{n_diff} 場（信心最多給「中」）")
     try:
         import newsread
         for g in all_games:
@@ -2134,10 +2150,8 @@ def nba_elo(all_games, path):
     st, sc, base_sc = elo.tune(games, {"nba": 2.8}, 2.8, since_ts=(now - timedelta(days=400)).timestamp())
     st = elo.carry(st, 1)
     import background
-    # 上季戰績只算例行賽（一季 1230 場，之後是附加賽、季後賽）
-    for i, x in enumerate([x for x in games if x["season"] == 0]):
-        x["rs"] = i < 1230
-    T = background.tables(games)
+    # 上季：例行賽戰績（每隊前 82 場，季中盃冠軍賽不算）、東西區排名、季後賽打到哪
+    NP = background.nba_prev(games)
     n = 0
     for g in all_games:
         if g["league"] != "nba" or g["status"]["state"] == "post" or g.get("season_type") not in (2, 3, 5):
@@ -2145,7 +2159,9 @@ def nba_elo(all_games, path):
         hid, aid = str(g["home"].get("id") or ""), str(g["away"].get("id") or "")
         if hid in st["R"] and aid in st["R"]:
             g.setdefault("analysis", {})["elo"] = elo.predict(st, hid, aid, "nba", 2.8, neutral=bool(g.get("neutral")))
-            background.attach(g, T, games, None, hid, aid, "nba")     # 上季戰績（交手 espn_matchups 已經有了）
+            pv = dict(home=NP.get(hid), away=NP.get(aid))      # 交手 espn_matchups 已經有了
+            if pv["home"] or pv["away"]:
+                g["analysis"]["bg"] = dict(prev=pv)
             n += 1
     P = st["params"]
     offs = sorted(((v, k) for k, v in st["OFF"].items()), reverse=True)

@@ -364,6 +364,9 @@ body[data-view="today"] .view[data-for="today"],body[data-view="injuries"] .view
 .calc-more{margin:2px 0 8px}
 .calc-more summary{cursor:pointer;color:var(--ink-2);font-size:.9rem;font-weight:700;padding:4px 0}
 .calc-more .calc{margin-top:6px}
+.alt-pick{margin-top:10px;background:var(--card);border:1px solid var(--line);border-left:4px solid var(--violet-2);border-radius:var(--radius-s);padding:10px 14px;font-size:1rem;line-height:1.6;color:var(--ink)}
+.alt-pick b{display:block;font-size:.85rem;font-weight:900;color:var(--violet-2);margin-bottom:2px}
+.g-verdict .pill.alt{background:var(--violet-wash);color:var(--ink);font-size:.9rem;padding:6px 12px}
 .src-list{display:flex;flex-direction:column;gap:6px;margin-top:6px}
 .src-list a{display:block;color:var(--ink-2);font-size:.82rem;line-height:1.45;text-decoration:none;padding:6px 8px;border-radius:8px;background:var(--violet-wash)}
 .src-list a b{color:var(--ink);font-weight:800}

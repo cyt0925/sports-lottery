@@ -101,3 +101,80 @@ def attach(g, T, games, preds, kh, ka, comp, partial=None):
     if h and (not old or h["n"] >= (old.get("n") or 0)):
         a["h2h_long"] = h
     return bool(h)
+
+
+# ---------- NBA：上季東西區排名、季後賽打到哪 ----------
+# ESPN 的球隊代碼 -> 縮寫；東區 15 隊
+NBA_ID = {"1": "ATL", "2": "BOS", "3": "NO", "4": "CHI", "5": "CLE", "6": "DAL", "7": "DEN", "8": "DET", "9": "GS", "10": "HOU",
+          "11": "IND", "12": "LAC", "13": "LAL", "14": "MIA", "15": "MIL", "16": "MIN", "17": "BKN", "18": "NY", "19": "ORL", "20": "PHI",
+          "21": "PHX", "22": "POR", "23": "SAC", "24": "SA", "25": "OKC", "26": "UTAH", "27": "WSH", "28": "TOR", "29": "MEM", "30": "CHA"}
+EAST = {"ATL", "BOS", "BKN", "CHA", "CHI", "CLE", "DET", "IND", "MIA", "MIL", "NY", "ORL", "PHI", "TOR", "WSH"}
+PLAYOFF_ZH = {0: "沒打進季後賽", 1: "季後賽第一輪就出局", 2: "季後賽打到第二輪", 3: "打到分區決賽", 4: "打進總冠軍賽但輸了", 5: "拿下總冠軍"}
+
+
+def nba_split(games):
+    """上季的比賽分成例行賽（每隊前 82 場）和之後的附加賽、季後賽；季中盃冠軍賽（12 月中立場地的最後一場）不算戰績。
+    會在每場加上 rs（是不是例行賽）。"""
+    prev = sorted([x for x in games if x["season"] == 0], key=lambda x: x["ts"])
+    from datetime import datetime, timezone
+    dec = [x for x in prev if x.get("neutral") and datetime.fromtimestamp(x["ts"], timezone.utc).month == 12]
+    cup_final = dec[-1] if dec else None
+    cnt = {}
+    for x in prev:
+        if x is cup_final:
+            x["rs"] = False
+            x["cup_final"] = True
+            continue
+        h, a = x["h"], x["a"]
+        if cnt.get(h, 0) < 82 and cnt.get(a, 0) < 82:
+            x["rs"] = True
+            cnt[h] = cnt.get(h, 0) + 1
+            cnt[a] = cnt.get(a, 0) + 1
+        else:
+            x["rs"] = False
+    return prev
+
+
+def nba_prev(games):
+    """{球隊代碼: dict(w, l, conf, conf_rank, rank, of, playoff, playoff_zh)}：上季例行賽戰績、東西區排名、季後賽打到哪。"""
+    prev = nba_split(games)
+    rec = {}
+    for x in prev:
+        if not x.get("rs"):
+            continue
+        for k, win in ((x["h"], x["hs"] > x["as_"]), (x["a"], x["as_"] > x["hs"])):
+            r = rec.setdefault(k, [0, 0, 0])
+            r[0 if win else 1] += 1
+            r[2] += (x["hs"] - x["as_"]) * (1 if k == x["h"] else -1)
+    # 季後賽：同一組對手打 4 場以上才是系列賽（附加賽只打一場）
+    post = [x for x in prev if not x.get("rs") and not x.get("cup_final")]
+    pairs = {}
+    for x in post:
+        key = frozenset((x["h"], x["a"]))
+        w = pairs.setdefault(key, {})
+        win = x["h"] if x["hs"] > x["as_"] else x["a"]
+        w[win] = w.get(win, 0) + 1
+    rounds, alive = {}, {}
+    for key, w in pairs.items():
+        if sum(w.values()) < 4:
+            continue
+        a, b = list(key)
+        for t in (a, b):
+            rounds[t] = rounds.get(t, 0) + 1
+        winner = a if w.get(a, 0) > w.get(b, 0) else b
+        loser = b if winner == a else a
+        alive[loser] = False
+        alive.setdefault(winner, True)
+    out = {}
+    for conf_set, conf in ((EAST, "東區"), (None, "西區")):
+        teams = [k for k in rec if (NBA_ID.get(k) in EAST) == (conf_set is not None)]
+        teams.sort(key=lambda k: (-rec[k][0] / max(1, rec[k][0] + rec[k][1]), -rec[k][2]))
+        for i, k in enumerate(teams, 1):
+            out[k] = dict(conf=conf, conf_rank=i)
+    allt = sorted(rec, key=lambda k: (-rec[k][0] / max(1, rec[k][0] + rec[k][1]), -rec[k][2]))
+    for i, k in enumerate(allt, 1):
+        n_r = rounds.get(k, 0)
+        lvl = 5 if (n_r == 4 and alive.get(k)) else n_r
+        out.setdefault(k, {}).update(w=rec[k][0], l=rec[k][1], rank=i, of=len(allt), playoff=lvl, playoff_zh=PLAYOFF_ZH.get(lvl, ""),
+                                     comp="nba", comp_zh="NBA")
+    return out

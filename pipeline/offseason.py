@@ -11,6 +11,8 @@ UTC = timezone.utc
 MAX_CALLS = 40
 REFRESH_H = 72
 MONTHS = (9, 10, 11, 12)
+# 季前展望：老球迷講的「這隊今年是什麼狀態」（爭冠、重建、誰傷癒回來）
+PREVIEW_EN = '("season preview" OR outlook OR contender OR rebuild OR "bounce back" OR "returns from injury" OR "comeback season")'
 WORDS = {
     "en": '(signs OR signed OR acquires OR acquired OR traded OR "free agent" OR offseason OR "new coach" OR roster)',
     "ja": "(加入 OR 獲得 OR 移籍 OR 契約 OR 退団 OR 新加入)",
@@ -28,6 +30,7 @@ def _queries(t, league):
     if league == "nba":
         if t.get("name"):
             out.append((t["name"], "en", ""))
+            out.append((t["name"], "en-preview", ""))
     elif league == "jpbasket":
         if t.get("jp_name"):
             out.append((t["jp_name"], "ja", ""))
@@ -71,7 +74,8 @@ def attach(games, path, log, errors, now=None):
             calls += 1
             fails = newsinj.STATS["fail"]
             try:
-                items = newsinj._query(f'"{q}"{hint} {WORDS.get(lang, WORDS["en"])} when:150d', lang)
+                words = PREVIEW_EN if lang == "en-preview" else WORDS.get(lang, WORDS["en"])
+                items = newsinj._query(f'"{q}"{hint} {words} when:{60 if lang == "en-preview" else 150}d', lang.split("-")[0])
             except Exception as e:  # noqa: BLE001
                 errors.append(f"休賽季新聞 {q} 失敗: {e!r}")
                 items = None
@@ -79,7 +83,7 @@ def attach(games, path, log, errors, now=None):
                 items = None          # 沒查到（連不上）就不存，下次再查
             if items is not None:
                 ent = dict(at=int(now.timestamp()), items=[dict(title=x.get("title"), url=x.get("url"), published=x.get("published"),
-                                                                 source=x.get("source"), lang=lang) for x in items[:30]])
+                                                                 source=x.get("source"), lang=lang.split("-")[0]) for x in items[:30]])
                 store[key] = ent
         for t in teams:
             words = team_words(t)
