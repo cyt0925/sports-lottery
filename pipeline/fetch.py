@@ -1854,6 +1854,14 @@ def process_playsport(lg, lo, hi, all_games, standings):
                 import traceback
                 ERRORS.append(f"eurobasket 球員層級失敗: {e!r}")
                 traceback.print_exc()
+        elif lg["key"] == "cba":
+            try:
+                import cba
+                cba.attach_players(near, log, ERRORS)
+            except Exception as e:  # noqa: BLE001
+                import traceback
+                ERRORS.append(f"cba 球員數據失敗: {e!r}")
+                traceback.print_exc()
         elif lg["key"] == "jpbasket":
             try:
                 from jpplayers import bleague_rosters, player_layer

@@ -45,7 +45,7 @@ def _candidates(t, cjk=False):
     cjk：CBA 的球員名字是中文（外援也是音譯，像「萨姆纳」），用整個名字比。"""
     out = {}
     for x in (t.get("stars") or []) + (t.get("hot") or []) + (t.get("injuries") or []):
-        name = x.get("player") or ""
+        name = (x.get("player_cn") if cjk else None) or x.get("player") or ""   # CBA：新聞是簡體，用簡體名字對
         if cjk:
             if len(name) >= 2 and re.search(r"[\u4e00-\u9fff]", name) and name not in out:
                 out[name] = x

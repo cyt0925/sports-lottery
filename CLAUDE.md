@@ -19,7 +19,7 @@
 ## 技術上的限制（查過了，不用再查）
 - 資料由 GitHub Actions 每小時更新，主機在美國。
 - 台灣運彩官網（www、member、blob3rd）只開放台灣的網路，Actions 讀不到；台灣盤口從玩運彩來，玩運彩沒有歐洲國內聯賽。
-- CBA：玩運彩 allianceid 94；新聞用 Google 新聞簡體中文（hl=zh-CN）。RealGM、proballers 從 Actions 會被擋（403）。
+- CBA：玩運彩 allianceid 94；戰績、球員數據用新浪體育 CBA 資料庫（cba.sports.sina.com.cn，GBK 編碼；球員數據要加「常规赛」條件）；新聞用 Google 新聞簡體中文（hl=zh-CN）。RealGM、proballers 從 Actions 會被擋（403）。
 - 歐洲國內聯賽用 TheSportsDB 免費版：問太快會被擋，一輪一輪抓、存在 `data/tsdb.json`。
 - 不抓 Flashscore；Sofascore 會擋。
 - AI 分析用 Google Gemini 免費額度，金鑰 `GEMINI_API_KEY` 放在 GitHub Secrets，只放在請求標頭。

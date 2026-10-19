@@ -267,6 +267,32 @@ def _jp(t, inj):
     return out
 
 
+def _cba(t, inj):
+    """CBA：新浪的這季名單＋例行賽場均。開季頭幾場講上季的平均；新來的說上季在哪隊。"""
+    out = []
+    for p in (t.get("cba_players") or [])[:MAX]:
+        when = "這季" if p.get("cur") else "上季"
+        eff = f"效率值 {_n(p['eff'])}" if p.get("eff") is not None else None
+        bits = _stat_bits(p.get("ppg"), p.get("rpg"), p.get("apg"), eff)
+        tag = "主力"
+        if p.get("moved") and p.get("prev_team_zh"):
+            tag = "新來的"
+            text = f"今年新來的，上季在{p['prev_team_zh']}場均 {bits}" if not p.get("cur") else f"這季場均 {bits}，今年新來的（上季在{p['prev_team_zh']}）"
+        else:
+            text = f"{when}場均 {bits}"
+            if p.get("cur") and p.get("prev_ppg") is not None and p.get("ppg") is not None and (p.get("prev_gp") or 0) >= 10:
+                d = p["ppg"] - p["prev_ppg"]
+                if d >= 4:
+                    text += f"，比上季多 {_n(d)} 分，角色變重了"
+                elif d <= -4:
+                    text += f"，比上季少 {_n(-d)} 分"
+            elif not p.get("cur") and p.get("prev_gp") is not None and p["prev_gp"] < 15 and (inj.get(name_key(p.get("player"))) or {}).get("severity") != "out":
+                tag = "回歸"
+                text += f"，上季只打了 {_n(p['prev_gp'])} 場（可能是受傷），這季回來要看狀態"
+        out.append(_item(p, text + "。", tag, inj))
+    return out
+
+
 def build(g, el_state):
     """每隊的 t["spot"]。回傳有看點的隊數。"""
     n = 0
@@ -279,6 +305,8 @@ def build(g, el_state):
             spot = _el(t, inj, el_state)
         elif g["league"] == "jpbasket":
             spot = _jp(t, inj)
+        elif g["league"] == "cba":
+            spot = _cba(t, inj)
         else:
             spot = []
         if spot:

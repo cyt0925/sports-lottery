@@ -88,3 +88,40 @@ def schedule(league_id=None):
         out.append(dict(round=_text(tds[0]), start=start, home=_text(tds[2]), away=_text(tds[4]),
                         hs=int(sc.group(1)) if sc else None, as_=int(sc.group(2)) if sc else None))
     return out
+
+
+ROUND_RS = "%B3%A3%B9%E6%C8%FC"     # 「常规赛」的 GBK 編碼：不加這個條件，球員數據表是空的
+
+
+def _f(s):
+    try:
+        return float(_text(s))
+    except ValueError:
+        return None
+
+
+def players(league_id):
+    """全聯盟球員例行賽場均 -> {球員 id: dict(name（簡體）, team（簡稱）, gp, ppg, rpg, apg, eff)}。"""
+    text = fetch(f"{BASE}/cba/stats/playerstats/?qleagueid={league_id}&qround={ROUND_RS}&qorder=pts")
+    out = {}
+    for tr in _ROW.findall(text or ""):
+        tds = _TD.findall(tr)
+        pid = re.search(r"/player/show/(\d+)/", tds[1]) if len(tds) >= 18 else None
+        if not pid:
+            continue
+        gp = _f(tds[3])
+        out[pid.group(1)] = dict(name=_text(tds[1]), team=_text(tds[2]), gp=int(gp) if gp is not None else None, ppg=_f(tds[4]),
+                                 rpg=_f(tds[8]), apg=_f(tds[11]), eff=_f(tds[17]))
+    return out
+
+
+def roster(team_id):
+    """球隊頁的這季名單 -> [(球員 id, 名字（簡體）)]。"""
+    text = fetch(f"{BASE}/cba/team/show/{team_id}/")
+    out, seen = [], set()
+    for pid, name in re.findall(r'href="[^"]*/player/show/(\d+)/"[^>]*>(.*?)</a>', text or "", re.S):
+        name = _text(name)
+        if name and pid not in seen:
+            seen.add(pid)
+            out.append((pid, name))
+    return out

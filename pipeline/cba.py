@@ -70,6 +70,9 @@ def enrich(games, log):
     log(f"[cba] 對到新聞查詢名 {n} 隊次" + (f"；沒對到：{'、'.join(sorted(x for x in miss if x))}" if miss else ""))
 
 
+STATE = {}       # 新浪的賽季代碼（attach_sina 填）
+
+
 def key_of(name):
     """玩運彩（繁體）或新浪（簡體簡稱）的隊名 -> 這隊的代表名（新聞查詢名）；認不出來就 None。"""
     name = (name or "").strip()
@@ -113,6 +116,7 @@ def attach_sina(games, log, errors, now=None):
         errors.append("cba 新浪排名表抓不到")
         return None
     prev_id = opts[1][0] if len(opts) > 1 else None
+    STATE.update(cur_id=opts[0][0] if opts else None, prev_id=prev_id)
     prev, _ = S.standings(prev_id) if prev_id else ([], [])
     sched = S.schedule()
     sched_prev = S.schedule(prev_id) if prev_id else []
@@ -138,6 +142,8 @@ def attach_sina(games, log, errors, now=None):
                         t["form_note"] = "季前賽"
                         t["streak"] = None
             r = by_cur.get(k)
+            if r:
+                t["sina_id"], t["sina_team"] = r["sina_id"], r["team"]
             if r and played:
                 t["record"] = f"{r['w']}-{r['l']}"
                 t["record_note"] = "新浪 CBA 排名表"
@@ -172,3 +178,64 @@ def attach_sina(games, log, errors, now=None):
                  w=r["w"], l=r["l"], streak=r["streak"], pos=r["pos"], rank=r["pos"], home=r["home"], away=r["away"],
                  pf=r["pf"], pa=r["pa"], diff=round(r["pf"] - r["pa"], 1)) for r in cur]
     return dict(groups=[dict(name="CBA", rows=rows)])
+
+
+def _zh(name):
+    """簡體名字轉繁體（給爸爸看）；轉換套件沒裝就照原樣。"""
+    try:
+        from opencc import OpenCC
+        if "cc" not in _CC:
+            _CC["cc"] = OpenCC("s2t")
+        return _CC["cc"].convert(name or "")
+    except Exception:  # noqa: BLE001
+        return name
+
+
+_CC = {}
+
+
+def attach_players(games, log, errors):
+    """新浪的球員數據：這季名單（球隊頁）配上這季（打 3 場以上）或上季的例行賽場均，看得出新來的（上季在哪隊）。
+    t["stars"]（前 4，傷兵新聞用簡體名字對）、t["leaders"]、t["cba_players"]（球員看點）。"""
+    import sina_cba as S
+    cur_id, prev_id = STATE.get("cur_id"), STATE.get("prev_id")
+    if not cur_id:
+        return 0
+    cur = S.players(cur_id)
+    prev = S.players(prev_id) if prev_id else {}
+    if not cur and not prev:
+        errors.append("cba 新浪球員數據抓不到")
+        return 0
+    rosters, n = {}, 0
+    for g in games:
+        for side in ("home", "away"):
+            t = g[side]
+            sid = t.get("sina_id")
+            if not sid:
+                continue
+            if sid not in rosters:
+                ro = S.roster(sid)
+                if not ro:         # 球隊頁沒名單：用數據表上這隊的人
+                    ro = [(pid, p["name"]) for pid, p in cur.items() if p["team"] == t.get("sina_team")]
+                rosters[sid] = ro
+            out = []
+            for pid, name in rosters[sid]:
+                c, pv = cur.get(pid), prev.get(pid)
+                use = c if c and (c.get("gp") or 0) >= 3 else pv if pv and (pv.get("gp") or 0) >= 5 else c
+                if not use or use.get("ppg") is None:
+                    continue
+                moved = bool(pv and pv.get("team") and t.get("sina_team") and key_of(pv["team"]) != key_of(t["sina_team"]))
+                out.append(dict(id=pid, player=_zh(name), player_cn=name, cur=use is c, gp=use.get("gp"), ppg=use.get("ppg"),
+                                rpg=use.get("rpg"), apg=use.get("apg"), eff=use.get("eff"), mpg=None,
+                                prev_ppg=(pv or {}).get("ppg"), prev_gp=(pv or {}).get("gp"),
+                                moved=moved, prev_team_zh=_zh(pv["team"]) if moved else None))
+            out.sort(key=lambda p: -(p.get("ppg") or 0))
+            if not out:
+                continue
+            t["cba_players"] = out[:6]
+            t["stars"] = [dict(p, season=p["ppg"]) for p in out[:4]]
+            t["leaders"] = [dict(id=p["id"], player=p["player"], headshot=None, position=None, stat="PTS", value=str(p["ppg"])) for p in out[:3]]
+            n += 1
+    log(f"[cba] 新浪球員數據：這季 {len(cur)} 人、上季 {len(prev)} 人；{len(rosters)} 隊有名單，{n} 隊次挑出主力"
+        + (f"，例：{games[0]['home'].get('cba_players', [{}])[0]}" if games and games[0]["home"].get("cba_players") else ""))
+    return n
