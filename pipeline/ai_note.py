@@ -79,6 +79,16 @@ def facts(g, sport):
             rec[n] = "，".join(bits)
     if rec:
         f["戰績"] = rec
+    pv = ((a.get("bg") or {}).get("prev")) or {}
+    last = {}
+    for side, n in (("home", hn), ("away", an)):
+        p = pv.get(side)
+        if p and p.get("absent"):
+            last[n] = f"上季{p['comp_zh']}的資料裡沒有這隊（可能剛升上來）"
+        elif p:
+            last[n] = f"上季{'例行賽' if p['comp'] == 'nba' else p['comp_zh']}{('前 ' + str(p['partial']) + ' 輪') if p.get('partial') else ''} {p['w']} 勝 {p['l']} 敗，{p['of']} 隊裡排第 {p['rank']}"
+    if last:
+        f["上季"] = last
     form = {n: _form_text(t) for t, n in ((H, hn), (A, an)) if _form_text(t)}
     if form:
         f["最近比賽"] = form
@@ -122,6 +132,8 @@ def facts(g, sport):
     hl = a.get("h2h_long") or {}
     if hl.get("n"):
         f["交手"] = f"近 {hl['n']} 次交手，{hn} {hl.get('w')} 勝 {hl.get('l')} 敗，平均{'贏' if (hl.get('avg_margin') or 0) >= 0 else '輸'} {abs(hl.get('avg_margin') or 0):.0f} 分" + ("（剋星）" if hl.get("jinx") else "")
+        if hl.get("games"):
+            f["交手每場"] = [f"{x.get('date')} {x.get('season', '')}{x.get('comp', '')}，{hn}{'主場' if x.get('home') else '作客'} {x.get('pf')}:{x.get('pa')}" for x in hl["games"]]
     st_ = a.get("style") or {}
     if st_.get("lines"):
         f["打法對位"] = st_["lines"][:3]

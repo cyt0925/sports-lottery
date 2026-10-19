@@ -164,8 +164,10 @@ class EuroLeague:
                 for c in ((g.get("local") or {}).get("club") or {}, (g.get("road") or {}).get("club") or {}):
                     if c.get("code") and c["code"] not in self.clubs:
                         self.prev_names[c["code"]] = c.get("name") or c["code"]
+                phase = str(g.get("phaseType") or g.get("roundName") or "")
                 out.append(dict(comp=comp, home=hc, away=ac, hs=int(hs), as_=int(as_), start=st,
-                                neutral=bool(re.search(r"final four|championship game|third place", str(g.get("phaseType") or g.get("roundName") or ""), re.I))))
+                                neutral=bool(re.search(r"final four|championship game|third place", phase, re.I)),
+                                rs=not re.search(r"play.?off|play.?in|final|championship|third place|quarter|semi", phase, re.I)))
             time.sleep(0.3)
         return out
 

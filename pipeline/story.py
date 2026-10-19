@@ -62,6 +62,120 @@ def _dense_line(rest, hn, an, league):
     return f"{tired}前 7 天已經打了 {n} 場，比{fresh}多，後段體力比較吃虧。"
 
 
+def _rec(t):
+    """這季戰績 (勝, 敗)；沒有就 None。"""
+    try:
+        w, l = [int(x) for x in str(t.get("record") or "").split("-")[:2]]
+        return w, l
+    except ValueError:
+        return None
+
+
+def _prev_one(p, name, first=True):
+    if p.get("absent"):
+        return f"上季{p['comp_zh']}的資料裡沒有{name}（可能剛升上來）"
+    head = ("上季" if p["comp"] == "nba" else f"上季{p['comp_zh']}") if first else ""
+    part = f"前 {p['partial']} 輪" if p.get("partial") and first else ""
+    rk = f"排聯盟第 {p['rank']}" if p["comp"] == "nba" else f"排第 {p['rank']}"
+    return f"{name}{head}{part} {p['w']} 勝 {p['l']} 敗、{rk}".strip()
+
+
+def bg_lines(g, hn, an):
+    """比賽的背景，用具體的事講（上季打得怎樣、這季開季怎樣、主場、交手）。每句都是完整的一句話。"""
+    a = g.get("analysis") or {}
+    H, A = g["home"], g["away"]
+    pv = (a.get("bg") or {}).get("prev") or {}
+    ph, pa = pv.get("home"), pv.get("away")
+    out = []
+    # 上季
+    if ph and pa and not ph.get("absent") and not pa.get("absent"):
+        (b, bn), (w, wn) = sorted(((ph, hn), (pa, an)), key=lambda x: x[0]["rank"])
+        gap = w["rank"] - b["rank"]
+        if gap <= 2:
+            out.append(f"兩隊上季差不多：{_prev_one(b, bn)}，{_prev_one(w, wn, False)}。")
+        else:
+            out.append(f"{_prev_one(b, bn)}，{wn}{'才' if gap >= 5 else ''} {_prev_one(w, '', False)}。")
+    else:
+        lines = [_prev_one(p, nm) for p, nm in ((ph, hn), (pa, an)) if p]
+        if lines:
+            out.append("，".join(lines) + "。")
+    # 這季開季（跟上季比）
+    rh, ra = _rec(H), _rec(A)
+    if rh and ra and sum(rh) + sum(ra) > 0:
+        gp = max(sum(rh), sum(ra))
+        when = "開季" if gp <= 8 else "這季"
+        bits = []
+        same = rh == ra
+        for (w_, l_), t, nm, p in ((rh, H, hn, ph), (ra, A, an, pa)):
+            if not w_ + l_:
+                continue
+            txt = f"{nm} {w_} 勝 {l_} 敗"
+            if p and not p.get("absent") and w_ + l_ >= 3:
+                now_pct, then_pct = w_ / (w_ + l_), p["w"] / max(1, p["w"] + p["l"])
+                if now_pct - then_pct >= 0.25:
+                    txt += "，比上季好"
+                elif then_pct - now_pct >= 0.25:
+                    txt += "，沒有上季好"
+            bits.append(txt)
+        if same and not any("上季" in b for b in bits):
+            out.append(f"{when}兩隊都是 {rh[0]} 勝 {rh[1]} 敗。")
+        elif bits:
+            out.append(f"{when}" + "，".join(bits) + "。")
+    # 主場
+    e = a.get("elo") or {}
+    if not g.get("neutral") and e.get("off_home") is not None and (e.get("nt_home") or 0) >= 15:
+        if e["off_home"] >= 1.5:
+            out.append(f"{hn}的主場特別難打，比一般球隊的主場多值 {e['off_home']:.0f} 分左右。")
+        elif e["off_home"] <= -1.5:
+            out.append(f"{hn}在自己主場沒什麼優勢，主場比一般球隊少 {abs(e['off_home']):.0f} 分左右。")
+    # 交手（沒有剋星的時候，簡單講一下碰過幾次）
+    hl = a.get("h2h_long") or {}
+    if hl.get("n") and not hl.get("jinx"):
+        if hl["n"] == 1:
+            x = (hl.get("games") or [{}])[-1]
+            if x.get("pf") is not None:
+                who = hn if x["margin"] > 0 else an
+                comp = x.get("comp") or ""
+                out.append(f"兩隊近兩季只碰過一次（{x.get('season', '')}{(' ' + comp) if comp.isascii() else comp}），{who}贏 {abs(x['margin'])} 分。")
+        elif hl["w"] != hl["l"]:
+            more = hn if hl["w"] > hl["l"] else an
+            out.append(f"近兩季碰過 {hl['n']} 次，{more}贏 {max(hl['w'], hl['l'])} 次。")
+        else:
+            out.append(f"近兩季碰過 {hl['n']} 次，各贏 {hl['w']} 次。")
+    return out
+
+
+def sum_line(g, hn, an):
+    """把我們的計算講成一句話：誰實力強幾分、主場值幾分、其他加減，算下來誰有利。"""
+    s = g.get("suggestion") or {}
+    est = s.get("est") or {}
+    fs = [f for f in s.get("factors") or [] if f.get("key") == "base" or (f.get("team") and f.get("pts"))]
+    if est.get("p_home") is None or not fs:
+        return None
+    fav = hn if est["p_home"] >= 0.5 else an
+    p = max(est["p_home"], 1 - est["p_home"])
+    bits = []
+    for f in fs[:4]:
+        k, v, t = f.get("key"), f.get("pts") or 0, f.get("team")
+        if k == "base":
+            bits.append(f"實力{t}強大概 {_r(v) or 1} 分" if t and v >= 0.5 else "實力兩隊差不多")
+        elif k == "hca":
+            bits.append(f"{t}在主場大概值 {_r(v) or 1} 分")
+        elif v >= 0.5:
+            bits.append(f"{FACTOR_TALK.get(k, f.get('label') or '其他')}{t}多 {_r(v) or 1} 分")
+    if not bits:
+        return None
+    m = est.get("margin")
+    by = f"，大概贏 {_r(m)} 分" if m is not None and abs(m) >= 1 else ""
+    how = "稍微有利" if p < 0.58 else "比較有利" if p < 0.7 else "贏面大"
+    return f"我們的算法：{'，'.join(bits)}；加起來{fav}{how}（大概{_cheng(p)}會贏{by}）。"
+
+
+# 計算裡每個因素用聊天的講法
+FACTOR_TALK = {"rest": "體力", "form": "最近狀況", "h2h": "交手", "hot": "主力手感", "motive": "戰意", "news": "場外消息", "derby": "德比",
+               "notes": "傷兵", "injury": "傷兵", "inj": "傷兵"}
+
+
 def _fan_take(g, sport, hn, an, pick, used):
     """老球迷怎麼看：挑這場最關鍵的一兩件事，用聊天的口氣講。"""
     H, A = g["home"], g["away"]
@@ -156,11 +270,22 @@ def _fan_take(g, sport, hn, an, pick, used):
     if not out and r and not r.get("weak") and abs(r.get("our_spread") or 0) >= 10:
         fav = hn if (r.get("our_spread") or 0) < 0 else an
         out.append(f"兩隊實力差很多，{fav}贏面大，但這種比賽要擔心的不是輸贏，是讓分讓太深、後段換替補被追分。")
+    # 8) 沒有特別的變數：講背景（上季、開季、主場、交手），再講算下來誰有利
+    if len(out) < 2:
+        for line in bg_lines(g, hn, an):
+            if len(out) >= 2:
+                break
+            if line not in out:
+                out.append(line)
+    if len(out) < 2:
+        sl = sum_line(g, hn, an)
+        if sl:
+            out.append(sl.replace("我們的算法：", "算下來，"))
     if not out:
         if pick in ("home", "away"):
-            out.append(f"沒什麼特別的變數，照實力看{hn if pick == 'home' else an}比較穩。")
+            out.append(f"兩隊資料還不多，照實力看{hn if pick == 'home' else an}稍微好一點，開賽前再看傷兵消息。")
         elif g["status"]["state"] == "pre":
-            out.append("兩隊實力接近，也沒什麼特別消息，這種比賽最難猜，看看就好。")
+            out.append("兩隊實力接近、資料也不多，這種比賽最難猜，看看就好。")
     return " ".join(out[:2])
 
 

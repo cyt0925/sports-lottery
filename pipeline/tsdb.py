@@ -240,6 +240,16 @@ class TSDB:
         out.sort(key=lambda x: x[2][1])
         return out
 
+    def progress(self, season):
+        """{聯賽 key: (抓完了沒, 抓到第幾輪)}：上季還在慢慢補的時候，講上季戰績要說「前幾輪」。"""
+        out = {}
+        for lid, L in self.data["leagues"].items():
+            meta = self.league_meta(lid)
+            S = (L.get("seasons") or {}).get(season) or {}
+            if meta and S.get("rounds"):
+                out[meta["key"]] = (bool(S.get("done")), max(int(r) for r in S["rounds"]))
+        return out
+
     def team(self, tid):
         nm, badge = self.data["teams"].get(tid) or [None, None]
         return nm or tid, badge

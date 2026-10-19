@@ -2092,6 +2092,11 @@ def nba_elo(all_games, path):
         return
     now = datetime.now(timezone.utc)
     st, sc, base_sc = elo.tune(games, {"nba": 2.8}, 2.8, since_ts=(now - timedelta(days=400)).timestamp())
+    import background
+    # 上季戰績只算例行賽（一季 1230 場，之後是附加賽、季後賽）
+    for i, x in enumerate([x for x in games if x["season"] == 0]):
+        x["rs"] = i < 1230
+    T = background.tables(games)
     n = 0
     for g in all_games:
         if g["league"] != "nba" or g["status"]["state"] == "post" or g.get("season_type") not in (2, 3, 5):
@@ -2099,6 +2104,7 @@ def nba_elo(all_games, path):
         hid, aid = str(g["home"].get("id") or ""), str(g["away"].get("id") or "")
         if hid in st["R"] and aid in st["R"]:
             g.setdefault("analysis", {})["elo"] = elo.predict(st, hid, aid, "nba", 2.8, neutral=bool(g.get("neutral")))
+            background.attach(g, T, games, None, hid, aid, "nba")     # 上季戰績（交手 espn_matchups 已經有了）
             n += 1
     P = st["params"]
     offs = sorted(((v, k) for k, v in st["OFF"].items()), reverse=True)
@@ -2126,7 +2132,7 @@ def euro_elo(all_games):
     games = []
     if el:
         for g in el.prev_games():
-            games.append(dict(ts=g["start"].timestamp(), h="el:" + g["home"], a="el:" + g["away"], hs=g["hs"], as_=g["as_"], comp=g["comp"], season=0, neutral=g["neutral"]))
+            games.append(dict(ts=g["start"].timestamp(), h="el:" + g["home"], a="el:" + g["away"], hs=g["hs"], as_=g["as_"], comp=g["comp"], season=0, neutral=g["neutral"], rs=g.get("rs", True)))
         for g in el.games:
             if g["played"] and g["start"] and g["hs"] is not None and g["as_"] is not None:
                 games.append(dict(ts=g["start"].timestamp(), h="el:" + g["home"], a="el:" + g["away"], hs=int(g["hs"]), as_=int(g["as_"]), comp=g["comp"], season=1))
@@ -2158,7 +2164,10 @@ def euro_elo(all_games):
             dom = [c for c in cs if c not in ("E", "U")]
             prior[k] = elo.LEAGUE_PRIOR.get(dom[0], -8.0) if dom else -6.0
     st, sc, base_sc = elo.tune(games, hca0, 3.0, since_ts=(now - timedelta(days=400)).timestamp(), prior=prior)
-    n = 0
+    import background
+    T = background.tables(games)
+    part = {k: (None if done else mx) for k, (done, mx) in (td.progress(prev) if td else {}).items()}
+    n = n_h = 0
     for g in all_games:
         if g["league"] not in ("eurobasket", "eurodom") or g["status"]["state"] == "post":
             continue
@@ -2174,9 +2183,10 @@ def euro_elo(all_games):
         if p:
             g.setdefault("analysis", {})["elo"] = p
             n += 1
+        n_h += background.attach(g, T, games, st["preds"], kh, ka, comp, part.get(comp))
     P = st["params"]
     offs = sorted(((v, k) for k, v in st["OFF"].items()), reverse=True)
-    log(f"[歐籃] 逐場實力分：{len(games)} 場比賽、{len(st['R'])} 隊（歐戰跟國內賽對到 {len(link)} 隊），用在 {n} 場；"
+    log(f"[歐籃] 逐場實力分：{len(games)} 場比賽、{len(st['R'])} 隊（歐戰跟國內賽對到 {len(link)} 隊），用在 {n} 場，{n_h} 場有交手紀錄；"
         f"挑的參數 K={P['k']} 開季加 {P['k0']} 上季打 {P['regress']} 折；"
         f"最近一年預測 {sc}（預設參數 {base_sc}）；主場值幾分 {dict((k, round(v, 1)) for k, v in st['HC'].items())}；"
         f"主場特別兇 {[(k, round(v, 1)) for v, k in offs[:5]]}")
