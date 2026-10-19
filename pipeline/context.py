@@ -49,13 +49,27 @@ def _ts(s):
         return None
 
 
-def team_signals(items, now=None):
-    """新聞列表 -> [dict(kind, zh, title, url, published)]，每種只留最新一則。"""
+def must_words(name):
+    """標題裡一定要出現的隊名字（避免「土耳其足球國家隊換教練」被當成艾菲斯換教練）。"""
+    from eurodom_names import lookup
+    _zh, _q, kw = lookup(name or "")
+    if kw:
+        return [kw]
+    generic = {"basketball", "baloncesto", "basket", "basketbol", "club", "team", "the", "bc", "kk", "bk", "fc"}
+    words = [w for w in re.findall(r"\w+", name or "") if w.lower() not in generic]
+    return [words[-1]] if words else []
+
+
+def team_signals(items, now=None, must=None):
+    """新聞列表 -> [dict(kind, zh, title, url, published)]，每種只留最新一則。must：標題一定要有其中一個字。"""
     now = now or datetime.now(UTC)
     out = {}
+    must = [m.lower() for m in (must or []) if m]
     for it in items or []:
         title = " ".join(x for x in (it.get("title"), it.get("desc")) if x)
         if not title or NOT.search(title):
+            continue
+        if must and not any(m in title.lower() for m in must):
             continue
         pub = _ts(it.get("published"))
         for k, spec in KINDS.items():

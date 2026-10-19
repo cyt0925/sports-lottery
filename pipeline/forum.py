@@ -25,16 +25,21 @@ def fetch_posts(log, now=None):
     now = now or datetime.now(TW)
     url = f"{BASE}/bbs/NBA/index.html"
     posts = []
+    pages = raw = 0
     for _ in range(PAGES):
         html = fetch(url)
         if not html:
+            if not pages:
+                log(f"論壇：PTT 讀不到（{url}）")
             break
+        pages += 1
         soup = BeautifulSoup(html, "html.parser")
         for ent in soup.select("div.r-ent"):
             a = ent.select_one("div.title a")
             if not a:
                 continue
             title = a.get_text(strip=True)
+            raw += 1
             if not KEEP.search(title):
                 continue
             nrec_el, date_el = ent.select_one("div.nrec"), ent.select_one("div.date")
@@ -48,8 +53,9 @@ def fetch_posts(log, now=None):
         time.sleep(0.4)
     # 只留兩天內（PTT 列表只有月/日）
     keep_days = {(now - timedelta(days=i)).strftime("%-m/%d") for i in range(3)}
+    n_all = len(posts)
     posts = [p for p in posts if p["date"].strip() in keep_days]
-    log(f"論壇：PTT NBA 板最近的情報、新聞 {len(posts)} 篇")
+    log(f"論壇：PTT NBA 板讀了 {pages} 頁、{raw} 篇，情報新聞 {n_all} 篇，最近兩天 {len(posts)} 篇")
     return posts
 
 

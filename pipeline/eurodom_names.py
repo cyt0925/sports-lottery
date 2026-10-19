@@ -184,6 +184,13 @@ TEAMS = [
     (("sc derby", "derby"), "德比", "SC Derby Podgorica"),
     (("studentski",), "斯圖登茨基", "Studentski centar"),
     (("vienna", "wien"), "維也納", "BC Vienna"),
+    # 其他常在歐盃、籃球冠軍聯賽出現的
+    (("balkan",), "巴爾幹", "Balkan Botevgrad"),
+    (("slask", "wroclaw"), "弗羅茨瓦夫", "Slask Wroclaw"),
+    (("london lions", "london"), "倫敦獅", "London Lions"),
+    (("prometey",), "普羅米修斯", "Prometey basketball"),
+    (("riga", "vef"), "里加", "VEF Riga"),
+    (("sofia", "levski"), "索菲亞", "Levski Sofia basketball"),
 ]
 
 LEAGUE_HINT = {

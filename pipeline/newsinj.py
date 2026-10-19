@@ -160,7 +160,7 @@ def attach(games, name_fn, log, errors, label, hint=None):
                     inj = injury_news(name, lang, hint=hint)
                     tn = team_news(name, lang, hint=hint)
                     import context
-                    sig = context.team_signals(signal_news(name, lang, hint=hint) + tn)
+                    sig = context.team_signals(signal_news(name, lang, hint=hint) + tn, must=context.must_words(name) if lang == "en" else [name])
                 except Exception as e:  # noqa: BLE001
                     errors.append(f"{label} 新聞 {name} 失敗: {e!r}")
                     inj, tn = [], []

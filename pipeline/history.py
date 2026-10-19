@@ -436,7 +436,7 @@ def summarize(hist, now=None, days=30):
     recent = sorted(settled, key=lambda e: (e["day_tw"], e["time_tw"]), reverse=True)[:30]
     from collections import Counter
     from model import FACTOR_ZH
-    rv = [e["review"] for e in settled if e.get("review")]
+    rv = [e["review"] for e in settled if e.get("review") and (e.get("chip") or "") not in ("soccer", "hockey", "football")]
     kinds = Counter(r["kind"] for r in rv)
     blame = Counter(r.get("factor") for r in rv if r.get("factor"))
     reviews = dict(n=len(rv), kinds=[dict(kind=k, label=REVIEW_ZH.get(k, k), n=n) for k, n in kinds.most_common()],

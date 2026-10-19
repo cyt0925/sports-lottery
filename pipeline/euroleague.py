@@ -357,7 +357,8 @@ class EuroLeague:
             teams = {}
             for side, code in (("home", og["home"]), ("away", og["away"])):
                 club = self.clubs.get(code) or {}
-                zh = self.zh.get(code) or _zh_static(club.get("norm", "")) or club.get("abbr") or code
+                from eurodom_names import lookup
+                zh = self.zh.get(code) or _zh_static(club.get("norm", "")) or lookup(club.get("name") or "")[0] or club.get("abbr") or code
                 t = _blank_team(zh, code, "el")
                 t.update(id=f"el-{code}", el_code=code, name=club.get("name") or code, short=club.get("abbr") or code, name_zh=zh,
                          abbr=code, logo=club.get("crest"), en_key=query_name(club.get("norm", ""), club.get("abbr") or club.get("editorial")))
