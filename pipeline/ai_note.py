@@ -98,6 +98,8 @@ def facts(g, sport):
     f = {"聯盟": g.get("league_zh"), "開打": f"{g.get('day_tw')} {g.get('time_tw')}（台灣時間）", "主隊": hn, "客隊": an}
     if g.get("season_type") == 1:
         f["注意"] = "這是季前賽，主力常輪休、打不久"
+    if g.get("league") == "cba":
+        f["寫法提醒"] = "CBA 的外援照資料裡的中文名字寫（例如「泰茲·摩爾」「雷瓊·塔克」），不要寫成英文名"
     rec = {}
     for t, n in ((H, hn), (A, an)):
         bits = [x for x in (t.get("record"), t.get("rank_note")) if x]
@@ -421,6 +423,29 @@ S2T = str.maketrans("难气这个们场战队赛胜败进还么对时会说让�
                     "難氣這個們場戰隊賽勝敗進還麼對時會說讓過為從來關於與應該現狀態實際樣點線級經驗頭號優勢強結單雙換補傷養輪練員聯東區習慣順風運動遠連輸贏擊籃罰幫節調壓紀錄穩預測認觀眾見覺機兩體況積極絕斷繼續適爭顯雖給別開門問題間長張帶領導將專業廣島鳥鸛擋檔擺爛歸釋讀寫盡慮擔憂後發")
 
 
+def to_trad(text):
+    """AI 的文字轉繁體：常見的簡體字照上面的表換；其他繁體字集（Big5）裡沒有的字（像「龙」「罗」），一個字一個字轉。
+    整段丟給轉換套件會把「台」改成「臺」、「公里」的「里」改成「裡」，所以只轉 Big5 裡沒有的字。"""
+    text = (text or "").translate(S2T)
+    try:
+        from opencc import OpenCC
+        cc = _CC.get("cc") or _CC.setdefault("cc", OpenCC("s2tw"))
+    except Exception:  # noqa: BLE001
+        return text
+    out = []
+    for ch in text:
+        if "\u4e00" <= ch <= "\u9fff":
+            try:
+                ch.encode("cp950")
+            except UnicodeEncodeError:
+                ch = cc.convert(ch)
+        out.append(ch)
+    return "".join(out)
+
+
+_CC = {}
+
+
 def parse(text, hn, an):
     """第一行「看好：隊名（幾成）」→ (lean, p, 其餘內文)。"""
     lines = [x.strip() for x in text.strip().splitlines() if x.strip()]
@@ -531,7 +556,7 @@ def run(games, path, now, main_chips, log, errors, deadline=None):
             n_cache += 1
         nt = notes.get(gid)
         if nt and nt.get("text"):
-            g["ai"] = dict(text=nt["text"].translate(S2T), lean=nt.get("lean"), p=nt.get("p"), at=nt.get("at"), model=nt.get("model"),
+            g["ai"] = dict(text=to_trad(nt["text"]), lean=nt.get("lean"), p=nt.get("p"), at=nt.get("at"), model=nt.get("model"),
                            previews=nt.get("previews") or [])
         g.pop("_previews", None)
     usage[today] = used_today
