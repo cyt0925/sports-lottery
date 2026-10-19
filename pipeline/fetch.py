@@ -1338,6 +1338,11 @@ def main():
     except Exception as e:  # noqa: BLE001
         ERRORS.append(f"讀新聞失敗: {e!r}")
     try:
+        import offseason
+        offseason.attach(all_games, os.path.join(os.path.dirname(os.path.abspath(args.out)), "offseason.json"), log, ERRORS)   # 休賽季補了誰（新聞）
+    except Exception as e:  # noqa: BLE001
+        ERRORS.append(f"休賽季新聞失敗: {e!r}")
+    try:
         nba_elo(all_games, os.path.join(os.path.dirname(os.path.abspath(args.out)), "espn_games.json"))
     except Exception as e:  # noqa: BLE001
         import traceback
@@ -1749,9 +1754,19 @@ def process_playsport(lg, lo, hi, all_games, standings):
                 from players import fetch_el_players, el_player_layer
                 from euroleague import season_code
                 from taiwan_odds import fetch as _fetch
-                rosters = {}
+                rosters, prev_rosters = {}, {}
                 for comp in ("E", "U"):
                     rosters.update(fetch_el_players(comp, season_code(comp), _fetch, log, ERRORS))
+                    sc = season_code(comp)
+                    for code, lst in fetch_el_players(comp, f"{comp}{int(sc[1:]) - 1}", _fetch, log, ERRORS).items():
+                        prev_rosters.setdefault(code, []).extend(lst)
+                # 這季陣容跟上季比：補了誰、少了誰、有沒有人碰老東家
+                try:
+                    import roster as R
+                    EL_STATE["moves"] = R.el_moves(rosters, prev_rosters)
+                    R.attach(near, EL_STATE["moves"], (EL_STATE["el"].zh_name if EL_STATE.get("el") else (lambda c: c)), log)
+                except Exception as e:  # noqa: BLE001
+                    ERRORS.append(f"eurobasket 陣容變化失敗: {e!r}")
                 try:
                     from elreport import fetch_reports
                     articles = fetch_reports(log, ERRORS)
@@ -2049,6 +2064,12 @@ def process_tsdb(lg, lo, hi, all_games, standings):
                            local_fn=_local_news_name)
         except Exception as e:  # noqa: BLE001
             ERRORS.append(f"{lg['key']} 新聞失敗: {e!r}")
+        if EL_STATE.get("moves"):
+            try:
+                import roster as R
+                R.attach(near, EL_STATE["moves"], EL_STATE["el"].zh_name if EL_STATE.get("el") else (lambda c: c), log)   # 有打歐戰的球隊：這季補了誰
+            except Exception as e:  # noqa: BLE001
+                ERRORS.append(f"{lg['key']} 陣容變化失敗: {e!r}")
         if EL_STATE.get("box"):
             try:
                 import elbox

@@ -29,7 +29,7 @@ MIN_GAP_H = 2          # 事實有變，至少隔 2 小時才重寫
 MIN_GAP_SOON_H = 1     # 6 小時內就要開打：傷兵名單常常臨時更新，隔 1 小時就可以重寫
 MAX_AGE_H = 12         # 事實沒變，超過 12 小時也重寫一次（新聞會變）
 SOON_REFRESH = (4, 3)  # 4 小時內開打、分析已經寫了 3 小時以上：開打前再寫一次最新的
-PROMPT_VER = 6         # 寫法改了就加一：舊的分析不用等 2 小時，馬上重寫
+PROMPT_VER = 7         # 寫法改了就加一：舊的分析不用等 2 小時，馬上重寫
 GAP_S = 7.0            # 每分鐘最多 8～9 次，免費額度比較安全
 KEEP_DAYS = 45
 
@@ -48,6 +48,11 @@ SYSTEM = """你是一位什麼運動都看、很會分析的台灣老球迷，�
 7. 你的看法可以跟網站的計算不同，不同的話要說為什麼。
    「背靠背」只用在資料寫「背靠背第二場」（連兩天出賽）；休 1 天以上就不是背靠背。
    標明「季前賽」的戰績不能當成近況或手感（季前賽主力打不多），最多提一句。
+9. 要像老球迷講「體感」，不要只念數字：先講這隊今年變怎樣（補了誰、少了誰、換了教練、打法會不會變），
+   新人跟球隊合不合、少了誰會缺什麼（得分、禁區、防守、控球），數據放後面當佐證。
+   也要想球員的心態：季前賽輸贏不重要、主力打不多、教練在試陣容；開季頭幾場新陣容還在磨合；開幕戰、碰老東家、
+   連輸想止敗、德比、全國轉播通常比較認真；背靠背、排名已定、季末沒希望的隊可能不會太拚。
+   這些都要根據資料（「這季陣容」「休賽季動態」「心理和情勢」、新聞），資料沒有的不要編；是推測就說「應該」「可能」。
 8. 讀者是不會去點新聞、也看不懂外文的長輩。資料裡的新聞標題可能是英文、日文、希伯來文、希臘文、土耳其文、西班牙文等，
    請你讀懂，把有用的消息（誰受傷、誰回來、換教練、欠薪、隊內問題、這場對誰特別重要）直接用中文寫進分析，
    可以說「以色列媒體說…」「外電說…」。不要貼原文標題、不要叫讀者去看新聞。
@@ -215,6 +220,50 @@ def facts(g, sport):
         if s.get("summary"):
             calc["網站的建議"] = s["summary"]
         f["網站的計算"] = calc
+    # 這季陣容（歐戰官方名單比對）、休賽季動態（新聞）
+    mv, off = {}, {}
+    for t, n in ((H, hn), (A, an)):
+        m = t.get("moves")
+        if m:
+            arr = "、".join(x["player"] + (f"（上季在{x['frm_zh']}，場均 {x['ppg_prev']:.0f} 分）" if x.get("frm_zh") and x.get("ppg_prev") is not None else "（新來的）")
+                           for x in m.get("arrived", [])[:5])
+            lft = "、".join(f"{x['player']}（上季場均 {x['ppg_prev']:.0f} 分{('，去了' + x['to_zh']) if x.get('to_zh') else ''}）"
+                           for x in m.get("left", [])[:5] if x.get("ppg_prev") is not None)
+            mv[n] = "；".join(x for x in ((f"新來：{arr}" if arr else ""), (f"走了：{lft}" if lft else "")) if x)
+        if t.get("offseason"):
+            off[n] = [f"[{media_of(x)}{(' ' + str(x.get('published'))[:10]) if x.get('published') else ''}] {x['title'][:140]}" for x in t["offseason"][:6]]
+    if mv:
+        f["這季陣容（官方名單比對）"] = mv
+    if off:
+        f["休賽季動態（新聞：簽約、交易、轉會，請讀懂後寫成補了誰、少了誰）"] = off
+    # 心理和情勢（老球迷會想的）
+    psy = []
+    stype = g.get("season_type")
+    if stype == 1:
+        psy.append("這是季前賽：輸贏不重要，主力打不多，教練在試陣容、給年輕人機會")
+    for t, n in ((H, hn), (A, an)):
+        try:
+            w_, l_ = [int(x) for x in str(t.get("record") or "").split("-")[:2]]
+        except ValueError:
+            w_ = l_ = None
+        if stype != 1 and w_ is not None:
+            if w_ + l_ == 0:
+                psy.append(f"{n}這季第一場正式比賽（開幕戰）")
+            elif w_ + l_ <= 5:
+                psy.append(f"{n}開季才打 {w_ + l_} 場，新陣容還在磨合")
+        sk = "" if (t.get("form_note") == "季前賽" and stype != 1) else str(t.get("streak") or "")   # 季前賽的連勝連敗不算
+        if sk.startswith("連敗") and sk[2:].isdigit() and int(sk[2:]) >= 3:
+            psy.append(f"{n}連輸 {sk[2:]} 場，會想止敗")
+        elif sk.startswith("連勝") and sk[2:].isdigit() and int(sk[2:]) >= 5:
+            psy.append(f"{n}連贏 {sk[2:]} 場，氣勢正旺，但也容易鬆懈")
+    for side, n, on in (("home", hn, an), ("away", an, hn)):
+        rv = (a.get("revenge") or {}).get(side)
+        if rv:
+            psy.append(f"{n}的 {'、'.join(rv)} 上季在{on}，這場碰老東家")
+    if g.get("league") == "nba" and re.search(r"\b(ESPN|ABC|TNT|NBC|Prime|Peacock)\b", str(g.get("broadcast") or "")):
+        psy.append("全國轉播的比賽，大牌球員通常比較認真")
+    if psy:
+        f["心理和情勢"] = psy
     tw = g.get("tw") or {}
     ml, sp, tt = tw.get("ml") or {}, tw.get("spread") or {}, tw.get("total") or {}
     twd = {}

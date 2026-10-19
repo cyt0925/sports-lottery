@@ -147,6 +147,14 @@ class EuroLeague:
         for code, rows in self.results.items():
             rows.sort(key=lambda r: r["ts"])
 
+    def zh_name(self, code):
+        """隊伍代碼 -> 中文名（今天配到的玩運彩名 → 固定對照 → 國內聯賽對照 → 英文名）。上季的隊也查得到。"""
+        from eurodom_names import lookup
+        club = self.clubs.get(code) or {}
+        name = club.get("name") or self.prev_names.get(code) or code
+        norm = club.get("norm") or _norm_en(name)
+        return self.zh.get(code) or _zh_static(norm) or lookup(name)[0] or name
+
     def prev_games(self):
         """上一季歐冠、歐盃打完的比賽（給逐場實力分當底子）：[dict(comp, home, away, hs, as_, start)]。"""
         out = []

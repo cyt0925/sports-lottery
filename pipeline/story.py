@@ -87,6 +87,31 @@ def _prev_one(p, name, first=True):
     return f"{name}{head}{part} {p['w']} 勝 {p['l']} 敗、{rk}".strip()
 
 
+def moves_line(t, name):
+    """「艾菲斯今年補了 A（上季在巴塞隆納，場均 12 分）、B，少了 C（上季場均 15 分）。」新面孔多就提醒還在磨合。"""
+    m = t.get("moves") or {}
+    arr = [x for x in m.get("arrived") or [] if (x.get("ppg_prev") or x.get("ppg") or 0) >= 6][:2]
+    lft = [x for x in m.get("left") or [] if (x.get("ppg_prev") or 0) >= 8][:2]
+    if not arr and not lft:
+        return None
+    def who(x, prev=True):
+        nm = _last(x["player"])
+        if prev and x.get("frm_zh") and x.get("ppg_prev") is not None:
+            return f"{nm}（上季在{x['frm_zh']}，場均 {x['ppg_prev']:.0f} 分）"
+        if not prev and x.get("ppg_prev") is not None:
+            return f"{nm}（上季場均 {x['ppg_prev']:.0f} 分）"
+        return nm
+    bits = []
+    if arr:
+        bits.append("今年補了 " + "、".join(who(x) for x in arr))
+    if lft:
+        bits.append("少了 " + "、".join(who(x, False) for x in lft))
+    line = f"{name}{'，'.join(bits)}。"
+    if len(m.get("arrived") or []) >= 4:
+        line += "新面孔不少，開季還在磨合。"
+    return line
+
+
 def bg_lines(g, hn, an):
     """比賽的背景，用具體的事講（上季打得怎樣、這季開季怎樣、主場、交手）。每句都是完整的一句話。"""
     a = g.get("analysis") or {}
@@ -106,8 +131,15 @@ def bg_lines(g, hn, an):
         lines = [_prev_one(p, nm) for p, nm in ((ph, hn), (pa, an)) if p]
         if lines:
             out.append("，".join(lines) + "。")
+    # 這季補了誰、少了誰（歐戰官方名單比對）
+    for t, name in ((H, hn), (A, an)):
+        line = moves_line(t, name)
+        if line:
+            out.append(line)
     # 這季開季（跟上季比）
     rh, ra = _rec(H), _rec(A)
+    if g.get("season_type") != 1 and rh == (0, 0) and ra == (0, 0) and g["status"]["state"] == "pre":
+        out.append("這是兩隊新球季第一場正式比賽，陣容都還在磨合，上季的實力要打點折扣看。")
     if rh and ra and sum(rh) + sum(ra) > 0:
         gp = max(sum(rh), sum(ra))
         when = "開季" if gp <= 8 else "這季"
@@ -654,7 +686,9 @@ def build_story(g, sport):
     if out_.get("espn") and est.get("p_home") is not None and g["status"]["state"] != "post":
         ep = out_["espn"]["home"]
         efav = hn if ep >= 0.5 else an
-        if (ep >= 0.5) == (est["p_home"] >= 0.5):
+        if 0.47 <= ep <= 0.53:
+            why.append("ESPN 的電腦預測覺得兩隊差不多。")
+        elif (ep >= 0.5) == (est["p_home"] >= 0.5):
             why.append(f"ESPN 的電腦預測也看好{efav}（{_cheng(max(ep, 1 - ep))}）。")
         else:
             care.append(f"ESPN 的電腦預測反而看好{efav}（{_cheng(max(ep, 1 - ep))}），兩邊看法不一樣，下注小一點。")
