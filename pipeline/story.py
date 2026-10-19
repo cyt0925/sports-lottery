@@ -262,6 +262,11 @@ def _fan_take(g, sport, hn, an, pick, used):
             line = _dense_line(rest, hn, an, g.get("league"))
             if line:
                 out.append(line)
+    # 5.5) 長途移動（週中剛在別的城市打完、又要飛很遠）
+    if len(out) < 2 and sport == "basketball":
+        import geo
+        for line in geo.lines(g, hn, an)[:1]:
+            out.append(line)
     # 6) 打法對位
     st_ = a.get("style") or {}
     if len(out) < 2 and st_.get("lines"):
@@ -443,6 +448,11 @@ def build_story(g, sport):
     dl = _dense_line(rest, hn, an, g.get("league")) if isinstance(rest, dict) and sport == "basketball" else None
     if dl and dl not in fan:
         care.append(dl)
+    if sport == "basketball" and g["status"]["state"] != "post":
+        import geo
+        for line in geo.lines(g, hn, an):
+            if line not in fan:
+                care.append(line)
     # 對戰
     matchup = []
     hl = a.get("h2h_long") or {}

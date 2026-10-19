@@ -1535,7 +1535,7 @@ def enrich_games(all_games):
             official = nba_official_report(log)
         except Exception as e:  # noqa: BLE001
             ERRORS.append(f"NBA 官方傷報失敗: {e!r}")
-    n_sum = n_off = n_notes = n_min = n_b2b = 0
+    n_sum = n_off = n_notes = n_min = n_b2b = n_tr = 0
     logged = set()
     for g in targets:
         lg = LEAGUES_BY_KEY[g["league"]]
@@ -1565,6 +1565,15 @@ def enrich_games(all_games):
                 a["rest"] = {"home": compute_rest(g["home"], start), "away": compute_rest(g["away"], start)}
         except Exception as e:  # noqa: BLE001
             ERRORS.append(f"休息天數 {g['id']} 失敗: {e!r}")
+        if lg["sport"] == "basketball" and lg["key"] in ("nba", "eurobasket", "eurodom"):
+            try:
+                import geo
+                tr = geo.travel(g)
+                if tr:
+                    a["travel"] = tr
+                    n_tr += 1
+            except Exception as e:  # noqa: BLE001
+                ERRORS.append(f"移動距離 {g['id']} 失敗: {e!r}")
         g["analysis"] = a
         # 單場 summary 的傷兵併進來（有時比聯盟傷兵頁完整）
         if raw_inj:
@@ -1597,7 +1606,7 @@ def enrich_games(all_games):
                 ERRORS.append(f"{lg['key']} 上場判斷 {g['id']} 失敗: {e!r} @ {tb.name}:{tb.lineno}")
         for side in ("home", "away"):
             finalize_team(g[side], lg)
-    log(f"進階分析：summary {n_sum}/{len(targets)} 場，官方傷報 {n_off} 筆，累計呼叫 {CALLS['n']}")
+    log(f"進階分析：summary {n_sum}/{len(targets)} 場，官方傷報 {n_off} 筆，移動距離 {n_tr} 場，累計呼叫 {CALLS['n']}")
     log(f"上場判斷：讀了 {n_notes} 則傷兵備註、{n_min} 人上場時間被控制、{n_b2b} 人背靠背常輪休")
     if any(g["league"] == "nba" for g in targets):
         try:
@@ -1886,8 +1895,8 @@ def fill_notes(g, lg):
 
 
 def _sched_rows(rows):
-    """算休息天數用的精簡賽程：日期、哪個賽事。"""
-    return [dict(date_iso=r["date_iso"], comp=r.get("comp")) for r in rows if r.get("date_iso")][-15:]
+    """算休息天數、移動距離用的精簡賽程：日期、哪個賽事、主客場、對手（英文隊名，geo.py 查城市）。"""
+    return [dict(date_iso=r["date_iso"], comp=r.get("comp"), home=r.get("home"), opp=r.get("opp")) for r in rows if r.get("date_iso")][-15:]
 
 
 def add_domestic_schedule(games, el):

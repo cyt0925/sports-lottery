@@ -129,6 +129,18 @@ def facts(g, sport):
             extra = f"，前 7 天打了 {x['last7']} 場" if x.get("last7") else ""
             return base + extra + ("，週中剛打完歐戰" if x.get("euro") else "")
         f["休息"] = {hn: _r(rest.get("home")), an: _r(rest.get("away"))}
+    tr = a.get("travel") or {}
+    if tr:
+        mv = {}
+        if tr.get("away_home_km") is not None:
+            mv[an] = f"從{tr.get('away_city')}來，離家大概 {tr['away_home_km']} 公里"
+        for side, n in (("home", hn), ("away", an)):
+            p = tr.get(side + "_prev")
+            if p:
+                mv[n + "上一場"] = f"{p['days']:g} 天前在{p['city']}打{p.get('comp') or ''}，到這裡大概 {p['km']} 公里"
+        if tr.get("tz_shift"):
+            mv["時差"] = f"客隊往東飛 {tr['tz_shift']} 小時" if tr["tz_shift"] > 0 else f"客隊往西飛 {-tr['tz_shift']} 小時"
+        f["移動距離（比賽在" + tr.get("venue", "") + "）"] = mv
     hl = a.get("h2h_long") or {}
     if hl.get("n"):
         f["交手"] = f"近 {hl['n']} 次交手，{hn} {hl.get('w')} 勝 {hl.get('l')} 敗，平均{'贏' if (hl.get('avg_margin') or 0) >= 0 else '輸'} {abs(hl.get('avg_margin') or 0):.0f} 分" + ("（剋星）" if hl.get("jinx") else "")
