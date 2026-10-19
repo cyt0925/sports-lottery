@@ -81,8 +81,8 @@ NBA = {
 }
 NBA_ALIAS = {"GSW": "GS", "NYK": "NY", "NOP": "NO", "SAS": "SA", "UTA": "UTAH", "WAS": "WSH", "PHO": "PHX", "BRK": "BKN"}
 # 移動多遠才值得講（公里）
-FAR_TRIP = {"nba": 2500, "eu": 1500}
-FAR_HOME = {"nba": 3500, "eu": 2500, "dom": 900}
+FAR_TRIP = {"nba": 2500, "eu": 1500, "cn": 1500}
+FAR_HOME = {"nba": 3500, "eu": 2500, "dom": 900, "cn": 2000}
 
 
 def km(a, b):
@@ -98,7 +98,12 @@ def place(name=None, abbr=None, nba=False):
         return NBA.get(NBA_ALIAS.get(ab, ab))
     from eurodom_names import lookup
     _zh, _q, kw = lookup(name or "")
-    return EU.get(kw) if kw else None
+    if kw and kw in EU:
+        return EU[kw]
+    if name and not name.isascii():
+        import cba          # CBA 的隊名是中文
+        return cba.place(name)
+    return None
 
 
 def _team_place(t, nba):
@@ -165,7 +170,7 @@ def lines(g, hn, an):
     tr = (g.get("analysis") or {}).get("travel") or {}
     if not tr:
         return []
-    kind = "nba" if g.get("league") == "nba" else "eu"
+    kind = "nba" if g.get("league") == "nba" else "cn" if g.get("league") == "cba" else "eu"
     out = []
     ap = tr.get("away_prev") or {}
     hp = tr.get("home_prev") or {}

@@ -15,6 +15,7 @@ LANG = {
     "en": "hl=en-US&gl=US&ceid=US:en",
     "ja": "hl=ja&gl=JP&ceid=JP:ja",
     "zh": "hl=zh-TW&gl=TW&ceid=TW:zh-Hant",
+    "cn": "hl=zh-CN&gl=CN&ceid=CN:zh-Hans",      # CBA：大陸媒體（簡體）
     "es": "hl=es&gl=ES&ceid=ES:es", "it": "hl=it&gl=IT&ceid=IT:it", "tr": "hl=tr&gl=TR&ceid=TR:tr", "fr": "hl=fr&gl=FR&ceid=FR:fr",
     "de": "hl=de&gl=DE&ceid=DE:de", "lt": "hl=lt&gl=LT&ceid=LT:lt", "el": "hl=el&gl=GR&ceid=GR:el", "he": "hl=he&gl=IL&ceid=IL:he",
 }
@@ -41,17 +42,20 @@ TITLE_KW = {
     "en": re.compile(r"injur|sidelin|ruled out|out for|out indefinitely|will miss|misses|absen|surgery|doubtful|questionable|return|hurt|sprain|strain|fracture|torn|knee|ankle|hamstring", re.I),
     "ja": re.compile(r"怪我|負傷|欠場|離脱|復帰|手術|故障|骨折|捻挫|肉離れ|不在"),
     "zh": re.compile(r"受傷|傷兵|缺陣|傷退|復出|手術"),
+    "cn": re.compile(r"受伤|伤病|伤情|缺阵|缺席|伤退|复出|回归|手术|拉伤|扭伤|崴伤|骨折|报销|伤停|休战|伤愈|养伤"),
 }
-SPORT_HINT = {"en": " basketball", "ja": "", "zh": ""}
+SPORT_HINT = {"en": " basketball", "ja": "", "zh": "", "cn": ""}
 EXCLUDE = {
     "en": re.compile(r"\bAC Milan\b|soccer|football|Serie A|La ?Liga|Champions League|Europa League|UEFA|goalkeeper|striker|midfielder|winger|Aston Villa|Galatasaray|Juventus|Premier League|Bundesliga|Ligue 1|Super Lig|NCAA|college|motorcycle|cricket|rugby|hockey|Empoli|Ascoli|Mourinho|Gasperini|Svilar|Saelemaekers|Illinois|Serie B|Coppa|Copa del Rey|transfer window", re.I),
     "ja": re.compile(r"サッカー|Jリーグ|野球|ラグビー"),
     "zh": re.compile(r"足球|棒球"),
+    "cn": re.compile(r"足球|女篮|WCBA|U\d{2}|青年队|三人篮球|排球|乒乓"),
 }
 INJ_TERMS = {
     "en": '(injury OR injured OR sidelined OR "ruled out" OR "will miss" OR "out for" OR "out indefinitely" OR surgery)',
     "ja": "(怪我 OR 負傷 OR 欠場 OR 離脱 OR 復帰 OR 手術 OR 故障)",
     "zh": "(受傷 OR 傷兵 OR 缺陣 OR 傷退 OR 復出)",
+    "cn": "(受伤 OR 伤病 OR 缺阵 OR 缺席 OR 复出 OR 伤停 OR 报销)",
 }
 _cache = {}
 STATS = {"calls": 0, "fail": 0}
@@ -101,6 +105,7 @@ SIG_TERMS = {
     "en": '(coach OR fired OR sacked OR "parts ways" OR salary OR unpaid OR wages OR suspended OR suspension OR "locker room")',
     "ja": "(解任 OR ヘッドコーチ OR 出場停止 OR 給料)",
     "zh": "(換帥 OR 教練 OR 欠薪 OR 禁賽)",
+    "cn": "(换帅 OR 主教练 OR 欠薪 OR 禁赛 OR 停赛 OR 外援)",
 }
 
 
@@ -144,7 +149,7 @@ def has_word(title, words):
         w = _norm(w)
         if not w:
             continue
-        if re.search(r"[\u0590-\u05ff]", w):
+        if re.search(r"[\u0590-\u05ff\u3040-\u30ff\u4e00-\u9fff]", w):
             if w in n:
                 return True
         elif re.search(r"(?<!\w)" + re.escape(w), n):
@@ -198,7 +203,7 @@ def attach(games, name_fn, log, errors, label, hint=None, local_fn=None):
                     inj = injury_news(name, lang, hint=hint)
                     tn = team_news(name, lang, hint=hint)
                     import context
-                    sig = context.team_signals(signal_news(name, lang, hint=hint) + tn, must=context.must_words(name) if lang == "en" else [name])
+                    sig = context.team_signals(signal_news(name, lang, hint=hint) + tn, must=context.must_words(name) if lang == "en" else (t.get("cn_words") or [name]) if lang == "cn" else [name])
                 except Exception as e:  # noqa: BLE001
                     errors.append(f"{label} 新聞 {name} 失敗: {e!r}")
                     inj, tn = [], []

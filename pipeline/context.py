@@ -15,7 +15,7 @@ KINDS = {
         r"(?:coach|entrenador|allenatore|antren[öo]r|trainer|entra[iî]neur).{0,40}(?:fired|sacked|dismissed|let go|parts? ways|esonerat|destitu|cesad|g[öo]revden|entlassen|limog|remerci)"
         r"|(?:fired|sacked|dismissed|esonerat\w*|destitu\w*|cesad\w*|limog\w*|remerci\w*|parts? ways with).{0,40}(?:coach|entrenador|allenatore|antren|trainer|entra[iî]neur)"
         r"|new head coach|interim (?:head )?coach|appoint\w* .{0,40}coach|nuevo entrenador|nuovo allenatore|yeni ba[sş]antren[öo]r|nouvel entra[iî]neur|neuer trainer"
-        r"|解任|新ヘッドコーチ|換帥|新教練"
+        r"|解任|新ヘッドコーチ|換帥|新教練|换帅|新帅|新任主教练|(?<!不会)(?<!不)(?<!没)(?<!未)下课"
         # 土、德、立陶宛、希臘、希伯來文（比對的是去掉重音、轉小寫的標題）
         r"|yollar[ıi]n[ıi] ay[ıi]rd|g[öo]revden al[ıi]nd|trennt sich von (?:trainer|coach|cheftrainer)|freigestellt|naujas treneris|trener\w* atleist|atleido trener"
         r"|(?:απολυ|απελυσ|λυση συνεργασιας|αποχωρ|τελος).{0,40}προπονητ|προπονητ.{0,40}(?:απολυ|απελυ|λυση συνεργασιας|αποχωρ)|νεος προπονητης|νεο προπονητη"
@@ -25,12 +25,12 @@ KINDS = {
         r"(unpaid|not been paid|salar(?:y|ies) (?:delay|owed|unpaid|arrears)|wages (?:owed|unpaid|delay)|financial (?:trouble|problems|crisis|difficult)|bankrupt\w*|insolven\w*|"
         r"stipendi (?:non pagati|arretrati)|ritardo (?:nei|negli|degli) stipendi|impag\w*|sueldos (?:impagados|atrasados|pendientes)|"
         r"maa[sş]lar[ıi]n[ıi] alamad|maa[sş] (?:sorunu|krizi)|maa[sş]lar (?:odenmedi|yatmad)|finanzielle (?:probleme|schwierigkeiten)|"
-        r"給料未払い|欠薪|財務危機|salaires impayes|difficultes financieres|ausstehende gehalter|gehalter (?:nicht|ausstehend)|"
+        r"給料未払い|欠薪|財務危機|拖欠工资|拖欠薪资|salaires impayes|difficultes financieres|ausstehende gehalter|gehalter (?:nicht|ausstehend)|"
         r"nesumoket\w* atlyginim|atlyginim\w* (?:skol|nemok|velu)|finansin\w* (?:problem|sunkum)|απληρωτ|οικονομικα προβληματα|"
         r"הלנת שכר|לא קיבלו משכורת|משכורות לא שולמו|קשיים כלכליים)", re.I)),
     "turmoil": dict(days=7, pts=-0.5, zh="禁賽、隊內不和", re=re.compile(
         r"(locker[- ]room (?:issue|problem|tension|drama)|\brift\b|\bfeud\b|\bsuspen(?:ded|sion)\b|\bbrawl\b|disciplinary|fight with (?:teammate|coach)|"
-        r"squalifica|sanci[oó]n|ihra[cç]|出場停止|内紛|內鬨|禁賽|gesperrt|diskvalifik|τιμωρια|αποβολ|καβγα|הורחק|הרחקה|קטטה)", re.I)),
+        r"squalifica|sanci[oó]n|ihra[cç]|出場停止|内紛|內鬨|禁賽|禁赛|停赛|内讧|gesperrt|diskvalifik|τιμωρια|αποβολ|καβγα|הורחק|הרחקה|קטטה)", re.I)),
 }
 NOT = re.compile(r"fired up|suspended (?:game|match) (?:resumes|to resume)|coach of the (?:week|month|year)", re.I)
 SIG_CAP = 1.5

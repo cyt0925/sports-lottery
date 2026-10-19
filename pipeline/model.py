@@ -8,7 +8,7 @@
 資料來源：各聯盟排名表（有得失分與場數）；沒有的球隊退而用玩運彩歷史戰績的近況列。"""
 from math import erf, sqrt
 
-HCA = {"nba": 2.8, "eurobasket": 3.5, "eurodom": 3.2, "jpbasket": 2.5, "nhl": 0.25, "nfl": 2.0}
+HCA = {"nba": 2.8, "eurobasket": 3.5, "eurodom": 3.2, "jpbasket": 2.5, "cba": 3.0, "nhl": 0.25, "nfl": 2.0}
 HCA_SPORT = {"basketball": 3.0, "hockey": 0.25, "football": 2.0, "soccer": 0.3, "volleyball": 0.15}
 SIGMA = {"basketball": 11.0, "hockey": 2.2, "football": 13.5, "soccer": 1.3, "volleyball": 1.0}
 SHRINK_K = {"basketball": 8, "hockey": 10, "football": 4, "soccer": 8, "volleyball": 6}

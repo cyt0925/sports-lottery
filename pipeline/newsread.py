@@ -10,13 +10,14 @@ import re
 
 from eurodom_names import norm
 
-MEDIA = {"en": "外電", "ja": "日本媒體", "zh": "台灣媒體", "he": "以色列媒體", "el": "希臘媒體", "tr": "土耳其媒體", "es": "西班牙媒體",
+MEDIA = {"en": "外電", "ja": "日本媒體", "zh": "台灣媒體", "cn": "大陸媒體", "he": "以色列媒體", "el": "希臘媒體", "tr": "土耳其媒體", "es": "西班牙媒體",
          "it": "義大利媒體", "fr": "法國媒體", "de": "德國媒體", "lt": "立陶宛媒體"}
 # 當地語言：回來了、這場不能上（比對前先去重音、轉小寫）
 BACK = {
     "es": re.compile(r"vuelve|regresa|reaparece|recuperad|alta medica"), "it": re.compile(r"rientr|recuperat|torna|di nuovo in campo"),
     "tr": re.compile(r"geri don|donuyor|iyilesti|sahalara don"), "fr": re.compile(r"retour|revient|de retour|retrouve"),
     "de": re.compile(r"ruckkehr|zuruck|wieder fit|comeback"), "lt": re.compile(r"sugriz|grizta|pasveik"),
+    "cn": re.compile(r"复出|回归|伤愈|归队|可以出战|确定出战"),
 }
 OUT = {
     "es": re.compile(r"se pierde|baja para|baja ante|fuera de|no jugara|operad|rotura|semanas de baja"),
@@ -25,8 +26,9 @@ OUT = {
     "fr": re.compile(r"forfait|absent|indisponible|opere|fracture|semaines"),
     "de": re.compile(r"fallt aus|fehlt|ausfall|operiert|wochen|zwangspause"),
     "lt": re.compile(r"nezais|praleis|operac|savaic"),
+    "cn": re.compile(r"缺阵|缺席|报销|无缘|伤停|休战|不能出战|无法出战|将缺|手术|养伤"),
 }
-INJ = re.compile(r"lesi[oó]n|lesionad|molestias|esguince|infortun|lesion|distorsion|sakat|tedavi|bless|entorse|verletz|angeschlagen|traum")
+INJ = re.compile(r"受伤|拉伤|扭伤|崴伤|伤病|出战成疑|lesi[oó]n|lesionad|molestias|esguince|infortun|lesion|distorsion|sakat|tedavi|bless|entorse|verletz|angeschlagen|traum")
 FOREIGN = re.compile(r"[぀-ヿ]|[A-Za-zÀ-ɏͰ-Ͽ֐-׿]{3,}")
 
 
@@ -38,11 +40,16 @@ def media_of(item):
     return MEDIA.get(lang, "外電")
 
 
-def _candidates(t):
-    """這隊可以拿來對名字的球員：主力名單、手感名單、傷兵名單。只用姓（4 個字母以上，避免撞到普通的字）。"""
+def _candidates(t, cjk=False):
+    """這隊可以拿來對名字的球員：主力名單、手感名單、傷兵名單。只用姓（4 個字母以上，避免撞到普通的字）。
+    cjk：CBA 的球員名字是中文（外援也是音譯，像「萨姆纳」），用整個名字比。"""
     out = {}
     for x in (t.get("stars") or []) + (t.get("hot") or []) + (t.get("injuries") or []):
         name = x.get("player") or ""
+        if cjk:
+            if len(name) >= 2 and re.search(r"[\u4e00-\u9fff]", name) and name not in out:
+                out[name] = x
+            continue
         if not name or not re.search(r"[A-Za-z]", name):
             continue
         sur = norm(name).split(" ")[-1]
@@ -55,7 +62,8 @@ def _local_injuries(t):
     """當地語言（拉丁字母）的傷兵標題對到主力名字：記成那個人的狀況。"""
     from players import team_impact
     cands = _candidates(t)
-    if not cands:
+    cands_cn = _candidates(t, cjk=True)
+    if not cands and not cands_cn:
         return 0
     have = {norm(x.get("player") or "") for x in t.get("injuries") or []}
     added = 0
@@ -64,8 +72,9 @@ def _local_injuries(t):
         if lang not in BACK:
             continue
         title = norm(a.get("title") or "")
-        for sur, p in cands.items():
-            if not re.search(r"(?<![a-z])" + re.escape(sur) + r"(?![a-z])", title) or norm(p.get("player") or "") in have:
+        for sur, p in (cands_cn if lang == "cn" else cands).items():
+            hit = (sur in title) if lang == "cn" else re.search(r"(?<![a-z])" + re.escape(sur) + r"(?![a-z])", title)
+            if not hit or norm(p.get("player") or "") in have:
                 continue
             if BACK[lang].search(title):
                 sev, zh = "ok", "回歸"
@@ -106,7 +115,7 @@ def team_words(t):
     """標題裡要出現哪些字才算講到這隊：中文名、日文全名和暱稱（ジェッツ）、英文隊名的特別字、當地語言隊名、主力的姓。"""
     import context
     from eurodom_names import local_query
-    words = [t.get("name_zh"), t.get("jp_name")]
+    words = [t.get("name_zh"), t.get("jp_name")] + list(t.get("cn_words") or [])
     jp = t.get("jp_name") or ""
     m = re.findall(r"[ァ-ヶー]{3,}", jp)
     if m:

@@ -11,7 +11,7 @@ from math import erf, sqrt
 from model import FACTORS, FACTOR_ZH
 
 SIGMA = 11.0
-CHIPS = ("nba", "eurobasket", "jpbasket")
+CHIPS = ("nba", "eurobasket", "jpbasket", "cba")
 STEPS = [x / 4 for x in range(0, 9)]     # 0、0.25 … 2 倍
 PRIOR_N = 60
 MIN_ROWS = 40

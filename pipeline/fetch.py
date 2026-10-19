@@ -46,6 +46,9 @@ LEAGUES = [
          injuries=False, gamelog=False, total_th=6, headshot=None),
     dict(key="jpbasket", label="日本籃球", sport="basketball", source="playsport", alliance=97,
          injuries=False, gamelog=False, total_th=6, headshot=None),
+    # CBA（中國男籃）：玩運彩 allianceid 94；新聞看大陸媒體（簡體），球員數據看新浪
+    dict(key="cba", label="CBA", sport="basketball", source="playsport", alliance=94,
+         injuries=False, gamelog=False, total_th=6, headshot=None),
     # 日本排球：SV.LEAGUE 官網，沒有盤口
     dict(key="jpvolley", label="日本排球", sport="volleyball", source="svleague",
          injuries=False, gamelog=False, total_th=99, headshot=None),
@@ -72,6 +75,7 @@ SPORTS = [
     dict(key="nba", label="NBA", icon="basketball"),
     dict(key="eurobasket", label="歐洲籃球", icon="basketball"),
     dict(key="jpbasket", label="日本籃球", icon="basketball"),
+    dict(key="cba", label="CBA", icon="basketball"),
     dict(key="jpvolley", label="日本排球", icon="volleyball"),
     dict(key="soccer", label="足球", hidden=True),
     dict(key="hockey", label="冰球", hidden=True),
@@ -1618,7 +1622,7 @@ def enrich_games(all_games):
                 a["rest"] = {"home": compute_rest(g["home"], start), "away": compute_rest(g["away"], start)}
         except Exception as e:  # noqa: BLE001
             ERRORS.append(f"休息天數 {g['id']} 失敗: {e!r}")
-        if lg["sport"] == "basketball" and lg["key"] in ("nba", "eurobasket", "eurodom"):
+        if lg["sport"] == "basketball" and lg["key"] in ("nba", "eurobasket", "eurodom", "cba"):
             try:
                 import geo
                 tr = geo.travel(g)
@@ -1776,6 +1780,10 @@ def process_playsport(lg, lo, hi, all_games, standings):
                 keep.extend(extra)
                 keep.sort(key=lambda g: g["start"])
             name_fn = lambda t: (t["en_key"], "en") if t.get("en_key") else None  # noqa: E731
+        elif lg["key"] == "cba":
+            import cba
+            cba.enrich(keep, log)
+            name_fn = lambda t: (t["cn_name"], "cn") if t.get("cn_name") else None  # noqa: E731
         else:
             from bleague import BLeague
             bl = BLeague(log, ERRORS)

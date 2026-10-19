@@ -5,7 +5,7 @@
   const $ = (s, el = document) => el.querySelector(s);
   const params = new URLSearchParams(location.search);
   const DATA_URL = params.get("data") === "sample" ? "data/sample.json" : "data/today.json";
-  const SPORT_ICON = { all: "i-grid", nba: "i-basketball", basketball: "i-basketball", eurobasket: "i-basketball", jpbasket: "i-basketball", jpvolley: "i-volleyball", volleyball: "i-volleyball", soccer: "i-soccer", hockey: "i-hockey", football: "i-football" };
+  const SPORT_ICON = { all: "i-grid", nba: "i-basketball", basketball: "i-basketball", eurobasket: "i-basketball", jpbasket: "i-basketball", cba: "i-basketball", jpvolley: "i-volleyball", volleyball: "i-volleyball", soccer: "i-soccer", hockey: "i-hockey", football: "i-football" };
   const chipOf = (x) => x.chip || x.sport;
 
   const state = {
@@ -116,7 +116,7 @@
   }
 
   // ---------- 即時比分 ----------
-  // NBA、NHL、足球：網頁直接跟 ESPN 拿（30 秒）。歐洲籃球、日本籃球、日本排球：GitHub 每分鐘抓一次放到 live 分支（網頁 90 秒讀一次）。
+  // NBA、NHL、足球：網頁直接跟 ESPN 拿（30 秒）。歐洲籃球、日本籃球、CBA、日本排球：GitHub 每分鐘抓一次放到 live 分支（網頁 90 秒讀一次）。
   const LIVE_API = "https://api.github.com/repos/cyt0925/sports-lottery/contents/live.json?ref=live";
   const LIVE_RAW = "https://raw.githubusercontent.com/cyt0925/sports-lottery/live/live.json";
   const live = { espnAt: 0, fileAt: 0, busy: false, useRaw: false, last: {} };

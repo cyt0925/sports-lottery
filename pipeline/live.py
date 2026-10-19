@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""即時比分：玩運彩（歐洲籃球、日本籃球）和 SV.LEAGUE 不讓網頁直接抓，所以由 GitHub 這邊每分鐘抓一次，
+"""即時比分：玩運彩（歐洲籃球、日本籃球、CBA）和 SV.LEAGUE 不讓網頁直接抓，所以由 GitHub 這邊每分鐘抓一次，
 寫成一個很小的 live.json，推到 live 分支（不會觸發網站重建）。網頁每 90 秒來讀一次。
 
 只有在「有比賽正在打、或 25 分鐘內要開打」的時候才會一直跑；沒比賽就馬上結束。
@@ -19,7 +19,7 @@ from playsport import _state_for  # noqa: E402
 
 UTC = timezone.utc
 ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..")
-ALLIANCE = {"eurobasket": 8, "jpbasket": 97}
+ALLIANCE = {"eurobasket": 8, "jpbasket": 97, "cba": 94}
 
 
 def log(msg):

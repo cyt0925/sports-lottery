@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""休賽季的陣容變動（簽了誰、交易走誰、換教練）：沒有官方名單可以比的聯盟（NBA、國內聯賽、日本籃球、日本排球），看新聞。
+"""休賽季的陣容變動（簽了誰、交易走誰、換教練）：沒有官方名單可以比的聯盟（NBA、國內聯賽、日本籃球、日本排球、CBA），看新聞。
 
 只在新球季剛開始的那段時間查（9 到 12 月），一隊三天查一次（Google 新聞最近 150 天），存在 data/offseason.json。
 新聞交給 AI 讀，寫成「今年補了誰、少了誰，新人跟球隊合不合」；每次最多查 MAX_CALLS 隊，慢慢補齊。"""
@@ -19,18 +19,22 @@ WORDS = {
     "es": "(fichaje OR ficha OR incorpora OR renueva OR plantilla)", "it": "(acquisto OR firma OR ingaggio OR mercato)",
     "tr": "(transfer OR imza OR kadro)", "fr": "(recrue OR signe OR mercato OR effectif)",
     "de": "(verpflichtet OR Neuzugang OR Kader OR Abgang)", "lt": "(pasirašė OR naujokas OR sudėtis OR sutartį)",
+    "cn": "(签约 OR 加盟 OR 外援 OR 离队 OR 续约 OR 新帅 OR 交易)",
     "el": "(μεταγραφή OR υπέγραψε OR ρόστερ OR αποκτά)", "he": "(החתמה OR חתם OR סגל OR עזב)",
 }
 
 
 def _queries(t, league):
-    """這隊要查哪幾種語言：NBA 英文；日本籃球日文；歐洲球隊英文＋當地語言。"""
+    """這隊要查哪幾種語言：NBA 英文；日本籃球日文；CBA 簡體中文；歐洲球隊英文＋當地語言。"""
     from eurodom_names import local_query
     out = []
     if league == "nba":
         if t.get("name"):
             out.append((t["name"], "en", ""))
             out.append((t["name"], "en-preview", ""))
+    elif league == "cba":
+        if t.get("cn_name"):
+            out.append((t["cn_name"], "cn", ""))
     elif league in ("jpbasket", "jpvolley"):
         if t.get("jp_name"):
             out.append((t["jp_name"], "ja", " バレー" if league == "jpvolley" else ""))
@@ -59,7 +63,7 @@ def attach(games, path, log, errors, now=None):
     calls = n_team = 0
     todo = {}
     for g in games:
-        if g["status"]["state"] == "post" or g.get("far") or g["league"] not in ("nba", "jpbasket", "jpvolley", "eurobasket", "eurodom"):
+        if g["status"]["state"] == "post" or g.get("far") or g["league"] not in ("nba", "jpbasket", "jpvolley", "cba", "eurobasket", "eurodom"):
             continue
         for side in ("home", "away"):
             t = g[side]
