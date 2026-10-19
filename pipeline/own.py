@@ -223,7 +223,7 @@ def _model(est):
 
 
 def outside(g):
-    """外界怎麼看（不是賭盤）：ESPN 的電腦預測、新聞標題。AI 寫分析時也會讀這些。"""
+    """外界的看法（不是賭盤）：ESPN 的電腦預測、新聞標題。寫進分析用（白話和 AI 都會讀），不直接列給爸爸看。"""
     a = g.get("analysis") or {}
     out = {}
     pr = a.get("predictor") if isinstance(a, dict) else None

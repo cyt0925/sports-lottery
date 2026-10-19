@@ -89,7 +89,7 @@ def team_signals(items, now=None, must=None):
                 continue
             if pub and now - pub > timedelta(days=spec["days"]):
                 continue
-            out[k] = dict(kind=k, zh=spec["zh"], title=it.get("title"), url=it.get("url"), published=it.get("published"), lang=it.get("lang"))
+            out[k] = dict(kind=k, zh=spec["zh"], title=it.get("title"), url=it.get("url"), published=it.get("published"), lang=it.get("lang"), source=it.get("source"))
     return list(out.values())
 
 

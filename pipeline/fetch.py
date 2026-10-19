@@ -1218,29 +1218,14 @@ def aggregate(games):
                         team_id=t["id"], team=team_label(t), team_logo=t.get("logo"),
                         player=x["player"], headshot=x.get("headshot"), position=x.get("position"),
                         status=x["status"], status_zh=x["status_zh"], severity=x["severity"],
-                        # 從新聞對出來的（有連結、沒有官方狀態）快報只寫來源，英文原句留在詳細頁
-                        detail=(x.get("why") or (f"{x.get('source') or '新聞'}" if x.get("url") and not x.get("official") else (x.get("detail_zh") or x.get("detail")))),
+                        # 從新聞對出來的（有連結、沒有官方狀態）快報寫中文說明（「土耳其媒體說他這場不能上」），原文留給 AI 讀
+                        detail=(x.get("why") or x.get("detail_zh") or (f"{x.get('source') or '新聞'}" if x.get("url") and not x.get("official") else x.get("detail"))),
                         return_date=x.get("return_date"),
                         key=(x["player"] in t.get("key_out", []) or x["player"] in t.get("key_maybe", [])),
                         official=bool(x.get("official")), url=x.get("url"), ppg=x.get("ppg"), impact=x.get("impact"),
                         time_tw=g["time_tw"], day_tw=g["day_tw"],
                     ))
-            # 沒有官方傷兵名單的聯盟：新聞裡的傷兵消息也放進快報，讓爸爸不用自己翻
-            # （已經從那則新聞對出球員的，就不再重複放一次標題）
-            used_urls = {x.get("url") for x in t.get("injuries") or [] if x.get("url")}
-            for a in (t.get("injury_news") or [])[:2]:
-                key = (t.get("id"), a.get("url") or a.get("title"))
-                if key in seen_inj or (a.get("url") and a.get("url") in used_urls):
-                    continue
-                seen_inj.add(key)
-                feed.append(dict(
-                    game_id=g["id"], league=g["league"], league_zh=g["league_zh"], sport=g["sport"], chip=g.get("chip") or g["sport"],
-                    team_id=t["id"], team=team_label(t), team_logo=t.get("logo"),
-                    player=(a.get("title") or "")[:60], headshot=None, position=None,
-                    status="news", status_zh="新聞", severity="news",
-                    detail=f"{a.get('source') or '新聞'} · {str(a.get('published') or '')[:10]}", return_date=None,
-                    url=a.get("url"), key=False, official=False, time_tw=g["time_tw"], day_tw=g["day_tw"],
-                ))
+            # 新聞標題本身不放進快報（爸爸不會去看外文標題）：對得到球員的，上面已經用「誰、什麼狀況」列了
             for p in t.get("hot") or []:
                 key = (t.get("id"), p.get("id") or p.get("player"))
                 if p["label"] != "平穩" and key not in seen_hot:
@@ -1348,6 +1333,11 @@ def main():
     except Exception as e:  # noqa: BLE001
         ERRORS.append(f"場外消息失敗: {e!r}")
     try:
+        import newsread
+        newsread.apply(all_games, log)        # 新聞讀成中文：對到球員的狀況、傷兵說明改中文
+    except Exception as e:  # noqa: BLE001
+        ERRORS.append(f"讀新聞失敗: {e!r}")
+    try:
         nba_elo(all_games, os.path.join(os.path.dirname(os.path.abspath(args.out)), "espn_games.json"))
     except Exception as e:  # noqa: BLE001
         import traceback
@@ -1429,6 +1419,14 @@ def main():
         import traceback
         ERRORS.append(f"AI 分析整個失敗: {e!r}")
         traceback.print_exc()
+    try:
+        import newsread
+        for g in all_games:
+            src = newsread.sources(g) if g["status"]["state"] != "post" else []
+            if src:
+                g["sources"] = src       # 分析最下面的「資料來源」（點開才看）
+    except Exception as e:  # noqa: BLE001
+        ERRORS.append(f"資料來源失敗: {e!r}")
     feed, hot = aggregate(all_games)
     # 成績單：記下建議、賽後對答案
     record = None

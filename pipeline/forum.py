@@ -2,7 +2,7 @@
 """論壇：PTT NBA 板（www.ptt.cc/bbs/NBA）最近兩天的 [情報]、[新聞] 文章。
 
 台灣球迷常常比外電還快貼出「今天誰不打」「誰回來了」「換教練」。每場挑跟兩隊有關的文章（標題有隊名或主力名字），
-放進「外界怎麼看」，標題裡的場外消息（換帥、禁賽…）也交給 context.team_signals。抓不到就算了，不影響其他。"""
+交給 AI 讀（寫進分析），標題裡的場外消息（換帥、禁賽…）也交給 context.team_signals。抓不到就算了，不影響其他。"""
 import re
 import time
 from datetime import datetime, timedelta, timezone

@@ -1005,16 +1005,13 @@
       foot = "看實力、近況、傷兵、新聞整理的，不看賭盤和賠率" + (est.weak ? " · 開季場數少，還不準" : "");
     }
     if (!paras.length) return "";
-    return `<div class="ai"><div class="ai-h"><span>AI 分析</span>${lean ? `<span class="ai-lean">看好 ${esc(lean)}</span>` : ""}</div>${paras.map(paraHtml).join("")}${diff}${post ? "" : calcRows(g)}<div class="ai-foot">${foot}</div></div>`;
+    return `<div class="ai"><div class="ai-h"><span>AI 分析</span>${lean ? `<span class="ai-lean">看好 ${esc(lean)}</span>` : ""}</div>${paras.map(paraHtml).join("")}${diff}${post ? "" : calcRows(g)}${sourcesHtml(g)}<div class="ai-foot">${foot}</div></div>`;
   }
-  function outsideBlock(g, t) {
-    const s = g.suggestion || {};
-    const lines = (t.outside || []).slice();
-    const news = [];
-    const seen = new Set();
-    [...((g.ai && g.ai.previews) || []), ...(((s.outside || {}).news) || [])].forEach((n) => { if (n.title && !seen.has(n.title)) { seen.add(n.title); news.push(n); } });
-    if (!lines.length && !news.length) return "";
-    return `<div class="h">${icon("i-news")}外界怎麼看</div>${pts(lines, "info", "i-chev")}${news.length ? `<div class="out-news">${news.slice(0, 6).map((n) => `<a href="${esc(n.url || "#")}" target="_blank" rel="noopener">${esc(n.title)}<small>${esc(n.src || "")}</small></a>`).join("")}</div>` : ""}`;
+  // 資料來源：分析用到的新聞（原文標題），收起來，要查證才點開
+  function sourcesHtml(g) {
+    const src = g.sources || [];
+    if (!src.length || g.status.state === "post") return "";
+    return `<details class="calc-more src-more"><summary>資料來源（${src.length} 則新聞）</summary><div class="src-list">${src.map((x) => `<a href="${esc(x.url || "#")}" target="_blank" rel="noopener"><b>${esc(x.media)}</b>${x.src ? " · " + esc(x.src) : ""}<span>${esc(x.title)}</span></a>`).join("")}</div></details>`;
   }
   function pts(items, cls, ic) {
     if (!items || !items.length) return "";
@@ -1046,13 +1043,12 @@
     const list = (t.injuries || []).slice(0, 12);
     let body = "";
     if (list.length) {
-      body = list.map((x) => `<div class="prow">${avatarImg(x)}<div class="grow"><div class="pn">${esc(x.player)}${x.ppg != null ? ` <small style="color:var(--muted);font-weight:500">場均 ${Number(x.ppg).toFixed(1)} 分</small>` : ""}</div><div class="ps">${esc(x.position_zh || x.position || "")}${(x.why || x.detail_zh || x.detail) ? " · " + esc(x.why || x.detail_zh || x.detail) : ""}${x.return_date && String(x.return_date).slice(0, 10) > todayTW() && (x.severity === "out" || x.severity === "ir") ? " · 預計 " + esc(String(x.return_date).slice(5, 10)) + " 回來" : ""}${x.url ? ` · <a href="${esc(x.url)}" target="_blank" rel="noopener">看新聞</a>` : ""}</div></div><span class="badge ${sevClass(x.severity)}">${esc(x.status_zh)}</span></div>`).join("");
+      body = list.map((x) => `<div class="prow">${avatarImg(x)}<div class="grow"><div class="pn">${esc(x.player)}${x.ppg != null ? ` <small style="color:var(--muted);font-weight:500">場均 ${Number(x.ppg).toFixed(1)} 分</small>` : ""}</div><div class="ps">${esc(x.position_zh || x.position || "")}${(x.why || x.detail_zh || (x.official || !x.url ? x.detail : "")) ? " · " + esc(x.why || x.detail_zh || x.detail) : ""}${x.return_date && String(x.return_date).slice(0, 10) > todayTW() && (x.severity === "out" || x.severity === "ir") ? " · 預計 " + esc(String(x.return_date).slice(5, 10)) + " 回來" : ""}${x.url ? ` · <a class="src-link" href="${esc(x.url)}" target="_blank" rel="noopener">來源</a>` : ""}</div></div><span class="badge ${sevClass(x.severity)}">${esc(x.status_zh)}</span></div>`).join("");
       if ((t.injuries || []).length > 12) body += `<div class="note">還有 ${(t.injuries || []).length - 12} 人沒列</div>`;
     } else {
       body = `<div class="note">${esc(t.injury_note || (g.notes && g.notes.injuries) || "沒有傷兵消息，應該是全員到齊。")}</div>`;
     }
-    const news = (t.injury_news || []).map((n) => `<a href="${esc(n.url || "#")}" target="_blank" rel="noopener"><div><div class="nt">${esc(n.title)}</div><div class="nd">${esc(n.source || "新聞")} · ${esc(String(n.published || "").slice(0, 10))}</div></div></a>`).join("");
-    return `<div class="team-block">${teamHead(t)}${body}${news ? `<div class="news">${news}</div>` : ""}</div>`;
+    return `<div class="team-block">${teamHead(t)}${body}</div>`;
   }
   function formBlock(t, g) {
     const f = (t.form || []).slice(-5);
@@ -1096,10 +1092,6 @@
     }
     return rows.length ? `<div class="h">${icon("i-fire")}球員手感</div><div class="team-block">${rows.join("")}</div>` : "";
   }
-  function newsBlock(g) {
-    if (!g.news || !g.news.length) return "";
-    return `<div class="h">${icon("i-news")}相關新聞</div><div class="news">${g.news.map((n) => `<a href="${esc(n.url || "#")}" target="_blank" rel="noopener">${n.image ? `<img src="${esc(n.image)}" alt="" loading="lazy">` : ""}<div><div class="nt">${esc(n.title)}</div><div class="nd">${esc(n.team === "home" ? tname(g.home) : tname(g.away))}${n.source ? " · " + esc(n.source) : ""} · ${esc(String(n.published || "").slice(0, 10))}</div></div></a>`).join("")}</div>`;
-  }
   function numbersBlock(g) {
     const a = g.analysis || {};
     const H = tname(g.home), A = tname(g.away);
@@ -1139,14 +1131,12 @@
         <div class="verdict ${wait ? "wait" : ""}">${esc(t.verdict)}${g.status.state === "pre" ? `<small>${esc(dayLabel(g.day_tw).name)} ${esc(g.time_tw)} 開打${g.venue ? " · " + esc(g.venue) : ""}</small>` : ""}</div>
         ${analysisBlock(g, t)}
         <div class="h">${icon("i-star")}你的預測</div><div id="mypick">${pickButtons(g, false)}</div>
-        ${outsideBlock(g, t)}
         ${t.matchup && t.matchup.length ? `<div class="h">${icon("i-trophy")}對位跟交手</div>${pts(t.matchup, "info", "i-chev")}` : ""}
         <div class="h">${icon("i-star")}台灣運彩賠率</div>${twTiles(g)}
         <div class="h">${icon("i-med")}傷兵</div>${injuryBlock(g.away, g)}${injuryBlock(g.home, g)}
         ${starsBlock(g)}
         <div class="h">${icon("i-clock")}最近 5 場</div>${formBlock(g.away, g)}${formBlock(g.home, g)}
         ${hotBlock(g)}
-        ${newsBlock(g)}
         ${numbersBlock(g)}
         <button class="back" data-back="1" style="margin-top:24px;width:100%;justify-content:center">${icon("i-back")}返回列表</button>
       </div>`;

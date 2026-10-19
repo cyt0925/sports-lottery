@@ -36,8 +36,11 @@ SYSTEM = """你是一位什麼運動都看、很會分析的台灣老球迷，�
 3. 判斷誰會贏只看：兩隊實力、最近狀況、傷兵和誰會不會上、主力手感、休息和背靠背、交手紀錄、打法對位、戰意、外界的看法（新聞標題、ESPN 電腦預測）。不要用賭盤、賠率、盤口、網友押哪邊來判斷誰會贏。
 4. 可以在最後用一句話，根據「網站估的機率」和台灣運彩賠率，說划不划算。
 5. 第一行固定格式：「看好：隊名（幾成）」，例如「看好：湖人（六成五）」，意思是你覺得哪一隊會贏球（不是讓分押哪邊）；真的看不出來就寫「看好：兩隊差不多」。隊名用資料裡的中文隊名。讓分、大小分的看法寫在內文裡。
-6. 第一行之後寫 120 到 200 字，分 2 到 3 小段：最關鍵的一兩件事、要小心什麼、結論。
-7. 你的看法可以跟網站的計算不同，不同的話要說為什麼。"""
+6. 第一行之後寫 120 到 220 字，分 2 到 3 小段：最關鍵的一兩件事、要小心什麼、結論。
+7. 你的看法可以跟網站的計算不同，不同的話要說為什麼。
+8. 讀者是不會去點新聞、也看不懂外文的長輩。資料裡的新聞標題可能是英文、日文、希伯來文、希臘文、土耳其文、西班牙文等，
+   請你讀懂，把有用的消息（誰受傷、誰回來、換教練、欠薪、隊內問題、這場對誰特別重要）直接用中文寫進分析，
+   可以說「以色列媒體說…」「外電說…」。不要貼原文標題、不要叫讀者去看新聞。跟這兩隊無關、或看不出跟比賽有關的新聞就不要提。"""
 
 CHENG_DIGITS = "零一二三四五六七八九十"
 
@@ -162,9 +165,23 @@ def facts(g, sport):
     if out.get("espn"):
         ep = out["espn"]["home"]
         ext["ESPN 電腦預測"] = f"{hn if ep >= 0.5 else an} {round(max(ep, 1 - ep) * 100)}%"
-    heads = [n["title"] for n in (out.get("news") or [])] + [n["title"] for n in (g.get("_previews") or [])]
+    from newsread import media_of
+    heads = [n["title"] for n in (g.get("_previews") or [])]
     if heads:
-        ext["新聞標題"] = heads[:8]
+        ext["賽前分析的標題"] = heads[:5]
+    news = {}
+    for t, n in ((H, hn), (A, an)):
+        lst, seen = [], set()
+        items = list(t.get("injury_news") or []) + [x for x in g.get("news") or [] if x.get("team") == ("home" if t is H else "away")]
+        items += [dict(title=x.get("title"), lang=x.get("lang"), published=x.get("published")) for x in t.get("signals") or []]
+        for x in items:
+            if x.get("title") and x["title"] not in seen:
+                seen.add(x["title"])
+                lst.append(f"[{media_of(x)}{(' ' + str(x.get('published'))[:10]) if x.get('published') else ''}] {x['title'][:140]}")
+        if lst:
+            news[n] = lst[:6]
+    if news:
+        f["新聞（請讀懂後用中文寫進分析）"] = news
     if ext:
         f["外界看法"] = ext
     est = s.get("est") or {}

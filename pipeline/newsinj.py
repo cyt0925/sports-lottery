@@ -78,7 +78,7 @@ def _query(q, lang):
                 except (TypeError, ValueError):
                     published = None
                 items.append(dict(title=htmlmod.unescape(title), url=link, published=published,
-                                  source=(src.text or "").strip() if src is not None else None, desc=None, image=None))
+                                  source=(src.text or "").strip() if src is not None else None, desc=None, image=None, lang=lang))
         except ET.ParseError:
             STATS["fail"] += 1
     else:
@@ -157,14 +157,13 @@ def local_news(spec, days=10):
     spec = (當地隊名, 語言, 查詢加的字, 標題要有的字)。回傳 (傷兵新聞, 一般新聞, 全部)。"""
     q, lang, hint, must = spec
     items = _query(f'"{q}"{(" " + hint) if hint else ""} when:{days}d', lang)
-    zh = LANG_ZH.get(lang, lang)
     ex, kw = LOCAL_EX.get(lang), LOCAL_INJ.get(lang)
     keep = []
     for x in items:
         t = x.get("title") or ""
         if not has_word(t, must) or (ex and ex.search(_norm(t))):
             continue
-        keep.append(dict(x, source=f"{x.get('source') or '新聞'}（{zh}）", lang=lang))
+        keep.append(dict(x, lang=lang))
     inj = [x for x in keep if kw and kw.search(_norm(x["title"]))][:3]
     from datetime import datetime, timedelta, timezone
     cut = (datetime.now(timezone.utc) - timedelta(days=4)).isoformat(timespec="minutes")

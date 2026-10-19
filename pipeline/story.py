@@ -184,6 +184,22 @@ FACTOR_TALK = {"rest": "體力", "form": "最近狀況", "h2h": "交手", "hot":
                "notes": "傷兵", "injury": "傷兵", "inj": "傷兵"}
 
 
+def signal_lines(g, hn, an):
+    """場外消息（context.py 從新聞挖的，可能是外文新聞）講成中文，說是哪裡的媒體報的。"""
+    from newsread import media_of
+    out = []
+    for t, name in ((g["home"], hn), (g["away"], an)):
+        for sg in t.get("signals") or []:
+            who = f"{media_of(sg)}報導，" if sg.get("title") else ""
+            if sg["kind"] == "coach":
+                out.append(f"{who}{name}剛換教練，新教練頭幾場球員通常比較拚，但戰術還在磨合。")
+            elif sg["kind"] == "money":
+                out.append(f"{who}{name}傳出欠薪或財務問題，這種隊伍場上常常不夠拚。")
+            elif sg["kind"] == "turmoil":
+                out.append(f"{who}{name}最近有禁賽或隊內不和的消息，要小心。")
+    return out
+
+
 def _fan_take(g, sport, hn, an, pick, used):
     """老球迷怎麼看：挑這場最關鍵的一兩件事，用聊天的口氣講。"""
     H, A = g["home"], g["away"]
@@ -214,8 +230,12 @@ def _fan_take(g, sport, hn, an, pick, used):
             if st == "上一場沒上":
                 reason = x.get("detail") or "上一場沒上場，可能受傷或輪休"
             else:
-                reason = x.get("why") or ("名單上寫" + st if st else "還不確定會不會打")
+                reason = x.get("why") or x.get("detail_zh") or ("名單上寫" + st if st else "還不確定會不會打")
             out.append(f"{who} 打不打是這場最大的變數：{reason}。他上的話{name}強很多，賽前一定要再看一次。")
+    # 1.5) 場外消息（換教練、欠薪、禁賽）：老球迷第一句就會講
+    if len(out) < 2 and g["status"]["state"] != "post":
+        for line in signal_lines(g, hn, an)[:2 - len(out)]:
+            out.append(line)
     # 2) 季前賽
     if g.get("season_type") == 1:
         out.append("季前賽主力常常打半場就下來，輸贏看看就好，別下重注。")
@@ -389,7 +409,8 @@ def build_story(g, sport):
             p0 = lst[0]
             ppg = f"（場均 {p0['ppg']:.0f} 分）" if p0.get("ppg") else ""
             extra = f" 等 {len(lst)} 人" if len(lst) > 1 else ""
-            return f" {_last(p0['player'])}{extra}{ppg}"
+            said = f"（{p0['media']}說的）" if p0.get("media") else ""
+            return f" {_last(p0['player'])}{extra}{ppg}{said}"
         if imp.get("pts", 0) >= 1 and (outs or maybes):
             parts = []
             if outs:
@@ -601,9 +622,8 @@ def build_story(g, sport):
         why.append(notes.get("form") or "兩隊資料還不多，先看賽前消息。")
     inj_news = any((t.get("injury_news") or []) for t in (H, A))
     matched = any(x.get("severity") in ("out", "maybe") for t in (H, A) for x in (t.get("injuries") or []))
-    if inj_news and not matched and not any(("不打" in w or "缺陣" in w or "少了" in w or "還不確定" in w) for w in why + care):
-        care.append("新聞有提到傷兵消息，點下面的新聞看是誰。")
-    elif not inj_news and not any(t.get("injuries") for t in (H, A)) and g["status"]["state"] != "post":
+    # 新聞有傷兵字眼、但對不到是哪個球員的：不叫爸爸自己去看新聞（AI 會讀原文，寫進分析）
+    if not inj_news and not any(t.get("injuries") for t in (H, A)) and g["status"]["state"] != "post":
         inj_note = "兩隊都沒看到傷兵消息，應該是全員到齊。" if sport != "volleyball" else "沒看到傷兵消息。"
         why.append(inj_note)
 
@@ -629,28 +649,19 @@ def build_story(g, sport):
     else:
         odds_line = notes.get("odds") or "還沒開盤。"
 
-    outside_lines = []
+    # 外界的看法（ESPN 電腦預測、新聞）直接寫進分析，不另外列一塊叫爸爸自己看
     out_ = s.get("outside") or {}
-    if out_.get("espn") and est.get("p_home") is not None:
+    if out_.get("espn") and est.get("p_home") is not None and g["status"]["state"] != "post":
         ep = out_["espn"]["home"]
         efav = hn if ep >= 0.5 else an
-        same = (ep >= 0.5) == (est["p_home"] >= 0.5)
-        outside_lines.append(f"ESPN 的電腦預測：{efav}{_cheng(max(ep, 1 - ep))}會贏，{'跟我們看法一樣' if same else '跟我們看法相反，要多想一下'}。")
+        if (ep >= 0.5) == (est["p_home"] >= 0.5):
+            why.append(f"ESPN 的電腦預測也看好{efav}（{_cheng(max(ep, 1 - ep))}）。")
+        else:
+            care.append(f"ESPN 的電腦預測反而看好{efav}（{_cheng(max(ep, 1 - ep))}），兩邊看法不一樣，下注小一點。")
     # 場外消息、德比（context.py 從新聞挖的）：老球迷最在意的，放最前面
     if g["status"]["state"] != "post":
         extra = []
-        for t, name in ((H, hn), (A, an)):
-            for sg in t.get("signals") or []:
-                if sg["kind"] == "coach":
-                    extra.append(f"{name}剛換教練，新教練頭幾場球員通常比較拚，但戰術還在磨合。")
-                elif sg["kind"] == "money":
-                    extra.append(f"{name}傳出欠薪或財務問題，這種隊伍場上常常不夠拚。")
-                elif sg["kind"] == "turmoil":
-                    extra.append(f"{name}最近有禁賽或隊內不和的消息，要小心。")
-                if sg.get("title"):
-                    from newsinj import LANG_ZH
-                    lz = LANG_ZH.get(sg.get("lang") or "")
-                    outside_lines.append(f"新聞（{sg['zh']}{('，' + lz) if lz else ''}）：{sg['title'][:70]}")
+        extra += signal_lines(g, hn, an)
         if a.get("derby"):
             extra.append(f"這是{a['derby']}，兩隊碰面火氣大，強弱常常不準，別押太重。")
         for x in reversed(extra):
@@ -660,7 +671,7 @@ def build_story(g, sport):
         care.insert(0, "現在是季前賽，主力常常輪休、打不久，戰績跟數據都不能當真。")
     if value_line and value_line not in why and value_line not in care:
         odds_line = (odds_line + value_line) if odds_line else value_line
-    talk = dict(verdict=verdict, fan=fan, why=why[:4], care=care[:3], matchup=matchup[:4], odds=odds_line, outside=outside_lines)
+    talk = dict(verdict=verdict, fan=fan, why=why[:5], care=care[:3], matchup=matchup[:4], odds=odds_line)
     talk["ai"] = ai_paragraphs(g, hn, an, fan, why, care, matchup)
     if sets:
         talk["note"] = "排球看局數，五局三勝。"
@@ -698,7 +709,7 @@ def ai_paragraphs(g, hn, an, fan, why, care, matchup):
             continue
         body.append(line)
     if body:
-        paras.append("".join(body[:5]))
+        paras.append("".join(body[:6]))
     if calc and calc.replace("我們的算法：", "算下來，") not in fan:
         paras.append(calc)
     c = [x for x in care if x not in said][:3]
