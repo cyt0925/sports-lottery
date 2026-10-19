@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""暫時的探路程式（只寫 log，查完就拿掉）：新浪 CBA 球員數據頁的查詢參數、表格、球隊名單頁。"""
+"""暫時的探路程式（只寫 log，查完就拿掉）：新浪 CBA 球員數據（全聯盟、球隊頁、單場數據頁）。"""
 import re
 import html as htmlmod
 
@@ -25,38 +25,37 @@ def get(url):
         return None
 
 
-def show(t, label):
-    print("##", label)
-    for f in re.findall(r"<form.*?</form>", t, flags=re.S | re.I)[:3]:
-        print("FORM", re.sub(r"\s+", " ", f)[:1500])
-    for sel in re.findall(r"<select[^>]*>.*?</select>", t, flags=re.S | re.I)[:6]:
-        name = re.search(r'name="([^"]+)"', sel)
-        opts = re.findall(r'<option[^>]*value="([^"]*)"[^>]*>(.*?)</option>', sel, flags=re.S)
-        print("SELECT", name.group(1) if name else None, [(v, strip(x)) for v, x in opts][:30])
-    links = sorted(set(re.findall(r'href="([^"]*(?:stats|team|player|schedule|rank)[^"]*)"', t)))
-    print("LINKS", links[:60])
-    tables = re.findall(r"<table.*?</table>", t, flags=re.S | re.I)
-    print("TABLES", len(tables))
-    for tb in tables[:3]:
+def tables(t, n=3, rows_n=4):
+    tbs = re.findall(r"<table.*?</table>", t, flags=re.S | re.I)
+    print("TABLES", len(tbs))
+    for tb in tbs[:n]:
         rows = re.findall(r"<tr.*?</tr>", tb, flags=re.S | re.I)
         print("  rows", len(rows))
-        for tr in rows[:4]:
-            print("   ", strip(tr)[:300], "|RAW|", re.sub(r"\s+", " ", tr)[:400])
+        for tr in rows[:rows_n]:
+            print("   ", strip(tr)[:300], "|RAW|", re.sub(r"\s+", " ", tr)[:500])
 
 
 def main():
-    t = get(f"{BASE}/cba/stats/playerstats/")
+    for q in ("?qleagueid=216&qround=&qorder=pts", "?qleagueid=216&qround=%B3%A3%B9%E6%C8%FC", "?qleagueid=217&qround=&qorder=pts"):
+        t = get(f"{BASE}/cba/stats/playerstats/{q}")
+        if t:
+            tables(t, 1, 5)
+    t = get(f"{BASE}/cba/team/show/16/")
     if t:
-        show(t, "playerstats")
-    for q in ("?qtype=avg&y=2026", "?dpc=1&qtype=avg&y=2025", "?y=2025", "?season=2025"):
-        t2 = get(f"{BASE}/cba/stats/playerstats/{q}")
-        if t2:
-            tb = re.findall(r"<tr.*?</tr>", t2, flags=re.S | re.I)
-            print("  ", q, "rows", len(tb), [strip(x)[:120] for x in tb[1:3]])
-    for path in ("/cba/team/", "/cba/stats/teamrank/", "/cba/schedule/all/", "/cba/"):
-        t3 = get(BASE + path)
-        if t3:
-            show(t3, path)
+        print("team links", sorted(set(re.findall(r'href="([^"]*(?:player|stats|schedule)[^"]*)"', t)))[:30])
+        tables(t, 4, 5)
+    t = get(f"{BASE}/cba/schedule/all/")
+    if t:
+        stat = re.findall(r'<a href="([^"]+)"[^>]*>\s*统计\s*</a>', t)
+        print("統計連結", stat[:5])
+        for u in stat[:1]:
+            u = u if u.startswith("http") else BASE + u
+            s = get(u)
+            if s:
+                tables(s, 4, 5)
+    t = get(f"{BASE}/cba/player/show/4017/")
+    if t:
+        tables(t, 3, 4)
 
 
 if __name__ == "__main__":
