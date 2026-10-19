@@ -26,15 +26,18 @@ RUN_CAP = 20
 NEAR_H = 36
 MIN_GAP_H = 2          # 事實有變，至少隔 2 小時才重寫
 MAX_AGE_H = 12         # 事實沒變，超過 12 小時也重寫一次（新聞會變）
+PROMPT_VER = 2         # 寫法改了就加一：舊的分析不用等 2 小時，馬上重寫
 GAP_S = 7.0            # 每分鐘最多 8～9 次，免費額度比較安全
 KEEP_DAYS = 45
 
 SYSTEM = """你是一位什麼運動都看、很會分析的台灣老球迷，正在跟家人聊等一下的比賽。
 規則：
-1. 用台灣繁體中文、口語、講人話，像朋友聊天。不要條列、不要標題、不要英文縮寫堆砌。
+1. 用台灣繁體中文、口語、講人話，像朋友聊天。不要條列、不要標題、不要英文縮寫堆砌。不要稱呼讀者（不要寫「老爸」「你看」），直接講比賽。
+   數字用阿拉伯數字（例如「贏 8 分」「5 勝 3 敗」「總分 164 分」），機率可以用「六成」這種講法。
 2. 只能根據提供的資料。資料裡沒有的球員、數據、新聞，一個字都不能編；不確定就說不確定。
 3. 判斷誰會贏只看：兩隊實力、最近狀況、傷兵和誰會不會上、主力手感、休息和背靠背、交手紀錄、打法對位、戰意、外界的看法（新聞標題、ESPN 電腦預測）。不要用賭盤、賠率、盤口、網友押哪邊來判斷誰會贏。
 4. 可以在最後用一句話，根據「網站估的機率」和台灣運彩賠率，說划不划算。
+   「網站的計算」「網站的建議」是我們網站自己算的；台灣運彩只提供賠率，不會建議押誰，不要寫「運彩說」「運彩叫人押」。
 5. 第一行固定格式：「看好：隊名（幾成）」，例如「看好：湖人（六成五）」，意思是你覺得哪一隊會贏球（不是讓分押哪邊）；真的看不出來就寫「看好：兩隊差不多」。隊名用資料裡的中文隊名。讓分、大小分的看法寫在內文裡。
 6. 第一行之後寫 120 到 220 字，分 2 到 3 小段：最關鍵的一兩件事、要小心什麼、結論。
 7. 你的看法可以跟網站的計算不同，不同的話要說為什麼。
@@ -196,6 +199,8 @@ def facts(g, sport):
             calc["各因素"] = [f"{x['label']}：{x['team'] or '差不多'} {x['pts']:g} 分" for x in s["factors"]]
         if est.get("weak"):
             calc["注意"] = "兩隊這季場數少，計算還不準"
+        if s.get("summary"):
+            calc["網站的建議"] = s["summary"]
         f["網站的計算"] = calc
     tw = g.get("tw") or {}
     ml, sp, tt = tw.get("ml") or {}, tw.get("spread") or {}, tw.get("total") or {}
@@ -206,8 +211,6 @@ def facts(g, sport):
         twd["讓分"] = sp["line"]
     if tt.get("line") is not None:
         twd["大小"] = tt["line"]
-    if s.get("summary"):
-        twd["網站的建議"] = s["summary"]
     v = s.get("value")
     if v:
         twd["划不划算"] = f"照網站估的 {round(v['p'] * 100)}%，賠 {v['dec']}，押 100 長期拿回 {v['back']} 元（{v['label']}）"
@@ -378,7 +381,8 @@ def run(games, path, now, main_chips, log, errors):
                 age_h = (now - datetime.fromisoformat(old["at"])).total_seconds() / 3600
             except ValueError:
                 age_h = None
-        need = not old or (old.get("hash") != h and (age_h is None or age_h >= MIN_GAP_H)) or (age_h is not None and age_h >= MAX_AGE_H)
+        need = (not old or old.get("ver") != PROMPT_VER or (old.get("hash") != h and (age_h is None or age_h >= MIN_GAP_H))
+                or (age_h is not None and age_h >= MAX_AGE_H))
         if need and not stop:
             if not token:
                 stop = "還沒設定 GEMINI_API_KEY（到 Google AI Studio 免費申請，放進 GitHub Secrets）"
@@ -398,7 +402,7 @@ def run(games, path, now, main_chips, log, errors):
                 fails = 0
                 lean, p, body = parse(res["text"], _name(g["home"]), _name(g["away"]))
                 notes[gid] = dict(hash=h, at=now.isoformat(timespec="minutes"), model=res["model"], text=body, lean=lean, p=p,
-                                  previews=pv, day=g.get("day_tw"))
+                                  previews=pv, day=g.get("day_tw"), ver=PROMPT_VER)
                 n_new += 1
                 if n_new == 1:
                     log(f"[AI] 第一篇（{res['model']}）：{res['text'][:160]!r}；額度：{res.get('headers')}")
