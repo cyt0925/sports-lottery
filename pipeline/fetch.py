@@ -2113,6 +2113,7 @@ def nba_elo(all_games, path):
         return
     now = datetime.now(timezone.utc)
     st, sc, base_sc = elo.tune(games, {"nba": 2.8}, 2.8, since_ts=(now - timedelta(days=400)).timestamp())
+    st = elo.carry(st, 1)
     import background
     # 上季戰績只算例行賽（一季 1230 場，之後是附加賽、季後賽）
     for i, x in enumerate([x for x in games if x["season"] == 0]):
@@ -2185,6 +2186,7 @@ def euro_elo(all_games):
             dom = [c for c in cs if c not in ("E", "U")]
             prior[k] = elo.LEAGUE_PRIOR.get(dom[0], -8.0) if dom else -6.0
     st, sc, base_sc = elo.tune(games, hca0, 3.0, since_ts=(now - timedelta(days=400)).timestamp(), prior=prior)
+    st = elo.carry(st, 1, prior)
     import background
     T = background.tables(games)
     part = {k: (None if done else mx) for k, (done, mx) in (td.progress(prev) if td else {}).items()}

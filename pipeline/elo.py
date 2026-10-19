@@ -57,7 +57,21 @@ def rate(games, hca0, params=None, hca_default=3.0, prior=None):
         for t in (h, a):
             N[t] = N.get(t, 0) + 1
             NT[t] = NT.get(t, 0) + 1
-    return dict(R=R, N=N, NT=NT, HC=HC, OFF=OFF, preds=preds, params=P)
+    return dict(R=R, N=N, NT=NT, HC=HC, OFF=OFF, preds=preds, params=P, season=season)
+
+
+def carry(st, season_now, prior=None):
+    """這季還沒開打（例如 NBA 開幕前）：最後一場還是上季的，實力也要先打折往起點拉，
+    不然上季季後賽打很深的球隊分數會被灌高。"""
+    if st.get("season") == season_now:
+        return st
+    P, prior = st["params"], prior or {}
+    out = dict(st)
+    out["R"] = {k: prior.get(k, 0.0) + (v - prior.get(k, 0.0)) * P["regress"] for k, v in st["R"].items()}
+    out["OFF"] = {k: v * 0.8 for k, v in st["OFF"].items()}
+    out["N"] = {}
+    out["season"] = season_now
+    return out
 
 
 def score(preds, since_ts=None):

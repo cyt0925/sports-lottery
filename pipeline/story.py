@@ -62,6 +62,11 @@ def _dense_line(rest, hn, an, league):
     return f"{tired}前 7 天已經打了 {n} 場，比{fresh}多，後段體力比較吃虧。"
 
 
+def _pre_only(g, t):
+    """這隊的近況只有季前賽（例行賽剛開打，還沒打正式比賽）：季前賽主力打不多，近況不能當真。"""
+    return t.get("form_note") == "季前賽" and g.get("season_type") != 1
+
+
 def _rec(t):
     """這季戰績 (勝, 敗)；沒有就 None。"""
     try:
@@ -73,6 +78,8 @@ def _rec(t):
 
 def _prev_one(p, name, first=True):
     if p.get("absent"):
+        if p["comp"] in ("E", "U"):
+            return f"{name}上季沒打{p['comp_zh']}"
         return f"上季{p['comp_zh']}的資料裡沒有{name}（可能剛升上來）"
     head = ("上季" if p["comp"] == "nba" else f"上季{p['comp_zh']}") if first else ""
     part = f"前 {p['partial']} 輪" if p.get("partial") and first else ""
@@ -105,22 +112,23 @@ def bg_lines(g, hn, an):
         gp = max(sum(rh), sum(ra))
         when = "開季" if gp <= 8 else "這季"
         bits = []
-        same = rh == ra
-        for (w_, l_), t, nm, p in ((rh, H, hn, ph), (ra, A, an, pa)):
+        bits, cmp_ = [], []
+        for (w_, l_), nm, p in ((rh, hn, ph), (ra, an, pa)):
             if not w_ + l_:
                 continue
-            txt = f"{nm} {w_} 勝 {l_} 敗"
+            bits.append(f"{nm} {w_} 勝 {l_} 敗")
             if p and not p.get("absent") and w_ + l_ >= 3:
                 now_pct, then_pct = w_ / (w_ + l_), p["w"] / max(1, p["w"] + p["l"])
                 if now_pct - then_pct >= 0.25:
-                    txt += "，比上季好"
+                    cmp_.append((nm, "比上季好"))
                 elif then_pct - now_pct >= 0.25:
-                    txt += "，沒有上季好"
-            bits.append(txt)
-        if same and not any("上季" in b for b in bits):
-            out.append(f"{when}兩隊都是 {rh[0]} 勝 {rh[1]} 敗。")
+                    cmp_.append((nm, "沒有上季好"))
+        if rh == ra and len(bits) == 2:
+            out.append(f"{when}兩隊都是 {rh[0]} 勝 {rh[1]} 敗" + "".join(f"，{nm}{c}" for nm, c in cmp_) + "。")
         elif bits:
-            out.append(f"{when}" + "，".join(bits) + "。")
+            # 「A 2 勝 1 敗，比上季好，B 0 勝 3 敗」：比較接在那一隊後面
+            parts = [b + "".join(f"，{c}" for nm, c in cmp_ if b.startswith(nm + " ")) for b in bits]
+            out.append(f"{when}" + "，".join(parts) + "。")
     # 主場
     e = a.get("elo") or {}
     if not g.get("neutral") and e.get("off_home") is not None and (e.get("nt_home") or 0) >= 15:
@@ -203,7 +211,10 @@ def _fan_take(g, sport, hn, an, pick, used):
         elif st == "背靠背常輪休":
             out.append(f"今天是{name}背靠背第二場，{who}{('，' + x['why']) if x.get('why') else '這種比賽常休息'}，很可能又不打。開賽前一小時看先發名單再決定。")
         else:
-            reason = x.get("why") or ("名單上寫" + st if st else "還不確定會不會打")
+            if st == "上一場沒上":
+                reason = x.get("detail") or "上一場沒上場，可能受傷或輪休"
+            else:
+                reason = x.get("why") or ("名單上寫" + st if st else "還不確定會不會打")
             out.append(f"{who} 打不打是這場最大的變數：{reason}。他上的話{name}強很多，賽前一定要再看一次。")
     # 2) 季前賽
     if g.get("season_type") == 1:
@@ -213,7 +224,7 @@ def _fan_take(g, sport, hn, an, pick, used):
         for side, t, name in (("home", H, hn), ("away", A, an)):
             fv = r.get("form_" + side)
             sd = r.get("season_diff_" + side)
-            if not fv or sd is None or (r.get("gp_" + side) or 0) < 8:
+            if not fv or sd is None or (r.get("gp_" + side) or 0) < 8 or _pre_only(g, t):
                 continue
             gap = fv["recent"] - sd
             if gap <= -6:
@@ -232,7 +243,7 @@ def _fan_take(g, sport, hn, an, pick, used):
             # 季初場數少，帳面就是近況：只講特別順或特別差的
             for side, t, name in (("home", H, hn), ("away", A, an)):
                 fv = r.get("form_" + side)
-                if not fv or (r.get("gp_" + side) or 0) >= 8:
+                if not fv or (r.get("gp_" + side) or 0) >= 8 or _pre_only(g, t):
                     continue
                 if fv["recent"] >= 10:
                     out.append(f"{name}開季打得很順，扣掉對手強弱平均贏 {fv['recent']:.0f} 分，不是只靠賽程。")
@@ -368,7 +379,8 @@ def build_story(g, sport):
         mine = pick == ("home" if t is H else "away")
         inj = [x for x in t.get("injuries") or [] if (x.get("impact") or 0) > 0 or _star(x)]
         outs = [x for x in inj if x.get("severity") in ("out", "ir")]
-        maybes = [x for x in inj if x.get("severity") == "maybe" and (x.get("p_out") if x.get("p_out") is not None else 0.5) >= 0.3 and x.get("status_zh") != "背靠背常輪休"]
+        maybes = [x for x in inj if x.get("severity") == "maybe" and (x.get("p_out") if x.get("p_out") is not None else 0.5) >= 0.3 and x.get("status_zh") != "背靠背常輪休"
+                  and x["player"] not in used]       # 老球迷那段已經講過的人不再講一次
         limited = [x for x in inj if x.get("severity") == "limited" and x["player"] not in used]
         b2b = [x for x in inj if x.get("status_zh") == "背靠背常輪休" and x["player"] not in used]
 
@@ -376,8 +388,8 @@ def build_story(g, sport):
             lst = sorted(lst, key=lambda x: -(x.get("ppg") or 0))
             p0 = lst[0]
             ppg = f"（場均 {p0['ppg']:.0f} 分）" if p0.get("ppg") else ""
-            extra = f"等 {len(lst)} 人" if len(lst) > 1 else ""
-            return f"{_last(p0['player'])}{extra}{ppg}"
+            extra = f" 等 {len(lst)} 人" if len(lst) > 1 else ""
+            return f" {_last(p0['player'])}{extra}{ppg}"
         if imp.get("pts", 0) >= 1 and (outs or maybes):
             parts = []
             if outs:
@@ -386,14 +398,14 @@ def build_story(g, sport):
             if maybes:
                 hi = [x for x in maybes if (x.get("p_out") or 0.5) >= 0.6]
                 parts.append(f"{'' if outs else '的'}{_who(maybes)}{'很可能不打' if hi and len(hi) == len(maybes) else '還不確定上不上'}")
-            line = f"{name}{'，'.join(parts)}，大概影響 {imp['pts']:g} 分。"
+            line = f"{name}{'，'.join(parts)}，大概影響 {imp['pts']:g} 分。".replace("， ", "，")
             lm = a.get("line_move") or {}
             if not own and lm.get("spread_open") is not None and lm.get("spread_now") is not None and abs(lm["spread_now"] - lm["spread_open"]) >= 1:
                 line += "盤口已經有動，應該反映進去了。"
             (care if mine else why).append(line)
         elif outs or maybes:
             p0 = (outs or maybes)[0]
-            care.append(f"{name}少了 {_last(p0['player'])}，不是主力，影響不大。")
+            why.append(f"{name}少了 {_last(p0['player'])}，不是主力，影響不大。")
         for x in sorted(limited, key=lambda x: -(x.get("full_impact") or 0))[:1]:
             line = f"{name}的 {_last(x['player'])} 會上，但{x.get('why') or '上場時間被控制'}，別把他當完整戰力看。"
             (care if mine else why).append(line)
@@ -404,7 +416,7 @@ def build_story(g, sport):
         if t.get("last10"):
             n = len(t.get("form") or [])
             w = t.get("last10_w", 0)
-            line = f"{name}近 {n} 場 {w} 勝 {n - w} 敗"
+            line = f"{name}{'季前賽' if _pre_only(g, t) else '近'} {n} 場 {w} 勝 {n - w} 敗"
             if t.get("rank_note"):
                 line += f"，{t['rank_note'].replace('第 ', '第').replace(' 名', '名')}"
             if t.get("streak"):
@@ -484,6 +496,8 @@ def build_story(g, sport):
     r0 = a.get("rating") or {}
     for side, name in (("home", hn), ("away", an)):
         fv = r0.get("form_" + side)
+        if _pre_only(g, g[side]):
+            continue        # 季前賽主力打不多，扣掉對手強弱也看不出什麼
         if fv and fv.get("n", 0) >= 3 and (abs(fv["recent"]) >= 5 or abs(fv["opp_avg"]) >= 3):
             if fv["opp_avg"] >= 3:
                 sched = f"最近 {fv['n']} 場碰的多是強隊"
