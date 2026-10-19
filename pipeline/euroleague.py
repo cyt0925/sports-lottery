@@ -83,9 +83,14 @@ QUERY_NAME = {
 }
 
 
+def _has(k, norm):
+    """隊名裡有沒有這個字：要從字的開頭對上（「Seawolves」裡的 wolves 不算維爾紐斯狼）。"""
+    return re.search(r"(^|[^a-z])" + re.escape(k), norm or "") is not None
+
+
 def query_name(norm, fallback):
     for k, v in QUERY_NAME.items():
-        if k in norm:
+        if _has(k, norm):
             return v
     return fallback
 
@@ -255,7 +260,7 @@ class EuroLeague:
         if not club or not zh:
             return 0
         for key, kws in ALIASES.items():
-            if key in zh and any(kw in club["norm"] for kw in kws):
+            if key in zh and any(_has(kw, club["norm"]) for kw in kws):
                 return 1
         return 0
 
@@ -414,7 +419,7 @@ ZH_STATIC = {
     "panathinaikos": "帕納辛奈科斯", "valencia": "瓦倫西亞", "olympiacos": "奧林匹亞科斯", "fenerbahce": "費內巴切",
     "partizan": "貝爾格勒游擊隊", "crvena": "貝爾格勒紅星", "barcelona": "巴塞隆納", "zalgiris": "考納斯綠林",
     "asvel": "艾思維爾", "dubai": "杜拜", "real madrid": "皇家馬德里", "monaco": "摩納哥", "paris": "巴黎",
-    "bayern": "拜仁慕尼黑", "efes": "艾菲斯", "maccabi": "馬卡比特拉維夫", "hapoel tel": "哈波特拉維夫", "hapoel": "哈波耶路撒冷",
+    "bayern": "拜仁慕尼黑", "efes": "艾菲斯", "maccabi": "馬卡比特拉維夫", "hapoel tel": "哈波特拉維夫", "hapoel ibi": "哈波特拉維夫",
     "baskonia": "巴斯克尼亞", "milan": "米蘭", "virtus": "維圖斯博洛尼亞", "trento": "特倫托", "chemnitz": "凱姆尼茲",
     "bourg": "布爾格", "neptunas": "克萊佩達海王星", "manresa": "曼雷薩", "bahcesehir": "花園城市學院", "besiktas": "貝西克塔斯",
     "turk telekom": "土耳其電信", "lietkabelis": "利特卡貝利斯", "cedevita": "采迪維塔", "ulm": "烏爾姆", "hamburg": "漢堡",
@@ -432,6 +437,6 @@ def og_id(og):
 
 def _zh_static(norm):
     for k, v in ZH_STATIC.items():
-        if k in norm:
+        if _has(k, norm):
             return v
     return None
