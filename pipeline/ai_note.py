@@ -26,7 +26,7 @@ RUN_CAP = 20
 NEAR_H = 36
 MIN_GAP_H = 2          # 事實有變，至少隔 2 小時才重寫
 MAX_AGE_H = 12         # 事實沒變，超過 12 小時也重寫一次（新聞會變）
-PROMPT_VER = 2         # 寫法改了就加一：舊的分析不用等 2 小時，馬上重寫
+PROMPT_VER = 3         # 寫法改了就加一：舊的分析不用等 2 小時，馬上重寫
 GAP_S = 7.0            # 每分鐘最多 8～9 次，免費額度比較安全
 KEEP_DAYS = 45
 
@@ -43,7 +43,8 @@ SYSTEM = """你是一位什麼運動都看、很會分析的台灣老球迷，�
 7. 你的看法可以跟網站的計算不同，不同的話要說為什麼。
 8. 讀者是不會去點新聞、也看不懂外文的長輩。資料裡的新聞標題可能是英文、日文、希伯來文、希臘文、土耳其文、西班牙文等，
    請你讀懂，把有用的消息（誰受傷、誰回來、換教練、欠薪、隊內問題、這場對誰特別重要）直接用中文寫進分析，
-   可以說「以色列媒體說…」「外電說…」。不要貼原文標題、不要叫讀者去看新聞。跟這兩隊無關、或看不出跟比賽有關的新聞就不要提。"""
+   可以說「以色列媒體說…」「外電說…」。不要貼原文標題、不要叫讀者去看新聞。
+   跟這兩隊無關、或看不出跟比賽有關的新聞完全不要提，也不要寫「這則新聞跟比賽無關」。"""
 
 CHENG_DIGITS = "零一二三四五六七八九十"
 
@@ -168,14 +169,16 @@ def facts(g, sport):
     if out.get("espn"):
         ep = out["espn"]["home"]
         ext["ESPN 電腦預測"] = f"{hn if ep >= 0.5 else an} {round(max(ep, 1 - ep) * 100)}%"
-    from newsread import media_of
+    from newsread import media_of, relevant, team_words
     heads = [n["title"] for n in (g.get("_previews") or [])]
     if heads:
         ext["賽前分析的標題"] = heads[:5]
     news = {}
     for t, n in ((H, hn), (A, an)):
         lst, seen = [], set()
-        items = list(t.get("injury_news") or []) + [x for x in g.get("news") or [] if x.get("team") == ("home" if t is H else "away")]
+        words = team_words(t)
+        items = [x for x in list(t.get("injury_news") or []) + [x for x in g.get("news") or [] if x.get("team") == ("home" if t is H else "away")]
+                 if relevant(x, t, words)]
         items += [dict(title=x.get("title"), lang=x.get("lang"), published=x.get("published")) for x in t.get("signals") or []]
         for x in items:
             if x.get("title") and x["title"] not in seen:
@@ -244,7 +247,8 @@ def previews(g, log=None):
         title = htmlmod.unescape((it.findtext("title") or "").strip())
         link = (it.findtext("link") or "").strip()
         src = it.find("source")
-        if title:
+        from newsread import NOISE
+        if title and not NOISE.search(title):      # 博彩網站的賠率、預測頁不算（網站不看賭盤）
             out.append(dict(title=title.split(" - ")[0], url=link, src=(src.text or "").strip() if src is not None else "新聞"))
         if len(out) >= 4:
             break

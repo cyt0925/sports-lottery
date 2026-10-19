@@ -102,17 +102,52 @@ def _zh_detail(x):
     x["media"] = who
 
 
+def team_words(t):
+    """標題裡要出現哪些字才算講到這隊：中文名、日文全名和暱稱（ジェッツ）、英文隊名的特別字、當地語言隊名、主力的姓。"""
+    import context
+    from eurodom_names import local_query
+    words = [t.get("name_zh"), t.get("jp_name")]
+    jp = t.get("jp_name") or ""
+    m = re.findall(r"[ァ-ヶー]{3,}", jp)
+    if m:
+        words.append(m[-1])
+    for nm in (t.get("name"), t.get("en_key")):
+        if nm and nm.isascii():
+            words += context.must_words(nm)
+            spec = local_query(nm)
+            if spec:
+                words += spec[3]
+    for x in (t.get("stars") or [])[:5] + (t.get("hot") or [])[:3]:
+        sur = (x.get("player") or "").split(" ")[-1]
+        if len(sur) >= 4:
+            words.append(sur)
+    return [w for w in words if w and len(w) >= 2]
+
+
+# 不算新聞的：博彩網站的賠率、預測頁（網站不看賭盤），球員數據頁
+NOISE = re.compile(r"\bodds\b|betting|\btips\b|sportsbook|\bpicks?\b|prediction|pronostic|apuestas|scommesse|iddaa|wetten|"
+                   r"stats, game log|game log|statistika, rungtyn|maçı hangi kanalda|canlı izle|live stream", re.I)
+
+
+def relevant(item, t, words=None):
+    """這則新聞真的有講到這隊嗎（避免「富山灣遊覽船故障」這種同名的別的新聞），也不是賠率、數據頁。"""
+    from newsinj import has_word
+    words = words if words is not None else team_words(t)
+    title = item.get("title") or item.get("detail") or ""
+    return bool(words) and has_word(title, words) and not NOISE.search(title)
+
+
 def sources(g):
     """這場分析用到的新聞：(媒體, 原文標題, 連結, 來源網站)，給分析最下面的「資料來源」。"""
     out, seen = [], set()
     items = []
     for side in ("home", "away"):
         t = g[side]
+        words = team_words(t)
         items += [x for x in t.get("injuries") or [] if x.get("url") and not x.get("official")]
-        items += [dict(title=s.get("title"), url=s.get("url"), lang=s.get("lang")) for s in t.get("signals") or [] if s.get("title")]
-        items += t.get("injury_news") or []
-    items += g.get("news") or []
-    items += ((g.get("ai") or {}).get("previews")) or []
+        items += [dict(title=s.get("title"), url=s.get("url"), lang=s.get("lang"), source=s.get("source")) for s in t.get("signals") or [] if s.get("title")]
+        items += [x for x in (t.get("injury_news") or []) + [n for n in g.get("news") or [] if n.get("team") == side] if relevant(x, t, words)]
+    items += [x for x in ((g.get("ai") or {}).get("previews")) or [] if not NOISE.search(x.get("title") or "")]
     for x in items:
         title = x.get("detail") if x.get("player") else x.get("title")
         if not title or title in seen:
