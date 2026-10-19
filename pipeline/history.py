@@ -145,9 +145,11 @@ def _track_model(hist, g, now):
     models = hist.setdefault("model", {})
     state = g["status"]["state"]
     o = g.get("odds") or {}
-    if state == "pre" and m.get("prob_home") is not None and o.get("prob_home") is not None and o.get("prob_source") != "form":
+    has_mkt = o.get("prob_home") is not None and o.get("prob_source") != "form"
+    # 國內聯賽沒有盤口：只記我們自己的（拿來看每個因素有沒有用）
+    if state == "pre" and m.get("prob_home") is not None and (has_mkt or g.get("league") == "eurodom"):
         e = models.get(gid) or dict(day=g["day_tw"], league=g["league"], chip=g.get("chip") or g["sport"])
-        e.update(model_home=m["prob_home"], mkt_home=o["prob_home"], weak=bool(m.get("weak")))
+        e.update(model_home=m["prob_home"], mkt_home=o["prob_home"] if has_mkt else None, weak=bool(m.get("weak")))
         if m.get("variants"):
             e["var"] = m["variants"]
         models[gid] = e
@@ -158,10 +160,11 @@ def _track_model(hist, g, now):
         e = models[gid]
         home_won = hs > as_
         y = 1 if home_won else 0
+        mk = e.get("mkt_home")
         e["res"] = dict(home_won=home_won,
-                        model_hit=(e["model_home"] >= 0.5) == home_won, mkt_hit=(e["mkt_home"] >= 0.5) == home_won,
+                        model_hit=(e["model_home"] >= 0.5) == home_won, mkt_hit=(mk >= 0.5) == home_won if mk is not None else None,
                         model_brier=round((e["model_home"] - y) ** 2, 4),
-                        mkt_brier=round((e["mkt_home"] - y) ** 2, 4))
+                        mkt_brier=round((mk - y) ** 2, 4) if mk is not None else None)
         if e.get("var"):
             e["res"]["var_brier"] = {k: round((v - y) ** 2, 4) for k, v in e["var"].items() if v is not None}
 
@@ -263,8 +266,10 @@ def model_summary(hist, now=None, days=30):
             disagree=len(dis), disagree_model_right=sum(1 for e in dis if e["res"]["model_hit"]),
             disagree_mkt_right=sum(1 for e in dis if e["res"]["mkt_hit"]),
         )
+    # 跟盤口比只算有盤口的場次；國內聯賽沒有盤口，只拿來看每個因素有沒有用
+    cmp_rows = [e for e in rows if e.get("mkt_home") is not None and e["res"].get("mkt_brier") is not None]
     by = {}
-    for e in rows:
+    for e in cmp_rows:
         by.setdefault(e.get("chip") or e["league"], []).append(e)
     pending = sum(1 for e in (hist.get("model") or {}).values() if not e.get("res"))
     # 每個因素：加了 vs 沒加，誰比較準（Brier 越低越準）
@@ -285,7 +290,7 @@ def model_summary(hist, now=None, days=30):
     overall_vs_base = None
     if base_pairs:
         overall_vs_base = dict(n=len(base_pairs), full=round(mean(p[0] for p in base_pairs), 4), base=round(mean(p[1] for p in base_pairs), 4))
-    return dict(days=days, pending=pending, overall=bucket(rows), by_league={k: bucket(v) for k, v in by.items()},
+    return dict(days=days, pending=pending, overall=bucket(cmp_rows), by_league={k: bucket(v) for k, v in by.items()},
                 factors=factors, vs_base=overall_vs_base)
 
 

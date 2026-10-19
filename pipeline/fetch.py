@@ -44,6 +44,9 @@ LEAGUES = [
     # 以玩運彩為主幹的聯盟（ESPN 沒有）：賽程、台灣盤、國際盤、玩家預測、球隊歷史戰績都從玩運彩來
     dict(key="eurobasket", label="歐洲籃球", sport="basketball", source="playsport", alliance=8,
          injuries=False, gamelog=False, total_th=6, headshot=None),
+    # 歐洲各國國內聯賽（西、義、土、希、法、德、立陶宛、以色列、亞得里亞海）：TheSportsDB，沒有台灣運彩賠率，放在「歐洲籃球」底下
+    dict(key="eurodom", label="歐洲籃球", sport="basketball", source="thesportsdb", chip="eurobasket",
+         injuries=False, gamelog=False, total_th=6, headshot=None),
     dict(key="jpbasket", label="日本籃球", sport="basketball", source="playsport", alliance=97,
          injuries=False, gamelog=False, total_th=6, headshot=None),
     # 日本排球：SV.LEAGUE 官網，沒有盤口
@@ -87,12 +90,16 @@ def is_near(g):
 
 
 def chip_of(lg):
+    if lg.get("chip"):
+        return lg["chip"]
     return "nba" if lg["key"] == "nba" else (lg["key"] if lg.get("source") else lg["sport"])
 
 SESSION = requests.Session()
 SESSION.headers.update(HEADERS)
 ERRORS = []
 CALLS = {"n": 0}
+TSDB_LOADER = None     # 國內聯賽（main() 一開始就在背景抓）
+EL_STATE = {}          # 歐冠、歐盃官方資料（國內聯賽要用同一支球隊的歐戰賽程）
 
 
 def log(msg):
@@ -1274,6 +1281,13 @@ def main():
 
     all_games = []
     standings = {}
+    global TSDB_LOADER
+    if (not only or "eurodom" in only):
+        try:
+            import tsdb
+            TSDB_LOADER = tsdb.Loader(os.path.join(os.path.dirname(os.path.abspath(args.out)), "tsdb.json"), log, ERRORS)
+        except Exception as e:  # noqa: BLE001
+            ERRORS.append(f"國內聯賽載入失敗: {e!r}")
     for lg in LEAGUES:
         if only and lg["key"] not in only:
             continue
@@ -1431,7 +1445,7 @@ def main():
         standings=standings,
         record=record,
         parlay=parlay_out,
-        source="NBA 來自 ESPN；歐洲籃球、日本籃球的賽程與盤口來自玩運彩，隊徽與排名來自 EuroLeague 官方與 B.LEAGUE 官網；日本排球來自 SV.LEAGUE 官網；沒有官方傷兵名單的聯盟用 Google 新聞",
+        source="NBA 來自 ESPN；歐洲籃球、日本籃球的賽程與盤口來自玩運彩，隊徽與排名來自 EuroLeague 官方與 B.LEAGUE 官網；歐洲國內聯賽來自 TheSportsDB（沒有台灣運彩賠率）；日本排球來自 SV.LEAGUE 官網；沒有官方傷兵名單的聯盟用 Google 新聞",
         errors=ERRORS[:50],
         calls=CALLS["n"],
     )
@@ -1493,8 +1507,11 @@ def enrich_games(all_games):
                     f"raw_keys={list((RAW.get('summary_' + lg['key']) or {}).get('keys') or [])[:30]}")
         start = parse_dt(g["start"])
         try:
-            # 歐籃只有歐戰賽程、沒有各國聯賽，休息天數算不準，不算
-            a["rest"] = None if lg["key"] == "eurobasket" else {"home": compute_rest(g["home"], start), "away": compute_rest(g["away"], start)}
+            # 歐籃：要有國內聯賽的賽程（t["schedule"]）才算休息天數，只看歐戰會算錯
+            if lg["key"] == "eurobasket" and not (g["home"].get("schedule") and g["away"].get("schedule")):
+                a["rest"] = None
+            else:
+                a["rest"] = {"home": compute_rest(g["home"], start), "away": compute_rest(g["away"], start)}
         except Exception as e:  # noqa: BLE001
             ERRORS.append(f"休息天數 {g['id']} 失敗: {e!r}")
         g["analysis"] = a
@@ -1639,6 +1656,11 @@ def process_playsport(lg, lo, hi, all_games, standings):
             if keep:
                 el.enrich(keep)
             st = el.standings_payload()
+            EL_STATE["el"] = el
+            try:
+                add_domestic_schedule(keep, el)
+            except Exception as e:  # noqa: BLE001
+                ERRORS.append(f"歐籃 國內賽程合併失敗: {e!r}")
             name_fn = lambda t: (t["en_key"], "en") if t.get("en_key") else None  # noqa: E731
         else:
             from bleague import BLeague
@@ -1781,6 +1803,7 @@ def fill_notes(g, lg):
         n["odds"] = {
             "svleague": "台灣運彩和玩運彩都沒有日本排球的盤口，這場只看近況和新聞",
             "playsport": "台灣運彩還沒開這場的盤，通常比賽前一天才會出現",
+            "thesportsdb": "台灣運彩有開國內聯賽，但官網只開放台灣的網路，網站讀不到賠率；這場只有我們自己的分析",
         }.get(src, "台灣運彩還沒開這場的盤，通常比賽前一天才會出現")
     elif o.get("prob_source") == "form" and chip_of(lg) not in MAIN_CHIPS:
         n["odds"] = "沒有盤口，勝率是用兩隊近況估的，只能當參考"
@@ -1791,13 +1814,191 @@ def fill_notes(g, lg):
     n["hot"] = "這個聯盟沒有球員逐場數據，手感看球隊近況為主" if not lg.get("gamelog") else "主力球員本季場次還不夠，暫時看不出手感冷熱"
     n["news"] = "近 4 天沒有找到這兩隊的新聞" if src else "24 小時內沒有相關新聞"
     if not g.get("tw"):
-        n["tw"] = "台灣運彩沒有開日本排球" if src == "svleague" else "台灣運彩還沒開這場，通常比賽前一天才會出現"
+        n["tw"] = {"svleague": "台灣運彩沒有開日本排球",
+                   "thesportsdb": "國內聯賽的台灣運彩賠率網站讀不到（官網只開放台灣的網路），請看台灣運彩 App"}.get(src, "台灣運彩還沒開這場，通常比賽前一天才會出現")
     if not (g["home"].get("form") or g["away"].get("form")):
         n["form"] = "兩隊本季都還沒有打完的比賽紀錄，近況暫時看不出來"
     g["notes"] = n
 
 
+def _sched_rows(rows):
+    """算休息天數用的精簡賽程：日期、哪個賽事。"""
+    return [dict(date_iso=r["date_iso"], comp=r.get("comp")) for r in rows if r.get("date_iso")][-15:]
+
+
+def add_domestic_schedule(games, el):
+    """歐冠、歐盃的比賽：把同一支球隊的國內聯賽賽程併進來，才算得出休息天數、一週第幾場。"""
+    if not TSDB_LOADER:
+        return
+    import tsdb as T
+    td = TSDB_LOADER.get()
+    cur, _prev = T.season_of(datetime.now(timezone.utc))
+    dom = td.results(cur)
+    codes = {t["el_code"]: (el.clubs.get(t["el_code"]) or {}).get("name") for g in games for t in (g["home"], g["away"]) if t.get("el_code")}
+    link = T.link_clubs(td, {c: n for c, n in codes.items() if n})
+    n = 0
+    for g in games:
+        for side in ("home", "away"):
+            t = g[side]
+            tid = link.get(t.get("el_code"))
+            if not tid:
+                continue
+            rows = [dict(r) for r in el.results.get(t["el_code"]) or []] + [dict(r) for r in dom.get(tid) or []]
+            rows.sort(key=lambda r: r.get("date_iso") or "")
+            t["schedule"] = _sched_rows(rows)
+            t["dom_id"] = tid
+            n += 1
+    log(f"[eurobasket] 國內聯賽賽程併進 {n} 隊（對到 {len(link)}/{len(codes)} 隊）")
+
+
+def process_tsdb(lg, lo, hi, all_games, standings):
+    """歐洲各國國內聯賽：TheSportsDB 的輪次資料（背景已經抓好）。沒有台灣運彩賠率，只有我們自己的分析。"""
+    import newsinj
+    import tsdb as T
+    from eurodom_names import lookup
+    from model import rating
+    from playsport import summarize_form, _blank_team
+    t0 = time.time()
+    if not TSDB_LOADER:
+        return
+    td = TSDB_LOADER.get()
+    try:
+        td.save()
+    except OSError as e:
+        ERRORS.append(f"國內聯賽快取存不了: {e!r}")
+    now = datetime.now(timezone.utc)
+    cur, prev = T.season_of(now)
+    tab, ptab = td.table(cur), td.table(prev)
+    res = td.results(cur)
+    el = EL_STATE.get("el")
+    el_link = {}
+    if el:
+        el_link = {tid: code for code, tid in T.link_clubs(td, {c: v.get("name") for c, v in el.clubs.items() if v.get("name")}).items()}
+
+    def ranked(key, table):
+        rows = sorted(table.items(), key=lambda kv: (-(kv[1]["w"] / max(1, kv[1]["gp"])), -(kv[1]["pf"] - kv[1]["pa"])))
+        return {tid: i for i, (tid, _v) in enumerate(rows, 1)}
+
+    ranks = {k: ranked(k, v) for k, v in tab.items()}
+    teams_cache = {}
+
+    def team(tid, meta):
+        if tid in teams_cache:
+            return dict(teams_cache[tid])
+        nm, badge = td.team(tid)
+        zh, q, _kw = lookup(nm)
+        code = el_link.get(tid)
+        if code and el and el.zh.get(code):
+            zh = el.zh[code]          # 跟歐冠、歐盃那邊（台灣運彩的叫法）一樣
+        t = _blank_team(nm, tid, "tsdb")
+        t.update(id=f"tsdb{tid}", tsdb_id=tid, name=nm, short=nm, name_zh=zh or nm, logo=badge, en_key=q)
+        if not zh:
+            t["name_raw"] = True
+        stat = (tab.get(meta["key"]) or {}).get(tid)
+        if stat:
+            t["record"] = f"{stat['w']}-{stat['l']}"
+            t["record_note"] = f"{meta['zh']}戰績"
+            r = (ranks.get(meta["key"]) or {}).get(tid)
+            if r:
+                t["rank"] = r
+                t["rank_note"] = f"{meta['zh']}第 {r} 名"
+        rows = [dict(r) for r in res.get(tid) or []]
+        if code and el:
+            rows += [dict(r) for r in el.results.get(code) or []]
+            t["el_code"] = code
+        rows.sort(key=lambda r: r.get("date_iso") or "")
+        if rows:
+            t["schedule"] = _sched_rows(rows)
+            summarize_form(t, rows, note=f"{meta['zh']}" + ("＋歐戰" if code else "") + "賽果")
+        teams_cache[tid] = t
+        return dict(t)
+
+    games = []
+    for meta, rnd, e in td.events(cur):
+        if not meta:
+            continue
+        eid, ts, hid, aid, hs, as_, status, venue = (e + [None] * 8)[:8]
+        st = datetime.fromtimestamp(ts, timezone.utc)
+        if not (lo <= st <= hi):
+            continue
+        H, A = team(hid, meta), team(aid, meta)
+        done = status in ("FT", "AOT", "AP", "Match Finished", "Finished", "After Over Time")
+        if status == "Postponed":
+            state, detail = "post", "延期"
+        elif now < st:
+            state, detail = "pre", "未開賽"
+        elif hs is not None and as_ is not None and (done or now >= st + timedelta(hours=2)):
+            state, detail = "post", "已結束"
+        elif now < st + timedelta(minutes=160):
+            state, detail = "in", "進行中（比分打完才會更新）"
+        else:
+            state, detail = "post", "比分還沒出來"
+        if hs is not None and as_ is not None and state != "pre":
+            H["score"], A["score"] = str(hs), str(as_)
+            if state == "post":
+                H["winner"], A["winner"] = hs > as_, as_ > hs
+        st_tw = st.astimezone(TW)
+        g = dict(
+            id=f"tsdb{eid}", league=lg["key"], league_zh=lg["label"], sport=lg["sport"], chip=chip_of(lg),
+            tennis=False, tournament=None, round=f"{meta['zh']} 第 {rnd} 輪", comp=meta["zh"], comp_source=meta["key"],
+            name=f"{A['name']} @ {H['name']}",
+            start=st.isoformat(timespec="minutes"), start_tw=st_tw.isoformat(timespec="minutes"),
+            day_tw=st_tw.strftime("%Y-%m-%d"), time_tw=st_tw.strftime("%H:%M"),
+            status=dict(state=state, completed=state == "post" and hs is not None, detail=detail, clock=None, period=None),
+            venue=venue or None, broadcast=None, home=H, away=A, odds=None, headline=None, news=[], suggestion=None,
+            tw=None, analysis=dict(hca=meta["hca"]), official=None, dom_league=meta["key"],
+        )
+        # 開季場數少：上季的國內戰績當底子（跟 NBA 一樣打七折，在 model.rate_game 裡）
+        pv = {}
+        for side, tid in (("home", hid), ("away", aid)):
+            ps = (ptab.get(meta["key"]) or {}).get(tid)
+            if ps and ps["gp"] >= 10:
+                pv[side] = round(rating(dict(gp=ps["gp"], diff=(ps["pf"] - ps["pa"]) / ps["gp"]), "basketball"), 1)
+        if pv:
+            g["analysis"]["prev_rating"] = dict(home=pv.get("home"), away=pv.get("away"))
+        games.append(g)
+    games.sort(key=lambda g: g["start"])
+    for g in games:
+        for side in ("home", "away"):
+            finalize_team(g[side], lg)
+    near = [g for g in games if is_near(g) and g["status"]["state"] != "post"]
+    if near:
+        try:
+            newsinj.attach(near, lambda t: (t["en_key"], "en") if t.get("en_key") else None, log, ERRORS, lg["key"], hint=" basketball")
+        except Exception as e:  # noqa: BLE001
+            ERRORS.append(f"{lg['key']} 新聞失敗: {e!r}")
+    all_games.extend(games)
+    groups = []
+    for meta in T.LEAGUES:
+        t_ = tab.get(meta["key"])
+        if not t_:
+            continue
+        rows = []
+        for tid, v in t_.items():
+            nm, badge = td.team(tid)
+            zh, _q, _k = lookup(nm)
+            code = el_link.get(tid)
+            if code and el and el.zh.get(code):
+                zh = el.zh[code]
+            gp = v["gp"]
+            rows.append(dict(team_id=f"tsdb{tid}", team=nm, abbr="", name_zh=zh or nm, logo=badge, w=v["w"], l=v["l"], d=None, otl=None,
+                             pct=f"{v['w'] / gp:.3f}".lstrip("0") if gp else "", gb=None, streak=None, points=None, gp=gp,
+                             pf=round(v["pf"] / gp, 1), pa=round(v["pa"] / gp, 1), diff=round((v["pf"] - v["pa"]) / gp, 1)))
+        rows.sort(key=lambda r: (-(r["w"] / max(1, r["gp"])), -r["diff"]))
+        for i, r in enumerate(rows, 1):
+            r["pos"] = r["rank"] = i
+        groups.append(dict(name=meta["zh"], rows=rows))
+    if groups:
+        standings[lg["key"]] = dict(label="歐洲國內聯賽", sport=lg["sport"], chip=chip_of(lg), groups=groups)
+    from collections import Counter
+    unnamed = sorted({g[s_]["name"] for g in games for s_ in ("home", "away") if g[s_].get("name_raw")})
+    log(f"[{lg['key']}] 國內聯賽 {len(games)} 場（{dict(Counter(g['comp'] for g in games))}），排名 {len(groups)} 個聯賽，跟歐戰對到 {len(el_link)} 隊；"
+        f"沒有中文名：{unnamed[:30]}；{time.time() - t0:.1f}s")
+
+
 def process_league(lg, dates, lo, hi, all_games, standings):
+    if lg.get("source") == "thesportsdb":
+        return process_tsdb(lg, lo, hi, all_games, standings)
     if lg.get("source") == "playsport":
         return process_playsport(lg, lo, hi, all_games, standings)
     if lg.get("source") == "svleague":

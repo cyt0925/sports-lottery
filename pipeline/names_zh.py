@@ -6,6 +6,7 @@ import unicodedata
 LEAGUE_ZH = {
     "nba": "NBA",
     "eurobasket": "歐洲籃球",
+    "eurodom": "歐洲國內聯賽",
     "jpbasket": "日本籃球",
     "jpvolley": "日本排球",
     "nhl": "NHL 冰球",

@@ -8,7 +8,7 @@
 資料來源：各聯盟排名表（有得失分與場數）；沒有的球隊退而用玩運彩歷史戰績的近況列。"""
 from math import erf, sqrt
 
-HCA = {"nba": 2.8, "eurobasket": 3.5, "jpbasket": 2.5, "nhl": 0.25, "nfl": 2.0}
+HCA = {"nba": 2.8, "eurobasket": 3.5, "eurodom": 3.2, "jpbasket": 2.5, "nhl": 0.25, "nfl": 2.0}
 HCA_SPORT = {"basketball": 3.0, "hockey": 0.25, "football": 2.0, "soccer": 0.3, "volleyball": 0.15}
 SIGMA = {"basketball": 11.0, "hockey": 2.2, "football": 13.5, "soccer": 1.3, "volleyball": 1.0}
 SHRINK_K = {"basketball": 8, "hockey": 10, "football": 4, "soccer": 8, "volleyball": 6}
@@ -83,11 +83,13 @@ def rating(stat, sport):
 
 
 REST_PTS = {"basketball": 1.5, "hockey": 0.2}     # 背靠背第二場、對手有休息：大概差多少
+DENSE_PTS = 0.6     # 一週內比對手多打一場，大概少 0.6 分（最多算兩場）
+DENSE_MIN = {"nba": 3}   # 一週打到幾場才算累（NBA 本來就打得密；歐洲一週兩場就算多）
 FORM_W = 0.3        # 近況（扣掉對手強弱）佔多少；整季 10 場以上才混
 PREV_W = 0.7        # 上季實力打七折（換人、老化），開季從這裡出發，打越多場越看本季
 PREV_K = {"basketball": 10, "hockey": 12}   # 本季打幾場之後，本季跟上季各佔一半
 FACTORS = ("notes", "form", "h2h", "rest", "hot", "motive")
-FACTOR_ZH = {"notes": "傷兵備註、上場時間、輪休習慣", "form": "近況（扣掉對手強弱）", "h2h": "交手剋星", "rest": "背靠背體力",
+FACTOR_ZH = {"notes": "傷兵備註、上場時間、輪休習慣", "form": "近況（扣掉對手強弱）", "h2h": "交手剋星", "rest": "背靠背、賽程密度（體力）",
              "hot": "主力手感（火燙／冰冷）", "motive": "戰意（拚季後賽、已經沒希望、名次已定）"}
 HOT_PTS = 0.12      # 主力近 5 場比季平均多（少）1 分，球隊大概多（少）0.12 分
 HOT_CAP = 1.5
@@ -177,7 +179,7 @@ def rate_game(g, lg, standings):
         if stat is None:
             return None
         sides[side] = stat
-    hca = HCA.get(lg["key"], HCA_SPORT.get(sport, 2.5))
+    hca = a.get("hca") or HCA.get(lg["key"], HCA_SPORT.get(sport, 2.5))
 
     def eff(stat, side):
         # 有上季實力就從上季出發（打七折），本季打越多場越看本季；沒有就往 0 拉
@@ -211,6 +213,12 @@ def rate_game(g, lg, standings):
             rest_d = -rest_pts
         elif ra_b and not rh_b:
             rest_d = rest_pts
+        elif sport == "basketball":
+            # 賽程密度：一週內比對手多打幾場（歐洲球隊週中打歐戰、週末打國內賽）
+            lh = (rest.get("home") or {}).get("last7")
+            la = (rest.get("away") or {}).get("last7")
+            if lh is not None and la is not None and lh != la and max(lh, la) >= DENSE_MIN.get(lg["key"], 2):
+                rest_d = -DENSE_PTS * max(-2, min(2, lh - la))
     # 交手剋星
     h2h_d = float((a.get("h2h_long") or {}).get("adj") or 0)
     # 主力手感、戰意

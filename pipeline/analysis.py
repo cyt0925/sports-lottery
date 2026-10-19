@@ -237,22 +237,24 @@ def fetch_summary(lg, g, get, keep_raw, site, ml_from_block):
 
 # ---------- 休息天數 ----------
 def compute_rest(team, game_start):
-    """team["form"] 的每列要有 date_iso。回傳 {days, b2b, last7}；沒有賽程就回 None。"""
-    rows = [r for r in (team.get("form") or []) if r.get("date_iso")]
+    """team["schedule"]（歐籃：歐戰＋國內聯賽合在一起）或 team["form"] 的每列要有 date_iso。
+    回傳 {days, b2b, last7, euro}：euro = 最近 4 天內打過歐冠／歐盃（週中歐戰、週末國內賽）；沒有賽程就回 None。"""
+    rows = [r for r in (team.get("schedule") or team.get("form") or []) if r.get("date_iso")]
     if not rows or not game_start:
         return None
     before = []
     for r in rows:
         dt = _dt(r["date_iso"])
         if dt and dt < game_start:
-            before.append(dt)
+            before.append((dt, r.get("comp") or ""))
     if not before:
-        return dict(days=None, b2b=False, last7=0)
-    last = max(before)
+        return dict(days=None, b2b=False, last7=0, euro=False)
+    last = max(dt for dt, _c in before)
     hours = (game_start - last).total_seconds() / 3600
     days = int(hours // 24)
-    last7 = sum(1 for dt in before if (game_start - dt).total_seconds() <= 7 * 86400)
-    return dict(days=days, b2b=hours < 30, last7=last7)
+    last7 = sum(1 for dt, _c in before if (game_start - dt).total_seconds() <= 7 * 86400)
+    euro = any((game_start - dt).total_seconds() <= 4 * 86400 and ("歐冠" in c or "歐盃" in c) for dt, c in before)
+    return dict(days=days, b2b=hours < 30, last7=last7, euro=euro)
 
 
 # ---------- NBA 官方傷兵報告 ----------

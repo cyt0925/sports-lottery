@@ -48,6 +48,20 @@ def _star(x):
     return (x.get("full_impact") or 0) >= 2.5 or (x.get("ppg") or 0) >= 15
 
 
+def _dense_line(rest, hn, an, league):
+    """賽程密度：前 7 天多打一兩場（歐洲球隊週中打歐戰、週末打國內賽），大球隊這種比賽常讓主力少打。"""
+    from model import DENSE_MIN
+    h, a = rest.get("home") or {}, rest.get("away") or {}
+    lh, la = h.get("last7"), a.get("last7")
+    if lh is None or la is None or lh == la or max(lh, la) < DENSE_MIN.get(league, 2) or h.get("b2b") or a.get("b2b"):
+        return None
+    tired, fresh, t = (hn, an, h) if lh > la else (an, hn, a)
+    n = max(lh, la)
+    if t.get("euro"):
+        return f"{tired}週中剛打完歐戰，前 7 天已經打了 {n} 場，{fresh}比較有休息；這種賽程大球隊常讓主力少打一點，後段體力也吃虧。"
+    return f"{tired}前 7 天已經打了 {n} 場，比{fresh}多，後段體力比較吃虧。"
+
+
 def _fan_take(g, sport, hn, an, pick, used):
     """老球迷怎麼看：挑這場最關鍵的一兩件事，用聊天的口氣講。"""
     H, A = g["home"], g["away"]
@@ -130,6 +144,10 @@ def _fan_take(g, sport, hn, an, pick, used):
         if rh_b != ra_b:
             tired = hn if rh_b else an
             out.append(f"{tired}昨天才打完，今天背靠背，第四節腳會比較沉，讓分別讓太多。")
+        else:
+            line = _dense_line(rest, hn, an, g.get("league"))
+            if line:
+                out.append(line)
     # 6) 打法對位
     st_ = a.get("style") or {}
     if len(out) < 2 and st_.get("lines"):
@@ -297,6 +315,9 @@ def build_story(g, sport):
         if r and r.get("b2b"):
             if "背靠背" not in fan:
                 care.append(f"{name}昨天才打完，今天背靠背第二場，第四節腳會比較沉。")
+    dl = _dense_line(rest, hn, an, g.get("league")) if isinstance(rest, dict) and sport == "basketball" else None
+    if dl and dl not in fan:
+        care.append(dl)
     # 對戰
     matchup = []
     hl = a.get("h2h_long") or {}
@@ -452,6 +473,8 @@ def build_story(g, sport):
         odds_line = "台灣運彩：" + "，".join(parts) + "。"
     elif sets:
         odds_line = "台灣運彩沒有開日本排球。"
+    elif g.get("league") == "eurodom":
+        odds_line = "國內聯賽的台灣運彩賠率網站讀不到（官網只開放台灣的網路），要看賠率請開台灣運彩 App。"
     elif own or (o.get("prob_home") is not None and psrc != "form"):
         odds_line = "台灣運彩還沒開這場，通常前一天才會開。"
     else:

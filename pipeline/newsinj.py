@@ -69,6 +69,14 @@ def _query(q, lang):
     return items
 
 
+def _excluded(title, name, ex):
+    """標題有足球之類的字就不要；但那個字本來就是隊名的一部分（加拉塔薩雷、尤文圖特）不算。"""
+    if not ex:
+        return False
+    nm = (name or "").lower()
+    return any(m.group(0).lower() not in nm for m in ex.finditer(title or ""))
+
+
 def injury_news(name, lang, days=10, limit=3, hint=None):
     if not name:
         return []
@@ -76,7 +84,7 @@ def injury_news(name, lang, days=10, limit=3, hint=None):
     q = f'"{name}"{hint} {INJ_TERMS.get(lang, INJ_TERMS["en"])} when:{days}d'
     kw = TITLE_KW.get(lang, TITLE_KW["en"])
     ex = EXCLUDE.get(lang)
-    items = [x for x in _query(q, lang) if kw.search(x.get("title") or "") and not (ex and ex.search(x.get("title") or ""))]
+    items = [x for x in _query(q, lang) if kw.search(x.get("title") or "") and not _excluded(x.get("title"), name, ex)]
     return items[:limit]
 
 
@@ -85,7 +93,7 @@ def team_news(name, lang, days=4, limit=3, hint=None):
         return []
     hint = SPORT_HINT.get(lang, "") if hint is None else hint
     ex = EXCLUDE.get(lang)
-    return [x for x in _query(f'"{name}"{hint} when:{days}d', lang) if not (ex and ex.search(x.get("title") or ""))][:limit]
+    return [x for x in _query(f'"{name}"{hint} when:{days}d', lang) if not _excluded(x.get("title"), name, ex)][:limit]
 
 
 def probe_injury_report(items, log):
