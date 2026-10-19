@@ -169,11 +169,17 @@ def lines(g, hn, an):
     out = []
     ap = tr.get("away_prev") or {}
     hp = tr.get("home_prev") or {}
-    if ap and ap["days"] <= 3.5 and ap["km"] >= FAR_TRIP[kind]:
-        when = "昨天" if ap["days"] < 1.5 else "前天" if ap["days"] < 2.5 else f"{int(ap['days'])} 天前"
+    # 歐洲球隊週四打歐戰、週日打國內賽很正常：隔兩天以內、或隔三天但飛超遠，才算奔波
+    tight = ap and ap["km"] >= FAR_TRIP[kind] and (ap["days"] <= 2.5 or (ap["days"] <= 3.5 and ap["km"] >= 2 * FAR_TRIP[kind]))
+    if tight:
+        when = "昨天" if ap["days"] < 1.5 else "前天" if ap["days"] < 2.5 else f" {int(ap['days'])} 天前"
         what = f"打完{ap['comp']}" if ap.get("comp") else "打完比賽"
+        where = "主場" if ap["city"] == tr.get("away_city") else ap["city"]
         tz = f"，還有 {tr['tz_shift']} 小時時差" if kind == "nba" and (tr.get("tz_shift") or 0) >= 2 else ""
-        out.append(f"{an}{when}才在{ap['city']}{what}，又要移動大概 {_round_km(ap['km'])} 公里到{tr['venue']}{tz}，舟車勞頓，後段體力可能吃虧。")
+        if tr["venue"] == tr.get("away_city"):
+            out.append(f"{an}{when}才在{where}{what}，剛飛回來（大概 {_round_km(ap['km'])} 公里），體力還要恢復一下。")
+        else:
+            out.append(f"{an}{when}才在{where}{what}，又要移動大概 {_round_km(ap['km'])} 公里到{tr['venue']}{tz}，舟車勞頓，後段體力可能吃虧。")
     elif tr.get("away_home_km") is not None:
         far = FAR_HOME["dom"] if g.get("league") == "eurodom" and kind == "eu" else FAR_HOME[kind]
         if tr["away_home_km"] >= far:
