@@ -21,11 +21,14 @@ from urllib.parse import quote
 import requests
 
 TW = timezone(timedelta(hours=8))
-DAILY_CAP = 120
-RUN_CAP = 20
-NEAR_H = 36
+DAILY_CAP = 300        # 免費額度一天大約 1000 次，留很多餘裕
+RUN_CAP = 30
+RESERVE = 50           # 每天留 50 次給還沒寫過的比賽（重寫舊的不能用掉）
+NEAR_H = 48            # 跟完整分析一樣：48 小時內的比賽都寫（NBA 開打前一兩天就會有）
 MIN_GAP_H = 2          # 事實有變，至少隔 2 小時才重寫
+MIN_GAP_SOON_H = 1     # 6 小時內就要開打：傷兵名單常常臨時更新，隔 1 小時就可以重寫
 MAX_AGE_H = 12         # 事實沒變，超過 12 小時也重寫一次（新聞會變）
+SOON_REFRESH = (4, 3)  # 4 小時內開打、分析已經寫了 3 小時以上：開打前再寫一次最新的
 PROMPT_VER = 5         # 寫法改了就加一：舊的分析不用等 2 小時，馬上重寫
 GAP_S = 7.0            # 每分鐘最多 8～9 次，免費額度比較安全
 KEEP_DAYS = 45
@@ -378,7 +381,8 @@ def run(games, path, now, main_chips, log, errors):
         if not s.get("est") and not (s.get("outside") or {}).get("news"):
             continue
         cands.append((st, g))
-    cands.sort(key=lambda x: x[0])
+    # 還沒寫過的先寫（每一場開打前都要有），再來才是重寫舊的；同一種裡先開打的先寫
+    cands.sort(key=lambda x: (x[1]["id"] in notes, x[0]))
     for st, g in cands:
         gid = g["id"]
         old = notes.get(gid)
@@ -390,8 +394,11 @@ def run(games, path, now, main_chips, log, errors):
                 age_h = (now - datetime.fromisoformat(old["at"])).total_seconds() / 3600
             except ValueError:
                 age_h = None
-        need = (not old or old.get("ver") != PROMPT_VER or (old.get("hash") != h and (age_h is None or age_h >= MIN_GAP_H))
-                or (age_h is not None and age_h >= MAX_AGE_H))
+        to_start_h = (st - now).total_seconds() / 3600
+        gap = MIN_GAP_SOON_H if to_start_h <= 6 else MIN_GAP_H
+        need = (not old or old.get("ver") != PROMPT_VER or (old.get("hash") != h and (age_h is None or age_h >= gap))
+                or (age_h is not None and age_h >= MAX_AGE_H)
+                or (age_h is not None and to_start_h <= SOON_REFRESH[0] and age_h >= SOON_REFRESH[1]))
         if need and not stop:
             if not token:
                 stop = "還沒設定 GEMINI_API_KEY（到 Google AI Studio 免費申請，放進 GitHub Secrets）"
@@ -399,6 +406,8 @@ def run(games, path, now, main_chips, log, errors):
                 stop = f"今天已經寫了 {used_today} 次，到上限"
             elif n_new >= RUN_CAP:
                 stop = f"這次已經寫 {n_new} 場，下次再寫"
+        if need and not stop and old and old.get("text") and used_today >= DAILY_CAP - RESERVE:
+            need = False          # 額度快用完：留給還沒寫過的比賽，舊的先沿用
         if need and not stop:
             pv = previews(g, log)
             if pv:
