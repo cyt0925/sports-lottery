@@ -688,7 +688,7 @@
       <div class="g-top"><span>${icon(SPORT_ICON[chipOf(g)] || "i-grid")} <b>${esc(g.league_zh)}</b>${g.round ? " · " + esc(g.round) : ""}</span>${whenText(g)}</div>
       <div class="g-teams">${teamCol(g.away, "away", g)}${midCol(g)}${teamCol(g.home, "home", g)}</div>
       <div class="g-verdict">${verdictPill(g)}</div>
-      ${!post ? `<div class="g-why">${esc(firstSentence(aiBody(g)[0]) || firstSentence(t.fan) || (t.why || [])[0] || t.verdict)}</div>` : ""}
+      ${!post ? `<div class="g-why">${esc(firstSentence(aiBody(g)[0]) || firstSentence((t.ai || [])[0]) || firstSentence(t.fan) || (t.why || [])[0] || t.verdict)}</div>` : ""}
       ${twLine(g) ? `<div class="g-odds">${twLine(g)}</div>` : g.far ? `<div class="g-odds">台灣運彩還沒開盤，傷兵名單也還沒出來，先看看就好</div>` : ""}
       <div class="g-tap">點一下看詳細 ${icon("i-chev")}</div>
     </button>${pickButtons(g, true)}</div>`;
@@ -960,26 +960,52 @@
     if (!ai || !ai.text) return [];
     return ai.text.split(/\n+/).map((x) => x.trim()).filter(Boolean);
   }
-  function aiBlock(g) {
-    const ai = g.ai;
-    if (!ai || !ai.text || g.status.state === "post") return "";
-    const lean = ai.lean ? `${tname(g[ai.lean])}${ai.p ? "（" + cheng(ai.p) + "）" : ""}` : "兩隊差不多";
-    const s = g.suggestion || {}, est = s.est || {};
-    const ours = est.p_home != null ? (est.p_home >= 0.5 ? "home" : "away") : null;
-    const diff = ai.lean && ours && ai.lean !== ours ? `<div class="ai-diff">${icon("i-warn")}AI 的看法跟網站的計算不一樣，兩邊都看看再決定。</div>` : "";
-    const when = ai.at ? String(ai.at).slice(5, 16).replace("T", " ") : "";
-    return `<div class="ai"><div class="ai-h"><span>AI 分析</span><span class="ai-lean">看好 ${esc(lean)}</span></div>${aiBody(g).map((x) => `<p>${esc(x)}</p>`).join("")}${diff}<div class="ai-foot">AI 只根據網站整理的資料寫，可能會錯${when ? " · " + esc(when) + " 寫的" : ""}</div></div>`;
+  // AI 分析：老球迷怎麼看、為什麼、這場怎麼算的、要小心，合成一塊講（有 Gemini 寫的就用它的，沒有就用網站自己整理的）
+  function ourParas(t) {
+    if (t.ai && t.ai.length) return t.ai;
+    const out = [];
+    if (t.fan) out.push(t.fan);
+    if (t.why && t.why.length) out.push(t.why.join(""));
+    if (t.care && t.care.length) out.push("要小心：" + t.care.join(""));
+    return out;
   }
-  function calcBlock(g) {
+  function paraHtml(x) {
+    const m = /^(要小心：|我們的算法：)/.exec(x);
+    if (!m) return `<p>${esc(x)}</p>`;
+    const cls = m[1] === "要小心：" ? "ai-care" : "ai-calc";
+    return `<p class="${cls}"><b>${esc(m[1] === "要小心：" ? "要小心" : "算法")}</b>${esc(x.slice(m[1].length))}</p>`;
+  }
+  function calcRows(g) {
     const s = g.suggestion || {}, est = s.est || {};
     const fs = (s.factors || []).filter((f) => f.team);
-    if (est.p_home == null || g.status.state === "post") return "";
-    const fav = est.p_home >= 0.5 ? g.home : g.away;
-    const p = Math.max(est.p_home, 1 - est.p_home);
-    const head = est.margin != null ? `我們算 ${esc(tname(fav))} 大概贏 ${Math.abs(Math.round(est.margin))} 分，${cheng(p)}會贏` : `我們算 ${esc(tname(fav))} ${cheng(p)}會贏`;
+    if (!fs.length || est.p_home == null) return "";
     const rows = fs.map((f) => `<div class="calc-row"><span>${esc(f.label)}</span><b>${esc(f.team)} +${f.pts}</b></div>`).join("");
     const tot = est.total != null ? `<div class="calc-row"><span>總分大概</span><b>${Math.round(est.total)} 分</b></div>` : "";
-    return `<div class="h">${icon("i-check")}這場怎麼算的<small class="h-sub">不看賭盤和賠率</small></div><div class="calc">${rows}${tot}<div class="calc-sum">${head}${est.weak ? "（場數少，還不準）" : ""}</div></div>`;
+    return `<details class="calc-more"><summary>看每個因素加幾分</summary><div class="calc">${rows}${tot}</div></details>`;
+  }
+  function analysisBlock(g, t) {
+    const s = g.suggestion || {}, est = s.est || {};
+    const post = g.status.state === "post";
+    const ai = g.ai && g.ai.text && !post ? g.ai : null;
+    const ours = ourParas(t);
+    let paras, lean, diff = "", foot;
+    const oursFav = est.p_home != null ? (est.p_home >= 0.5 ? "home" : "away") : null;
+    if (ai) {
+      paras = aiBody(g).concat(ours.filter((x) => x.startsWith("我們的算法：")));
+      lean = ai.lean ? `${tname(g[ai.lean])}${ai.p ? "（" + cheng(ai.p) + "）" : ""}` : "兩隊差不多";
+      if (ai.lean && oursFav && ai.lean !== oursFav) diff = `<div class="ai-diff">${icon("i-warn")}AI 的看法跟網站的計算不一樣，兩邊都看看再決定。</div>`;
+      const when = ai.at ? String(ai.at).slice(5, 16).replace("T", " ") : "";
+      foot = `AI 只根據網站整理的資料寫，可能會錯${when ? " · " + esc(when) + " 寫的" : ""}`;
+    } else {
+      paras = post ? ours.filter((x) => !x.startsWith("要小心：")) : ours;
+      if (oursFav && !post) {
+        const p = Math.max(est.p_home, 1 - est.p_home);
+        lean = p < 0.53 ? "兩隊差不多" : `${tname(g[oursFav])}（${cheng(p)}）`;
+      }
+      foot = "看實力、近況、傷兵、新聞整理的，不看賭盤和賠率" + (est.weak ? " · 開季場數少，還不準" : "");
+    }
+    if (!paras.length) return "";
+    return `<div class="ai"><div class="ai-h"><span>AI 分析</span>${lean ? `<span class="ai-lean">看好 ${esc(lean)}</span>` : ""}</div>${paras.map(paraHtml).join("")}${diff}${post ? "" : calcRows(g)}<div class="ai-foot">${foot}</div></div>`;
   }
   function outsideBlock(g, t) {
     const s = g.suggestion || {};
@@ -1111,12 +1137,8 @@
         <div class="g-top"><span></span>${whenText(g)}</div>
         <div class="g-teams">${teamCol(g.away, "away", g)}${midCol(g)}${teamCol(g.home, "home", g)}</div>
         <div class="verdict ${wait ? "wait" : ""}">${esc(t.verdict)}${g.status.state === "pre" ? `<small>${esc(dayLabel(g.day_tw).name)} ${esc(g.time_tw)} 開打${g.venue ? " · " + esc(g.venue) : ""}</small>` : ""}</div>
-        ${aiBlock(g)}
-        ${t.fan && g.status.state !== "post" ? `<div class="fan"><div class="fan-h">老球迷怎麼看</div><p>${esc(t.fan)}</p></div>` : ""}
+        ${analysisBlock(g, t)}
         <div class="h">${icon("i-star")}你的預測</div><div id="mypick">${pickButtons(g, false)}</div>
-        ${calcBlock(g)}
-        ${t.why && t.why.length ? `<div class="h">${icon("i-check")}為什麼</div>${pts(t.why, "plus", "i-check")}` : ""}
-        ${t.care && t.care.length ? `<div class="h">${icon("i-warn")}要小心</div>${pts(t.care, "minus", "i-warn")}` : ""}
         ${outsideBlock(g, t)}
         ${t.matchup && t.matchup.length ? `<div class="h">${icon("i-trophy")}對位跟交手</div>${pts(t.matchup, "info", "i-chev")}` : ""}
         <div class="h">${icon("i-star")}台灣運彩賠率</div>${twTiles(g)}

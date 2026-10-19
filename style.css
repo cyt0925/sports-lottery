@@ -279,10 +279,6 @@ body[data-view="today"] .view[data-for="today"],body[data-view="injuries"] .view
 .rec .t1 small{color:var(--muted);font-weight:500;font-size:.8rem}
 
 /* 老球迷怎麼看 */
-.fan{margin-top:14px;background:var(--card);border:1px solid var(--line);border-left:5px solid var(--lime);border-radius:var(--radius-s);padding:14px 16px}
-.fan-h{font-weight:900;color:var(--lime);font-size:.95rem;margin-bottom:6px;letter-spacing:.02em}
-:root[data-theme="light"] .fan-h{color:var(--violet-2)}
-.fan p{margin:0;font-size:1.08rem;line-height:1.65;color:var(--ink)}
 .badge.limited{background:var(--warn-wash);color:var(--warn);border:1px dashed var(--warn)}
 .pts li.info svg{transform:rotate(-90deg);color:var(--violet-2)}
 .g-mid.is-live .score{color:var(--bad)}
@@ -359,6 +355,14 @@ body[data-view="today"] .view[data-for="today"],body[data-view="injuries"] .view
 .ai-diff{display:flex;gap:8px;align-items:flex-start;color:var(--warn);font-weight:700;font-size:.92rem;margin:4px 0 6px}
 .ai-diff svg{width:18px;height:18px;flex:none;margin-top:2px}
 .ai-foot{color:var(--muted);font-size:.8rem}
+.ai p.ai-calc,.ai p.ai-care{padding:8px 10px;border-radius:8px;font-size:1rem}
+.ai p.ai-calc{background:var(--violet-wash)}
+.ai p.ai-care{background:var(--warn-wash)}
+.ai p.ai-calc b,.ai p.ai-care b{display:block;font-size:.85rem;font-weight:900;margin-bottom:2px}
+.ai p.ai-care b{color:var(--warn)}
+.calc-more{margin:2px 0 8px}
+.calc-more summary{cursor:pointer;color:var(--ink-2);font-size:.9rem;font-weight:700;padding:4px 0}
+.calc-more .calc{margin-top:6px}
 .h-sub{font-weight:600;font-size:.82rem;color:var(--muted);margin-left:4px}
 .calc{background:var(--card);border:1px solid var(--line);border-radius:var(--radius-s);padding:6px 14px}
 .calc-row{display:flex;justify-content:space-between;gap:10px;padding:8px 0;border-bottom:1px dashed var(--line);font-size:1rem}

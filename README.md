@@ -65,6 +65,11 @@ python3 pipeline/fetch.py --leagues eurobasket,jpvolley   # 只抓某幾個聯�
 
 ## AI 分析
 
+每場的詳細頁只有一塊「AI 分析」：原本的老球迷怎麼看、這場怎麼算的、為什麼、要小心合在一起，用幾段白話講完（`story.ai_paragraphs`）：
+第一段講最關鍵的事（誰打不打、背靠背、長途移動、剋星；沒有特別的就講上季戰績和開季狀況），第二段補背景和理由，
+「算法」一段把計算講成一句話（實力誰強幾分、主場值幾分、加起來誰有利），最後「要小心」。每個因素加幾分收在「看每個因素加幾分」裡，點開才看。
+有 Gemini 寫的分析就用它的，再附上網站的算法；沒有就用網站自己整理的。
+
 `pipeline/ai_note.py` 用 Google Gemini 的免費額度（GitHub 原本的免費 AI「GitHub Models」2026/7/30 已經停了）。把每場的事實（實力、近況、傷兵、手感、休息、交手、戰意、外界看法、網站的計算、台灣運彩）交給 AI，請它像老球迷寫 120～200 字，第一行寫它看好誰會贏。
 - 金鑰：到 Google AI Studio（aistudio.google.com）用 Google 帳號免費申請 API key，放到 GitHub 專案的 Settings → Secrets and variables → Actions，名字叫 `GEMINI_API_KEY`。沒設定就不寫 AI 分析，其他照常。
 - 會自動挑最新的 Flash-Lite（沒有就 Flash）模型。只寫 36 小時內、還沒開打的比賽；事實沒變不重寫、有變也隔 2 小時；每天最多 120 次、每次最多 20 場、每次間隔 7 秒。快取在 `data/ai_notes.json`。

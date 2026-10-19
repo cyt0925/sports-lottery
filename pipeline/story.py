@@ -647,6 +647,47 @@ def build_story(g, sport):
     if value_line and value_line not in why and value_line not in care:
         odds_line = (odds_line + value_line) if odds_line else value_line
     talk = dict(verdict=verdict, fan=fan, why=why[:4], care=care[:3], matchup=matchup[:4], odds=odds_line, outside=outside_lines)
+    talk["ai"] = ai_paragraphs(g, hn, an, fan, why, care, matchup)
     if sets:
         talk["note"] = "排球看局數，五局三勝。"
     return talk
+
+
+def _sentences(text):
+    return [x + "。" for x in (text or "").replace("。 ", "。").split("。") if x.strip()]
+
+
+def ai_paragraphs(g, hn, an, fan, why, care, matchup):
+    """「AI 分析」那一塊：把老球迷怎麼看、為什麼、怎麼算的、要小心合成幾段話。
+    第一段講最關鍵的事；第二段補背景和理由；第三段把算法講成一句話；最後講要小心什麼。重複的句子拿掉。"""
+    import re
+    said = set(_sentences(fan))
+    paras = []
+    if fan:
+        paras.append(fan.replace("。 ", "。"))
+    calc = sum_line(g, hn, an)
+    body = []
+    early = False
+    for line in bg_lines(g, hn, an):
+        if line in said or (matchup and line.startswith(("近兩季碰過", "兩隊近兩季只碰過"))):
+            if line.startswith(("開季", "這季")):
+                early = line.startswith("開季")
+            continue
+        early = early or line.startswith("開季")
+        body.append(line)
+    for line in why:
+        if line in said or line in body:
+            continue
+        if calc and line.startswith(("我們算", "這個聯盟數據少", "沒有盤口，看近況猜")):
+            continue
+        if early and re.match(r"^.{1,12}近 \d+ 場 \d+ 勝 \d+ 敗", line):
+            continue
+        body.append(line)
+    if body:
+        paras.append("".join(body[:5]))
+    if calc and calc.replace("我們的算法：", "算下來，") not in fan:
+        paras.append(calc)
+    c = [x for x in care if x not in said][:3]
+    if c:
+        paras.append("要小心：" + "".join(c))
+    return paras
