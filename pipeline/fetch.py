@@ -1330,6 +1330,11 @@ def main():
     enrich_games(all_games)
     espn_matchups(all_games, standings)
     try:
+        import forum
+        forum.attach(all_games, log, ERRORS)       # PTT NBA 板：台灣球迷貼的情報、新聞
+    except Exception as e:  # noqa: BLE001
+        ERRORS.append(f"論壇失敗: {e!r}")
+    try:
         import context
         n_sig, n_derby = context.apply(all_games)
         log(f"場外消息：{n_sig} 隊有換教練、欠薪、禁賽之類的新聞；德比戰 {n_derby} 場")

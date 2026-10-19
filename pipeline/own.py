@@ -237,6 +237,8 @@ def outside(g):
         for n in (g[side].get("injury_news") or [])[:2]:
             if n.get("title"):
                 heads.append(dict(title=n["title"], url=n.get("url"), src=n.get("source") or "新聞"))
+    for p in g.get("forum") or []:
+        heads.append(dict(title=p["title"], url=p.get("url"), src="PTT 球迷" + (f"（{p['push']} 推）" if p.get("push") else "")))
     seen, uniq = set(), []
     for h in heads:
         if h["title"] in seen:
