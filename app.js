@@ -1096,6 +1096,18 @@
     }
     return blocks.length ? `<div class="h">${icon("i-star")}主力球員</div>${blocks.join("")}` : "";
   }
+  // 球員看點：每隊 2～3 個主力，一句話講他這季打得怎樣、手感、上場時間、是不是新來的（取代原本的主力名單和手感）
+  function spotBlock(g) {
+    const teams = ["away", "home"].filter((side) => (g[side].spot || []).length);
+    if (!teams.length) return "";
+    const tagCls = { 火燙: "hot", 冰冷: "cold", 新來的: "vio", 回歸: "vio", 上季: "muted", 主力: "muted" };
+    const blocks = teams.map((side) => {
+      const t = g[side];
+      const rows = t.spot.map((p) => `<div class="prow spot">${avatarImg(p)}<div class="grow"><div class="pn">${esc(p.player)} <span class="badge ${tagCls[p.tag] || "muted"}">${esc(p.tag)}</span>${p.status_zh ? ` <span class="badge ${sevClass(p.severity)}">${esc(p.status_zh)}</span>` : ""}</div><div class="ps spot-text">${esc(p.text)}</div></div></div>`).join("");
+      return `<div class="team-block">${teamHead(t)}${rows}</div>`;
+    }).join("");
+    return `<div class="h">${icon("i-fire")}球員看點</div>${blocks}`;
+  }
   function hotBlock(g) {
     const rows = [];
     for (const side of ["away", "home"]) {
@@ -1150,9 +1162,9 @@
         ${t.matchup && t.matchup.length ? `<div class="h">${icon("i-trophy")}對位跟交手</div>${pts(t.matchup, "info", "i-chev")}` : ""}
         <div class="h">${icon("i-star")}台灣運彩賠率</div>${twTiles(g)}
         <div class="h">${icon("i-med")}傷兵</div>${injuryBlock(g.away, g)}${injuryBlock(g.home, g)}
-        ${starsBlock(g)}
+        ${spotBlock(g) || starsBlock(g)}
         <div class="h">${icon("i-clock")}最近 5 場</div>${formBlock(g.away, g)}${formBlock(g.home, g)}
-        ${hotBlock(g)}
+        ${spotBlock(g) ? "" : hotBlock(g)}
         ${numbersBlock(g)}
         <button class="back" data-back="1" style="margin-top:24px;width:100%;justify-content:center">${icon("i-back")}返回列表</button>
       </div>`;

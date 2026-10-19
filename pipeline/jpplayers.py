@@ -155,6 +155,7 @@ def parse_bleague_club(html, team_id=None):
                 id=pid, name=name, number=texts[0] if texts[0].isdigit() else None,
                 position=col("PO"), gp=_num(col("G") if "G" in rel else col("GP")),
                 mpg=_mmss(col("MINPG")), ppg=_num(col("PPG")), season=season, headshot=shots.get(pid),
+                rpg=_num(col("RPG") or col("TRPG")), apg=_num(col("APG")),
             )
             if rec["position"]:
                 rec["position_zh"] = "/".join(POS_ZH_BL.get(x, x) for x in rec["position"].split("/"))
@@ -264,7 +265,8 @@ def player_layer(games, rosters, key_attr, log, errors, label, impact_scale=None
                 continue
             if any(p.get("ppg") is not None for p in roster):
                 top = sorted([p for p in roster if (p.get("gp") or 0) > 0], key=lambda p: -(p.get("ppg") or 0))[:4]
-                t["stars"] = [dict(id=p["id"], player=p["name"], headshot=p.get("headshot"), ppg=p.get("ppg"), mpg=p.get("mpg"), position=p.get("position")) for p in top]
+                t["stars"] = [dict(id=p["id"], player=p["name"], headshot=p.get("headshot"), ppg=p.get("ppg"), mpg=p.get("mpg"), position=p.get("position"),
+                                   rpg=p.get("rpg"), apg=p.get("apg"), gp=p.get("gp")) for p in top]
                 t["leaders"] = [dict(id=p["id"], player=p["name"], headshot=p.get("headshot"), position=p.get("position"), stat="PTS", value=str(p.get("ppg"))) for p in top[:3]]
                 n_star += 1
             inj = match_players(roster, t.get("injury_news") or [], sur_count)

@@ -288,7 +288,8 @@ def el_player_layer(games, rosters, log, errors, articles=None):
                 continue
             roster = [p for p in roster if (p.get("gp") or 0) > 0]
             roster.sort(key=lambda p: -(p.get("ppg") or 0))
-            t["stars"] = [dict(id=p["id"], player=p["name"], headshot=p.get("headshot"), ppg=p.get("ppg"), mpg=p.get("mpg"), pir=p.get("pir"), position=None) for p in roster[:4]]
+            t["stars"] = [dict(id=p["id"], player=p["name"], headshot=p.get("headshot"), ppg=p.get("ppg"), mpg=p.get("mpg"), pir=p.get("pir"),
+                               rpg=p.get("rpg"), apg=p.get("apg"), gp=p.get("gp"), position=None) for p in roster[:4]]
             t["leaders"] = [dict(id=p["id"], player=p["name"], headshot=p.get("headshot"), position=None, stat="PTS", value=str(p.get("ppg"))) for p in roster[:3]]
             n_star += 1
             # 要比對的句子：傷兵報告文章的每一句 + 這隊新聞標題

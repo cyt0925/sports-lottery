@@ -785,35 +785,23 @@ def _mmss(v):
     return num(s)
 
 
-def fetch_player_form(lg, athlete):
-    """本季正式比賽（例行賽、季後賽）的近 5 場 vs 本季平均。季前賽和上一季不算，免得拿去年季後賽說現在手感燙。
-    另外算最近 3 場的上場時間（差 20 分以上的大比分不算，那是垃圾時間）。"""
-    data = get(f"{WEB}/{lg['path']}/athletes/{athlete['id']}/gamelog")
-    if not data:
-        return None
-    keep_raw(f"gamelog_{lg['key']}", dict(labels=data.get("labels"), seasonTypes=[dict(displayName=st.get("displayName")) for st in (data.get("seasonTypes") or [])],
-                                         events=dict(list((data.get("events") or {}).items())[:2])))
+def _gamelog_rows(data, label_want, stat):
+    """ESPN 球員逐場數據：這一季（label_want，例如 2026-27）的例行賽、季後賽（季前賽不算）。"""
     labels = data.get("labels") or []
-    stat = lg["stat"]
     if stat not in labels:
-        return None
-    idx = labels.index(stat)
-    i_min = labels.index("MIN") if "MIN" in labels else None
+        return [], None
+    idx = {k: labels.index(k) for k in (stat, "MIN", "REB", "AST") if k in labels}
     meta = data.get("events") or {}
-    cur = current_season_label()
-    rows = []
-    season_name = None
+    rows, season_name = [], None
     for st in data.get("seasonTypes") or []:
         name = st.get("displayName") or ""
-        if cur not in name or "Preseason" in name:
+        if label_want not in name or "Preseason" in name:
             continue
         season_name = season_name or name
         for cat in st.get("categories") or []:
             for e in cat.get("events") or []:
                 stats = e.get("stats") or []
-                if idx >= len(stats):
-                    continue
-                v = num(stats[idx])
+                v = num(stats[idx[stat]]) if idx[stat] < len(stats) else None
                 if v is None:
                     continue
                 m = meta.get(str(e.get("eventId"))) or {}
@@ -823,15 +811,47 @@ def fetch_player_form(lg, athlete):
                 sc = re.match(r"^\s*(\d+)\s*-\s*(\d+)", str(m.get("score") or ""))
                 if sc:
                     margin = abs(int(sc.group(1)) - int(sc.group(2)))
+
+                def g_(k):
+                    return num(stats[idx[k]]) if k in idx and idx[k] < len(stats) else None
                 rows.append(dict(ts=dt.timestamp() if dt else 0,
                                  date=dt.astimezone(TW).strftime("%m/%d") if dt else "",
                                  opp=opp.get("abbreviation") or opp.get("displayName"),
-                                 result=m.get("gameResult"), v=v,
-                                 mins=_mmss(stats[i_min]) if i_min is not None and i_min < len(stats) else None,
+                                 result=m.get("gameResult"), v=v, reb=g_("REB"), ast=g_("AST"),
+                                 mins=_mmss(stats[idx["MIN"]]) if "MIN" in idx and idx["MIN"] < len(stats) else None,
                                  blowout=bool(margin is not None and margin >= 20)))
-    if len(rows) < 3:
-        return None
     rows.sort(key=lambda r: r["ts"], reverse=True)
+    return rows, season_name
+
+
+def _avg(rows, k):
+    vals = [r[k] for r in rows if r.get(k) is not None]
+    return round(mean(vals), 1) if vals else None
+
+
+def fetch_player_form(lg, athlete):
+    """本季正式比賽（例行賽、季後賽）的近 5 場 vs 本季平均。季前賽和上一季不算，免得拿去年季後賽說現在手感燙。
+    另外算最近 3 場的上場時間（差 20 分以上的大比分不算，那是垃圾時間）、得分籃板助攻的平均（給「球員看點」）。
+    這季還沒打幾場（開季）：改抓上季的平均（prev），上季只打幾場的多半是受傷，這季回來要看狀態。"""
+    data = get(f"{WEB}/{lg['path']}/athletes/{athlete['id']}/gamelog")
+    if not data:
+        return None
+    keep_raw(f"gamelog_{lg['key']}", dict(labels=data.get("labels"), seasonTypes=[dict(displayName=st.get("displayName")) for st in (data.get("seasonTypes") or [])],
+                                         events=dict(list((data.get("events") or {}).items())[:2])))
+    stat = lg["stat"]
+    rows, season_name = _gamelog_rows(data, current_season_label(), stat)
+    base = dict(id=athlete["id"], player=athlete["player"], headshot=athlete.get("headshot"), position=athlete.get("position"), stat=stat)
+    if len(rows) < 3:
+        # 開季：上季的平均（只取例行賽、季後賽）
+        y = int(current_season_label()[:4])
+        prev_label = f"{y - 1}-{y % 100:02d}"
+        pdata = get(f"{WEB}/{lg['path']}/athletes/{athlete['id']}/gamelog", params={"season": y}, quiet=True)
+        prows, pname = _gamelog_rows(pdata or {}, prev_label, stat)
+        if not prows:
+            return None
+        return dict(base, label="上季", prev=True, season_name=pname, n_games=len(prows), n_games_cur=len(rows),
+                    season=_avg(prows, "v"), reb=_avg(prows, "reb"), ast=_avg(prows, "ast"), mpg=_avg(prows, "mins"),
+                    last5=None, delta_pct=0, games=[])
     last5 = rows[:5]
     l5 = mean(r["v"] for r in last5)
     season = mean(r["v"] for r in rows)
@@ -847,11 +867,12 @@ def fetch_player_form(lg, athlete):
     earlier = clean[3:]
     min_base = round(mean(r["mins"] for r in earlier), 1) if len(earlier) >= 4 else None
     return dict(
-        id=athlete["id"], player=athlete["player"], headshot=athlete.get("headshot"),
-        position=athlete.get("position"), stat=stat, season_name=season_name,
+        base, season_name=season_name,
         last5=round(l5, 1), season=round(season, 1), delta_pct=round(delta),
         label=label, games=[dict(date=r["date"], opp=r["opp"], v=r["v"], mins=r.get("mins")) for r in reversed(last5)],
         n_games=len(rows), min_last3=min_last3, min_base=min_base,
+        reb=_avg(rows, "reb"), ast=_avg(rows, "ast"), mpg=_avg(rows, "mins"),
+        reb5=_avg(last5, "reb"), ast5=_avg(last5, "ast"),
     )
 
 
@@ -1228,7 +1249,7 @@ def aggregate(games):
             # 新聞標題本身不放進快報（爸爸不會去看外文標題）：對得到球員的，上面已經用「誰、什麼狀況」列了
             for p in t.get("hot") or []:
                 key = (t.get("id"), p.get("id") or p.get("player"))
-                if p["label"] != "平穩" and key not in seen_hot:
+                if p["label"] in ("火燙", "冰冷") and key not in seen_hot:
                     seen_hot.add(key)
                     hot.append(dict(game_id=g["id"], league=g["league"], league_zh=g["league_zh"], sport=g["sport"],
                                     chip=g.get("chip") or g["sport"], team=team_label(t), team_logo=t.get("logo"), **p))
@@ -1415,6 +1436,15 @@ def main():
     for g in all_games:
         lg = LEAGUES_BY_KEY.get(g["league"]) or {}
         g["live_src"] = None if g.get("official_only") else (lg.get("source") or (f"espn:{lg['path']}" if lg.get("path") else None))
+    # 球員看點（NBA、歐冠歐盃、日本籃球）：每隊 2～3 個主力這季打得怎樣、最近手感、是不是新來的
+    try:
+        import spotlight
+        n_sp = sum(spotlight.build(g, EL_STATE) for g in all_games if g["status"]["state"] != "post" and not g.get("far"))
+        log(f"球員看點：{n_sp} 隊")
+    except Exception as e:  # noqa: BLE001
+        import traceback
+        ERRORS.append(f"球員看點失敗: {e!r}")
+        traceback.print_exc()
     # AI 寫分析（GitHub 免費 AI 模型；沒有權杖或額度用完就跳過）
     try:
         import ai_note
@@ -1776,6 +1806,9 @@ def process_playsport(lg, lo, hi, all_games, standings):
                     sc = season_code(comp)
                     for code, lst in fetch_el_players(comp, f"{comp}{int(sc[1:]) - 1}", _fetch, log, ERRORS).items():
                         prev_rosters.setdefault(code, []).extend(lst)
+                EL_STATE["rosters"] = rosters
+                # 上季每個球員在哪一隊、場均幾分（球員看點：跟上季比）
+                EL_STATE["prev_players"] = {p["id"]: dict(p, team=code) for code, lst in prev_rosters.items() for p in lst if p.get("id")}
                 # 這季陣容跟上季比：補了誰、少了誰、有沒有人碰老東家
                 try:
                     import roster as R
@@ -2281,7 +2314,7 @@ def process_league(lg, dates, lo, hi, all_games, standings):
                 want_hot = lg.get("gamelog") and g["status"]["state"] != "post" and is_near(g)
                 if t["id"] in seen_teams:
                     cached = seen_teams[t["id"]]
-                    for k in ("form", "form_note", "streak", "last10", "last10_w", "avg_for5", "avg_against5", "avg_total5", "avg_margin5", "hot"):
+                    for k in ("form", "form_note", "streak", "last10", "last10_w", "avg_for5", "avg_against5", "avg_total5", "avg_margin5", "hot", "prev_form"):
                         t[k] = cached.get(k)
                     if not want_hot or cached.get("hot") is not None:
                         continue
@@ -2293,18 +2326,22 @@ def process_league(lg, dates, lo, hi, all_games, standings):
                         tb = traceback.extract_tb(e.__traceback__)[-1]
                         ERRORS.append(f"{lg['key']} 球隊 {t.get('abbr')} 近況失敗: {e!r} @ {tb.name}:{tb.lineno} {tb.line}")
                 if want_hot:
-                    hot = []
+                    hot, prev_form = [], []
                     for ath in (t.get("leaders") or [])[:3]:
                         try:
                             pf = fetch_player_form(lg, ath)
                         except Exception as e:  # noqa: BLE001
                             ERRORS.append(f"{lg['key']} 球員 {ath.get('player')} 近況失敗: {e!r}")
                             pf = None
-                        if pf:
+                        if pf and pf.get("prev"):
+                            prev_form.append(pf)        # 開季還沒打幾場：上季的平均（給球員看點）
+                        elif pf:
                             hot.append(pf)
                     t["hot"] = hot
+                    t["prev_form"] = prev_form
                     if t["id"] in seen_teams:
                         seen_teams[t["id"]]["hot"] = hot
+                        seen_teams[t["id"]]["prev_form"] = prev_form
                 seen_teams.setdefault(t["id"], t)
             ids = {g["home"]["id"], g["away"]["id"]}
             picked = []
