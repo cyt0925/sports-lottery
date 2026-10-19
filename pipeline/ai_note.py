@@ -113,7 +113,11 @@ def facts(g, sport):
     rest = a.get("rest") or {}
     if isinstance(rest, dict) and (rest.get("home") or rest.get("away")):
         def _r(x):
-            return "無資料" if not x else "背靠背第二場" if x.get("b2b") else "本季首戰" if x.get("days") is None else f"休 {x['days']} 天"
+            if not x:
+                return "無資料"
+            base = "背靠背第二場" if x.get("b2b") else "本季首戰" if x.get("days") is None else f"休 {x['days']} 天"
+            extra = f"，前 7 天打了 {x['last7']} 場" if x.get("last7") else ""
+            return base + extra + ("，週中剛打完歐戰" if x.get("euro") else "")
         f["休息"] = {hn: _r(rest.get("home")), an: _r(rest.get("away"))}
     hl = a.get("h2h_long") or {}
     if hl.get("n"):
@@ -121,6 +125,11 @@ def facts(g, sport):
     st_ = a.get("style") or {}
     if st_.get("lines"):
         f["打法對位"] = st_["lines"][:3]
+    sig = {n: [f"{x['zh']}：{x.get('title') or ''}" for x in t.get("signals") or []] for t, n in ((H, hn), (A, an)) if t.get("signals")}
+    if sig:
+        f["場外消息（新聞、論壇）"] = sig
+    if a.get("derby"):
+        f["德比"] = f"這場是{a['derby']}，火氣大、強弱常常不準"
     mot = {n: rt.get("motive_" + side) for side, n in (("home", hn), ("away", an)) if rt.get("motive_" + side)}
     if mot:
         f["戰意"] = mot
