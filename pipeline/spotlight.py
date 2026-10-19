@@ -114,6 +114,11 @@ def nba_prepare(games, get, season_year, log, errors):
     except Exception as e:  # noqa: BLE001
         errors.append(f"nba 球員平均失敗: {e!r}")
         return
+    # 開季前問「這季」，ESPN 會直接給上季的數字：跟上季一模一樣就當這季還沒有數字（不然會把上季寫成「這季場均」）
+    same = sum(1 for pid, c in cur.items() if pid in prev and (c.get("gp"), c.get("ppg")) == (prev[pid].get("gp"), prev[pid].get("ppg")))
+    if cur and same >= 0.8 * len(cur):
+        log(f"[nba] 這季還沒開打（ESPN 的「這季」其實是上季的數字，{same}/{len(cur)} 人一樣），先用上季的平均")
+        cur = {}
     from background import NBA_ID
     from names_zh import NBA as NBA_ZH
     n = 0
@@ -187,7 +192,10 @@ def _nba_roster(t, inj, prev_rec=None):
                 text += "，要看他手感找不找得回來"
         elif p.get("moved"):
             tag = "新來的"
-            text += f"，今年新來的（上季在{p['prev_team_zh']}）" if p.get("prev_team_zh") else "，今年新來的"
+            if not p.get("cur") and p.get("prev_team_zh"):
+                text = f"今年新來的，上季在{p['prev_team_zh']}場均 {_stat_bits(p.get('ppg'), p.get('rpg'), p.get('apg'))}"
+            else:
+                text += f"，今年新來的（上季在{p['prev_team_zh']}）" if p.get("prev_team_zh") else "，今年新來的"
         elif not p.get("cur") and p.get("prev_gp") is not None and p["prev_gp"] < 35:
             tag = "回歸"
             text += f"，上季只打了 {_n(p['prev_gp'])} 場（可能是受傷），這季回來要看狀態"

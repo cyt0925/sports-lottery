@@ -409,6 +409,11 @@ def _call_once(key, f, log):
     return dict(error=err, busy=r.status_code >= 500)
 
 
+# 模型偶爾混進簡體字：常見的直接換成繁體（只收在繁體裡沒有別的意思的字）
+S2T = str.maketrans("难气这个们场战队赛胜败进还么对时会说让过为从来关于与应该现状态实际样点线级经验头号优势强结单双换补伤养轮练员联东区习惯顺风运动远连输赢击篮罚帮节调压纪录稳预测认观众见觉机两体况积极绝断继续适争显虽给别开门问题间长张带领导将专业广岛鸟鹳挡档摆烂归释读写尽虑担忧后发",
+                    "難氣這個們場戰隊賽勝敗進還麼對時會說讓過為從來關於與應該現狀態實際樣點線級經驗頭號優勢強結單雙換補傷養輪練員聯東區習慣順風運動遠連輸贏擊籃罰幫節調壓紀錄穩預測認觀眾見覺機兩體況積極絕斷繼續適爭顯雖給別開門問題間長張帶領導將專業廣島鳥鸛擋檔擺爛歸釋讀寫盡慮擔憂後發")
+
+
 def parse(text, hn, an):
     """第一行「看好：隊名（幾成）」→ (lean, p, 其餘內文)。"""
     lines = [x.strip() for x in text.strip().splitlines() if x.strip()]
@@ -519,7 +524,7 @@ def run(games, path, now, main_chips, log, errors, deadline=None):
             n_cache += 1
         nt = notes.get(gid)
         if nt and nt.get("text"):
-            g["ai"] = dict(text=nt["text"], lean=nt.get("lean"), p=nt.get("p"), at=nt.get("at"), model=nt.get("model"),
+            g["ai"] = dict(text=nt["text"].translate(S2T), lean=nt.get("lean"), p=nt.get("p"), at=nt.get("at"), model=nt.get("model"),
                            previews=nt.get("previews") or [])
         g.pop("_previews", None)
     usage[today] = used_today
