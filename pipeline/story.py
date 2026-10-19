@@ -624,7 +624,9 @@ def build_story(g, sport):
                 elif sg["kind"] == "turmoil":
                     extra.append(f"{name}最近有禁賽或隊內不和的消息，要小心。")
                 if sg.get("title"):
-                    outside_lines.append(f"新聞（{sg['zh']}）：{sg['title'][:70]}")
+                    from newsinj import LANG_ZH
+                    lz = LANG_ZH.get(sg.get("lang") or "")
+                    outside_lines.append(f"新聞（{sg['zh']}{('，' + lz) if lz else ''}）：{sg['title'][:70]}")
         if a.get("derby"):
             extra.append(f"這是{a['derby']}，兩隊碰面火氣大，強弱常常不準，別押太重。")
         for x in reversed(extra):

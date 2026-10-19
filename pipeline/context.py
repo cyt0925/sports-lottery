@@ -5,7 +5,7 @@
   欠薪、財務出問題：球員場上常常不夠拚
   禁賽、更衣室不和、打架：隊伍氣氛差
   德比戰：同城或宿敵碰面，火氣大，強弱常常不準（把兩隊的差距往中間拉一點）
-新聞標題有各國語言（英、西、義、土、法、德、希臘字母以外的拼法、日、中），關鍵字盡量都列。"""
+新聞標題有各國語言（英、西、義、土、法、德、立陶宛、希臘、希伯來、日、中），關鍵字盡量都列。"""
 import re
 from datetime import datetime, timedelta, timezone
 
@@ -15,13 +15,18 @@ KINDS = {
         r"(?:coach|entrenador|allenatore|antren[öo]r|trainer|entra[iî]neur).{0,40}(?:fired|sacked|dismissed|let go|parts? ways|esonerat|destitu|cesad|g[öo]revden|entlassen|limog|remerci)"
         r"|(?:fired|sacked|dismissed|esonerat\w*|destitu\w*|cesad\w*|limog\w*|remerci\w*|parts? ways with).{0,40}(?:coach|entrenador|allenatore|antren|trainer|entra[iî]neur)"
         r"|new head coach|interim (?:head )?coach|appoint\w* .{0,40}coach|nuevo entrenador|nuovo allenatore|yeni ba[sş]antren[öo]r|nouvel entra[iî]neur|neuer trainer"
-        r"|解任|新ヘッドコーチ|換帥|新教練", re.I)),
+        r"|解任|新ヘッドコーチ|換帥|新教練"
+        # 土、德、立陶宛、希臘、希伯來文（比對的是去掉重音、轉小寫的標題）
+        r"|yollar[ıi]n[ıi] ay[ıi]rd|g[öo]revden al[ıi]nd|trennt sich von (?:trainer|coach|cheftrainer)|freigestellt|naujas treneris|trener\w* atleist|atleido trener"
+        r"|(?:απολυ|απελυσ|λυση συνεργασιας|αποχωρ|τελος).{0,40}προπονητ|προπονητ.{0,40}(?:απολυ|απελυ|λυση συνεργασιας|αποχωρ)|νεος προπονητης|νεο προπονητη"
+        r"|(?:פוטר|פיטר|פיטורי|נפרד).{0,30}מאמן|מאמן.{0,30}(?:פוטר|פיטר|נפרד)|מאמן חדש|המאמן החדש", re.I)),
     "money": dict(days=21, pts=-1.0, zh="欠薪、財務問題", re=re.compile(
         r"(unpaid|not been paid|salar(?:y|ies) (?:delay|owed|unpaid|arrears)|wages|financial (?:trouble|problems|crisis|difficult)|bankrupt\w*|insolven\w*|"
-        r"stipendi|impag\w*|sueldos|maa[sş]|finanzielle|給料未払い|欠薪|財務危機)", re.I)),
+        r"stipendi|impag\w*|sueldos|maa[sş]|finanzielle|給料未払い|欠薪|財務危機|salaires impayes|difficultes financieres|gehalter|insolvenz|"
+        r"atlyginim|finansin\w* (?:problem|sunkum)|απληρωτ|οικονομικα προβληματα|οφειλες|משכורות|הלנת שכר|קשיים כלכליים)", re.I)),
     "turmoil": dict(days=7, pts=-0.5, zh="禁賽、隊內不和", re=re.compile(
         r"(locker[- ]room (?:issue|problem|tension|drama)|\brift\b|\bfeud\b|\bsuspen(?:ded|sion)\b|\bbrawl\b|disciplinary|fight with (?:teammate|coach)|"
-        r"squalifica|sanci[oó]n|ihra[cç]|出場停止|内紛|內鬨|禁賽)", re.I)),
+        r"squalifica|sanci[oó]n|ihra[cç]|出場停止|内紛|內鬨|禁賽|gesperrt|diskvalifik|τιμωρια|αποβολ|καβγα|הורחק|הרחקה|קטטה)", re.I)),
 }
 NOT = re.compile(r"fired up|suspended (?:game|match) (?:resumes|to resume)|coach of the (?:week|month|year)", re.I)
 SIG_CAP = 1.5
@@ -64,20 +69,23 @@ def team_signals(items, now=None, must=None):
     """新聞列表 -> [dict(kind, zh, title, url, published)]，每種只留最新一則。must：標題一定要有其中一個字。"""
     now = now or datetime.now(UTC)
     out = {}
-    must = [m.lower() for m in (must or []) if m]
+    from eurodom_names import norm
+    from newsinj import has_word
+    must = [m for m in (must or []) if m]
     for it in items or []:
         title = " ".join(x for x in (it.get("title"), it.get("desc")) if x)
         if not title or NOT.search(title):
             continue
-        if must and not any(m in title.lower() for m in must):
+        if must and not has_word(title, must):
             continue
         pub = _ts(it.get("published"))
+        flat = norm(title)       # 去掉重音再比一次（希臘文、土耳其文、立陶宛文）
         for k, spec in KINDS.items():
-            if k in out or not spec["re"].search(title):
+            if k in out or not (spec["re"].search(title) or spec["re"].search(flat)):
                 continue
             if pub and now - pub > timedelta(days=spec["days"]):
                 continue
-            out[k] = dict(kind=k, zh=spec["zh"], title=it.get("title"), url=it.get("url"), published=it.get("published"))
+            out[k] = dict(kind=k, zh=spec["zh"], title=it.get("title"), url=it.get("url"), published=it.get("published"), lang=it.get("lang"))
     return list(out.values())
 
 

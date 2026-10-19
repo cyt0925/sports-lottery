@@ -70,7 +70,7 @@ TEAMS = [
     (("manisa",), "馬尼薩", "Manisa basketball"),
     (("merkezefendi",), "梅爾克澤芬迪", "Merkezefendi basketball"),
     (("buyukcekmece",), "布于克切克梅杰", "Buyukcekmece basketball"),
-    (("trabzon",), "特拉布宗", "Trabzonspor basketball"),
+    (("trabzon", "trabzonspor"), "特拉布宗", "Trabzonspor basketball"),
     (("esenler", "erokspor"), "埃森勒", "Esenler Erokspor"),
     (("mersin",), "梅爾辛", "Mersin basketball"),
     (("gaziantep",), "加濟安泰普", "Gaziantep basketball"),
@@ -193,12 +193,6 @@ TEAMS = [
     (("sofia", "levski"), "索菲亞", "Levski Sofia basketball"),
 ]
 
-LEAGUE_HINT = {
-    "acb": " baloncesto", "lba": " basket", "bsl": " basketbol", "gbl": " basketball", "lnb": " basket",
-    "bbl": " basketball", "lkl": " krepsinis", "isr": " basketball", "aba": " basketball",
-}
-
-
 def norm(s):
     s = unicodedata.normalize("NFKD", s or "")
     s = "".join(ch for ch in s if not unicodedata.combining(ch))
@@ -230,3 +224,70 @@ def same_club(a, b):
         if _hit(na, kws) and _hit(nb, kws):
             return True
     return False
+
+
+# ---------- 當地語言的新聞 ----------
+# 國內的消息（誰受傷、換教練、欠薪）常常當地媒體先報，英文新聞晚一兩天、小球隊甚至不報。
+# 每個聯賽用當地語言查 Google 新聞：西、義、土、法、德、立陶宛文用當地媒體習慣的隊名；希臘文、希伯來文用當地文字。
+LOCAL_LANG = {"acb": "es", "lba": "it", "bsl": "tr", "gbl": "el", "lnb": "fr", "bbl": "de", "lkl": "lt", "isr": "he"}
+# 查詢時加的「籃球」（很多隊跟足球隊同名）；立陶宛的聯賽球隊幾乎都只有籃球，不加
+LOCAL_HINT = {"es": "baloncesto", "it": "basket", "tr": "basketbol", "fr": "basket", "de": "Basketball", "lt": "", "el": "μπάσκετ", "he": "כדורסל"}
+# 第一個關鍵字 -> 當地媒體的叫法（希臘、以色列：(當地文字隊名, 標題裡要出現的字)）
+LOCAL = {
+    "acb": {"real madrid": "Real Madrid", "barcelona": "Barça", "baskonia": "Baskonia", "valencia": "Valencia Basket", "1939 canarias": "La Laguna Tenerife",
+            "gran canaria": "Gran Canaria", "joventut": "Joventut", "unicaja": "Unicaja", "manresa": "Manresa", "breogan": "Breogán", "lleida": "Lleida",
+            "burgos": "Burgos", "coruna": "Coruña", "bilbao": "Bilbao Basket", "obradoiro": "Obradoiro", "zaragoza": "Casademont Zaragoza", "girona": "Girona",
+            "murcia": "UCAM Murcia", "andorra": "MoraBanc Andorra", "granada": "Covirán Granada", "palma": "Palmer Palma", "estudiantes": "Estudiantes"},
+    "lba": {"olimpia milano": "Olimpia Milano", "virtus": "Virtus Bologna", "fortitudo": "Fortitudo", "venezia": "Reyer Venezia", "sassari": "Dinamo Sassari",
+            "trieste": "Trieste", "cantu": "Cantù", "reggiana": "Reggiana", "verona": "Scaligera", "scafati": "Scafati", "derthona": "Tortona", "trento": "Trento",
+            "brescia": "Brescia", "napoli": "Napoli Basket", "varese": "Varese", "pistoia": "Pistoia", "treviso": "Treviso", "trapani": "Trapani Shark",
+            "cremona": "Cremona", "udine": "Udine", "roma": "Roma", "pesaro": "Pesaro"},
+    "bsl": {"fenerbahce": "Fenerbahçe Beko", "efes": "Anadolu Efes", "galatasaray": "Galatasaray", "besiktas": "Beşiktaş", "turk telekom": "Türk Telekom",
+            "tofas": "Tofaş", "bahcesehir": "Bahçeşehir Koleji", "karsiyaka": "Karşıyaka", "darussafaka": "Darüşşafaka", "bursaspor": "Bursaspor",
+            "petkim": "Petkimspor", "manisa": "Manisa", "merkezefendi": "Merkezefendi", "buyukcekmece": "Büyükçekmece", "trabzon": "Trabzonspor",
+            "esenler": "Esenler Erokspor", "mersin": "Mersin", "gaziantep": "Gaziantep", "yalova": "Yalovaspor", "konya": "Konyaspor"},
+    "lnb": {"monaco": "Monaco", "paris": "Paris Basketball", "asvel": "ASVEL", "bourg": "Bourg", "le mans": "Le Mans", "strasbourg": "SIG Strasbourg",
+            "cholet": "Cholet", "nanterre": "Nanterre", "limoges": "Limoges", "dijon": "Dijon", "gravelines": "Gravelines", "le portel": "Le Portel",
+            "saint-quentin": "Saint-Quentin", "chalon": "Chalon", "boulazac": "Boulazac", "nancy": "Nancy", "roanne": "Roanne", "elan bearnais": "Pau", "blois": "Blois"},
+    "bbl": {"bayern": "FC Bayern", "alba": "Alba Berlin", "ulm": "Ulm", "bonn": "Telekom Baskets Bonn", "ludwigsburg": "Ludwigsburg", "chemnitz": "Niners Chemnitz",
+            "wurzburg": "Würzburg Baskets", "oldenburg": "Baskets Oldenburg", "bamberg": "Bamberg Baskets", "hamburg": "Towers Hamburg", "gottingen": "Göttingen",
+            "heidelberg": "Heidelberg", "rostock": "Rostock Seawolves", "braunschweig": "Löwen Braunschweig", "vechta": "Rasta Vechta", "frankfurt": "Skyliners",
+            "weissenfels": "Mitteldeutscher BC", "bayreuth": "Bayreuth", "jena": "Jena", "trier": "Trier"},
+    "lkl": {"zalgiris": "Žalgiris", "rytas": "Rytas", "wolves": "Wolves", "lietkabelis": "Lietkabelis", "neptunas": "Neptūnas", "siauliai": "Šiauliai",
+            "juventus": "Juventus", "pieno": "Pieno žvaigždės", "gargzdai": "Gargždai", "jonava": "Jonava", "nevezis": "Nevėžis", "taurage": "Tauragė",
+            "mazeikiai": "Mažeikiai"},
+    "gbl": {"olympiacos": ("Ολυμπιακός", ["ολυμπιακ"]), "panathinaikos": ("Παναθηναϊκός", ["παναθηναικ"]), "aek": ("ΑΕΚ", ["αεκ"]),
+            "paok": ("ΠΑΟΚ", ["παοκ"]), "aris": ("Άρης", ["αρης", "αρη "]), "peristeri": ("Περιστέρι", ["περιστερ"]), "promitheas": ("Προμηθέας", ["προμηθε"]),
+            "kolossos": ("Κολοσσός", ["κολοσσ"]), "lavrio": ("Λαύριο", ["λαυρι"]), "maroussi": ("Μαρούσι", ["μαρουσ"]), "karditsa": ("Καρδίτσα", ["καρδιτσ"]),
+            "iraklis": ("Ηρακλής", ["ηρακλ"]), "panionios": ("Πανιώνιος", ["πανιων"]), "mykonos": ("Μύκονος", ["μυκον"]), "apollon": ("Απόλλων Πάτρας", ["απολλων"]),
+            "vikos": ("Βίκος", ["βικο"]), "ionikos": ("Ιωνικός", ["ιωνικ"])},
+    "isr": {"maccabi tel aviv": ("מכבי תל אביב", ["מכבי תל אביב", 'מכבי ת"א', "מכבי ת״א"]),
+            "hapoel tel aviv": ("הפועל תל אביב", ["הפועל תל אביב", 'הפועל ת"א', "הפועל ת״א"]),
+            "jerusalem": ("הפועל ירושלים", ["ירושלים"]), "holon": ("הפועל חולון", ["חולון"]), "herzliya": ("בני הרצליה", ["הרצליה"]),
+            "rishon": ("מכבי ראשון לציון", ["ראשון לציון", 'ראשל"צ', "ראשל״צ"]), "haifa": ("הפועל חיפה", ["חיפה"]),
+            "ness ziona": ("עירוני נס ציונה", ["נס ציונה"]), "galil": ("הפועל גליל עליון", ["גליל עליון", "הגליל"]),
+            "ramat gan": ("מכבי רמת גן", ["רמת גן"]), "beer sheva": ("הפועל באר שבע", ["באר שבע", 'ב"ש']), "eilat": ("הפועל אילת", ["אילת"]),
+            "kiryat ata": ("עירוני קריית אתא", ["קריית אתא", "קרית אתא"]), "haemek": ("הפועל העמק", ["העמק"]), "ashdod": ("מכבי אשדוד", ["אשדוד"])},
+}
+
+
+def local_query(name):
+    """英文隊名 -> (當地語言隊名, 語言, 查詢加的字, 標題裡要出現的字們)；不是這幾個聯賽的球隊就 None。"""
+    _zh, _q, kw0 = lookup(name)
+    if not kw0:
+        return None
+    for lg, tab in LOCAL.items():
+        v = tab.get(kw0)
+        if v is None:
+            continue
+        lang = LOCAL_LANG[lg]
+        if isinstance(v, tuple):
+            q, must = v
+        else:
+            kws = next(k for k, _z, _q2 in TEAMS if k[0] == kw0)
+            q, must = v, sorted({norm(v)} | {k.strip() for k in kws})
+            if lang == "lt":
+                # 立陶宛文隊名會變格（Žalgiris → Žalgirio、Žalgiriui），只比字根
+                must = sorted({w[:-2] if len(w) >= 6 else w for w in must})
+        return q, lang, LOCAL_HINT.get(lang, ""), must
+    return None

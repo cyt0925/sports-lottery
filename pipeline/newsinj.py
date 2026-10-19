@@ -15,6 +15,27 @@ LANG = {
     "en": "hl=en-US&gl=US&ceid=US:en",
     "ja": "hl=ja&gl=JP&ceid=JP:ja",
     "zh": "hl=zh-TW&gl=TW&ceid=TW:zh-Hant",
+    "es": "hl=es&gl=ES&ceid=ES:es", "it": "hl=it&gl=IT&ceid=IT:it", "tr": "hl=tr&gl=TR&ceid=TR:tr", "fr": "hl=fr&gl=FR&ceid=FR:fr",
+    "de": "hl=de&gl=DE&ceid=DE:de", "lt": "hl=lt&gl=LT&ceid=LT:lt", "el": "hl=el&gl=GR&ceid=GR:el", "he": "hl=he&gl=IL&ceid=IL:he",
+}
+LANG_ZH = {"es": "西班牙文", "it": "義大利文", "tr": "土耳其文", "fr": "法文", "de": "德文", "lt": "立陶宛文", "el": "希臘文", "he": "希伯來文"}
+# 當地語言標題裡的傷兵字眼（比對前先去掉重音、轉小寫）
+LOCAL_INJ = {
+    "es": re.compile(r"lesi[oó]n|lesionad|\bbaja\b|se pierde|operad|molestias|rotura|esguince|recupera|vuelve"),
+    "it": re.compile(r"infortun|assenz|assente|lesion|operat|distorsion|rientr|\bstop\b|out\b"),
+    "tr": re.compile(r"sakat|forma giyemeyecek|ameliyat|kadroda yok|kadroda yer almad|tedavi|donuyor|geri don"),
+    "fr": re.compile(r"bless|forfait|absent|indisponible|opere|entorse|retour|incertain"),
+    "de": re.compile(r"verletz|fallt aus|ausfall|fehlt|operiert|zwangspause|ruckkehr|angeschlagen"),
+    "lt": re.compile(r"traum|nezais|praleis|operac|sugriz"),
+    "el": re.compile(r"τραυματ|εκτος|χανει|απουσ|ενοχλ|επιστρ|χειρουργ"),
+    "he": re.compile(r"פציע|נפצע|לא ישחק|יחמיץ|מושבת|ניתוח|חוזר לשחק|חזרה"),
+}
+# 當地語言的足球字眼：同名的足球隊新聞不要
+LOCAL_EX = {
+    "es": re.compile(r"futbol|laliga|portero|delantero|mbappe|vinicius"), "it": re.compile(r"calcio|serie a\b|portiere|attaccante"),
+    "tr": re.compile(r"futbol|super lig|kaleci|forvet"), "fr": re.compile(r"football|ligue 1|gardien|attaquant"),
+    "de": re.compile(r"fussball|torwart|sturmer|1\. bundesliga"), "lt": re.compile(r"futbol"),
+    "el": re.compile(r"ποδοσφαιρ|τερματοφυλακ|superleague|super league"), "he": re.compile(r"כדורגל"),
 }
 TITLE_KW = {
     "en": re.compile(r"injur|sidelin|ruled out|out for|out indefinitely|will miss|misses|absen|surgery|doubtful|questionable|return|hurt|sprain|strain|fracture|torn|knee|ankle|hamstring", re.I),
@@ -27,7 +48,6 @@ EXCLUDE = {
     "ja": re.compile(r"サッカー|Jリーグ|野球|ラグビー"),
     "zh": re.compile(r"足球|棒球"),
 }
-PROBE = {"done": False}
 INJ_TERMS = {
     "en": '(injury OR injured OR sidelined OR "ruled out" OR "will miss" OR "out for" OR "out indefinitely" OR surgery)',
     "ja": "(怪我 OR 負傷 OR 欠場 OR 離脱 OR 復帰 OR 手術 OR 故障)",
@@ -35,6 +55,7 @@ INJ_TERMS = {
 }
 _cache = {}
 STATS = {"calls": 0, "fail": 0}
+EXAMPLES = []
 
 
 def _query(q, lang):
@@ -112,32 +133,51 @@ def team_news(name, lang, days=4, limit=3, hint=None):
     return [x for x in _query(f'"{name}"{hint} when:{days}d', lang) if not _excluded(x.get("title"), name, ex)][:limit]
 
 
-def probe_injury_report(items, log):
-    """探路：Google 新聞裡的「EuroLeague Injury Report」連結實際指到哪（下一步想直接解析那一頁）。"""
-    if PROBE["done"]:
-        return
+def _norm(s):
+    from eurodom_names import norm
+    return norm(s)
+
+
+def has_word(title, words):
+    """標題裡有沒有這隊的名字：先去重音、轉小寫；希伯來文前面常黏著介係詞（ל、ב、ו），所以只看有沒有包含。"""
+    n = _norm(title)
+    for w in words or []:
+        w = _norm(w)
+        if not w:
+            continue
+        if re.search(r"[\u0590-\u05ff]", w):
+            if w in n:
+                return True
+        elif re.search(r"(?<!\w)" + re.escape(w), n):
+            return True
+    return False
+
+
+def local_news(spec, days=10):
+    """當地語言的新聞：一隊只查一次（最近 10 天），再照標題分成傷兵、場外消息、一般新聞。
+    spec = (當地隊名, 語言, 查詢加的字, 標題要有的字)。回傳 (傷兵新聞, 一般新聞, 全部)。"""
+    q, lang, hint, must = spec
+    items = _query(f'"{q}"{(" " + hint) if hint else ""} when:{days}d', lang)
+    zh = LANG_ZH.get(lang, lang)
+    ex, kw = LOCAL_EX.get(lang), LOCAL_INJ.get(lang)
+    keep = []
     for x in items:
-        if "Injury Report" in (x.get("title") or "") and x.get("url"):
-            PROBE["done"] = True
-            try:
-                import requests
-                r = requests.get(x["url"], timeout=20, allow_redirects=True, headers={"User-Agent": "Mozilla/5.0"})
-                log(f"[news] 傷兵報告連結 {x['url'][:80]} -> {r.status_code} {r.url[:120]} len={len(r.text)}")
-                m = re.search(r'<a[^>]+href="(https?://[^"]+basketnews[^"]+)"', r.text)
-                if m:
-                    log(f"[news] 頁內 basketnews 連結：{m.group(1)[:140]}")
-                txt = re.sub(r"<[^>]+>", " ", r.text)
-                txt = re.sub(r"\s+", " ", txt)
-                i = txt.find("Injury")
-                log(f"[news] 內容片段：{txt[max(0, i - 200): i + 1200]}")
-            except Exception as e:  # noqa: BLE001
-                log(f"[news] 傷兵報告探路失敗 {e!r}")
-            break
+        t = x.get("title") or ""
+        if not has_word(t, must) or (ex and ex.search(_norm(t))):
+            continue
+        keep.append(dict(x, source=f"{x.get('source') or '新聞'}（{zh}）", lang=lang))
+    inj = [x for x in keep if kw and kw.search(_norm(x["title"]))][:3]
+    from datetime import datetime, timedelta, timezone
+    cut = (datetime.now(timezone.utc) - timedelta(days=4)).isoformat(timespec="minutes")
+    tn = [x for x in keep if (x.get("published") or "") >= cut and x not in inj][:3]
+    return inj, tn, keep
 
 
-def attach(games, name_fn, log, errors, label, hint=None):
-    """name_fn(team) -> (查詢用隊名, 語言) 或 None。掛上 t["injury_news"]、t["injury_note"]、g["news"]。"""
+def attach(games, name_fn, log, errors, label, hint=None, local_fn=None):
+    """name_fn(team) -> (查詢用隊名, 語言) 或 None。掛上 t["injury_news"]、t["injury_note"]、g["news"]。
+    local_fn(team) -> eurodom_names.local_query 的結果或 None：另外用當地語言查一次（國內的消息當地媒體最快）。"""
     n_team = n_news = n_sig = 0
+    n_local = {}
     done = {}
     for g in games:
         if g["status"]["state"] == "post":
@@ -164,6 +204,25 @@ def attach(games, name_fn, log, errors, label, hint=None):
                 except Exception as e:  # noqa: BLE001
                     errors.append(f"{label} 新聞 {name} 失敗: {e!r}")
                     inj, tn = [], []
+                spec = local_fn(t) if local_fn else None
+                if spec:
+                    try:
+                        import context
+                        l_inj, l_tn, l_all = local_news(spec)
+                        n_local.setdefault(spec[1], [0, 0, 0])
+                        n_local[spec[1]][0] += 1
+                        n_local[spec[1]][1] += len(l_all)
+                        n_local[spec[1]][2] += len(l_inj)
+                        if l_all and len(EXAMPLES) < 4:
+                            EXAMPLES.append(f"{spec[0]}：{l_all[0]['title'][:60]}")
+                        seen = {x.get("title") for x in inj + tn}
+                        inj = sorted(inj + [x for x in l_inj if x["title"] not in seen], key=lambda x: x.get("published") or "", reverse=True)[:4]
+                        tn = sorted(tn + [x for x in l_tn if x["title"] not in seen], key=lambda x: x.get("published") or "", reverse=True)[:4]
+                        l_sig = context.team_signals(l_all, must=spec[3])
+                        have = {x["kind"] for x in sig}
+                        sig += [x for x in l_sig if x["kind"] not in have]
+                    except Exception as e:  # noqa: BLE001
+                        errors.append(f"{label} 當地新聞 {spec[0]} 失敗: {e!r}")
                 if sig:
                     t["signals"] = sig
                     n_sig += 1
@@ -181,3 +240,6 @@ def attach(games, name_fn, log, errors, label, hint=None):
             g["news"] = picked[:4]
             n_news += 1
     log(f"[{label}] 新聞：{n_team} 隊有傷兵相關新聞，{n_sig} 隊有場外消息（換教練、欠薪、禁賽），{n_news} 場有一般新聞，呼叫 {STATS['calls']} 次、失敗 {STATS['fail']} 次")
+    if n_local:
+        log(f"[{label}] 當地語言新聞：" + "、".join(f"{LANG_ZH.get(k, k)} {v[0]} 隊 {v[1]} 則（傷兵 {v[2]}）" for k, v in n_local.items())
+            + (f"；例：{' / '.join(EXAMPLES)}" if EXAMPLES else ""))

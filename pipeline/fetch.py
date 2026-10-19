@@ -1733,7 +1733,8 @@ def process_playsport(lg, lo, hi, all_games, standings):
     near = [g for g in keep if is_near(g)]
     if near:
         try:
-            newsinj.attach(near, name_fn, log, ERRORS, lg["key"], hint=(" basketball" if lg["key"] == "eurobasket" else ""))
+            newsinj.attach(near, name_fn, log, ERRORS, lg["key"], hint=(" basketball" if lg["key"] == "eurobasket" else ""),
+                           local_fn=_local_news_name if lg["key"] == "eurobasket" else None)
         except Exception as e:  # noqa: BLE001
             ERRORS.append(f"{lg['key']} 新聞失敗: {e!r}")
         if lg["key"] == "eurobasket":
@@ -1914,6 +1915,16 @@ def add_domestic_schedule(games, el):
     log(f"[eurobasket] 國內聯賽賽程併進 {n} 隊（對到 {len(link)}/{len(codes)} 隊）")
 
 
+def _local_news_name(t):
+    """歐洲球隊用當地語言查新聞的隊名（希臘文、希伯來文、西班牙文…）；不在那幾個聯賽的球隊不查。"""
+    from eurodom_names import local_query
+    for nm in (t.get("name"), t.get("en_key")):
+        spec = local_query(nm or "")
+        if spec:
+            return spec
+    return None
+
+
 def process_tsdb(lg, lo, hi, all_games, standings):
     """歐洲各國國內聯賽：TheSportsDB 的輪次資料（背景已經抓好）。沒有台灣運彩賠率，只有我們自己的分析。"""
     import newsinj
@@ -2027,7 +2038,8 @@ def process_tsdb(lg, lo, hi, all_games, standings):
     near = [g for g in games if is_near(g) and g["status"]["state"] != "post"]
     if near:
         try:
-            newsinj.attach(near, lambda t: (t["en_key"], "en") if t.get("en_key") else None, log, ERRORS, lg["key"], hint=" basketball")
+            newsinj.attach(near, lambda t: (t["en_key"], "en") if t.get("en_key") else None, log, ERRORS, lg["key"], hint=" basketball",
+                           local_fn=_local_news_name)
         except Exception as e:  # noqa: BLE001
             ERRORS.append(f"{lg['key']} 新聞失敗: {e!r}")
         if EL_STATE.get("box"):
