@@ -59,6 +59,8 @@ INJ_TERMS = {
 }
 _cache = {}
 STATS = {"calls": 0, "fail": 0}
+# 大陸的新聞網站常把舊文章換上新日期：例行賽期間（9 月到隔年 3 月）講季後賽、總決賽的是上季的舊聞
+CN_STALE = re.compile(r"季后赛|总决赛|半决赛|四强|总冠军赛|(?<![A-Za-z])G[1-7](?!\d)")
 
 
 def _query(q, lang):
@@ -85,6 +87,10 @@ def _query(q, lang):
                                   source=(src.text or "").strip() if src is not None else None, desc=None, image=None, lang=lang))
         except ET.ParseError:
             STATS["fail"] += 1
+        if lang == "cn":
+            from datetime import datetime
+            if datetime.now().month in (9, 10, 11, 12, 1, 2, 3):
+                items = [x for x in items if not CN_STALE.search(x.get("title") or "")]
     else:
         STATS["fail"] += 1
     items.sort(key=lambda x: x.get("published") or "", reverse=True)

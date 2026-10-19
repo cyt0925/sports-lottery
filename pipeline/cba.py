@@ -4,6 +4,7 @@
   玩運彩的隊名是繁體、常常帶贊助商（廣東宏遠、遼寧本鋼），贊助商每年換，所以用城市或隊名裡不會變的字來認隊。
   新聞用大陸媒體常用的叫法查（「广东男篮」），簡體中文；AI 讀完寫成繁體。
   城市座標給「客隊要跑多遠」用：新疆飛廣東 3000 多公里，比歐洲跨國還遠。"""
+from datetime import datetime, timezone
 
 # (認隊的字（玩運彩的繁體隊名、即時比分的簡稱）, 新聞查詢名（簡體）, 標題裡算講到這隊的字（簡體）, 主場城市, 緯度, 經度)
 # 同一個城市或省有兩隊的（北京首鋼、北京北控；浙江廣廈、浙江稠州），要先比對特別的字
@@ -16,7 +17,7 @@ TEAMS = [
     (("廣東", "宏遠", "東陽光"), "广东宏远", ("广东", "宏远", "东阳光"), "東莞", 23.02, 113.75),
     (("遼寧", "本鋼"), "辽宁男篮", ("辽宁", "本钢"), "瀋陽", 41.80, 123.43),
     (("上海", "鯊魚", "久事"), "上海男篮", ("上海", "久事"), "上海", 31.23, 121.47),
-    (("新疆", "伊力特"), "新疆男篮", ("新疆", "伊力特"), "烏魯木齊", 43.83, 87.62),
+    (("新疆", "伊力特", "廣匯"), "新疆男篮", ("新疆", "伊力特"), "烏魯木齊", 43.83, 87.62),
     (("山東", "高速"), "山东男篮", ("山东", "高速男篮"), "濟南", 36.65, 117.12),
     (("山西", "汾酒"), "山西男篮", ("山西", "汾酒"), "太原", 37.87, 112.55),
     (("深圳", "馬可波羅"), "深圳男篮", ("深圳", "马可波罗"), "深圳", 22.54, 114.06),
@@ -34,6 +35,8 @@ TEAMS = [
 ]
 # 玩運彩隊名的錯字、看起來怪的（只改顯示）
 DISPLAY = {"浙江廣夏": "浙江廣廈"}
+# 新浪的簡體簡稱轉繁體（排名表上今天沒比賽的隊）
+T2S_SHORT = str.maketrans("广东辽宁苏岛厦锦农汇", "廣東遼寧蘇島廈錦農匯")
 
 
 def lookup(name):
@@ -65,3 +68,107 @@ def enrich(games, log):
             t["cn_name"], t["cn_words"], t["city"] = hit["q"], hit["words"], hit["city"]
             n += 1
     log(f"[cba] 對到新聞查詢名 {n} 隊次" + (f"；沒對到：{'、'.join(sorted(x for x in miss if x))}" if miss else ""))
+
+
+def key_of(name):
+    """玩運彩（繁體）或新浪（簡體簡稱）的隊名 -> 這隊的代表名（新聞查詢名）；認不出來就 None。"""
+    name = (name or "").strip()
+    if not name:
+        return None
+    for keys, q, words, *_ in TEAMS:
+        if any(k in name for k in keys) or any(w in name for w in words):
+            return q
+    return None
+
+
+def _h2h(sched, kh, ka, now):
+    """新浪賽程（上季＋這季）裡兩隊打完的交手，主隊角度，格式跟玩運彩的交手一樣。"""
+    rows = []
+    for x in sched:
+        if x["hs"] is None or x["start"] > now:
+            continue
+        h, a = key_of(x["home"]), key_of(x["away"])
+        if {h, a} != {kh, ka}:
+            continue
+        home = h == kh
+        pf, pa = (x["hs"], x["as_"]) if home else (x["as_"], x["hs"])
+        rows.append(dict(date=x["start"].strftime("%Y/%m/%d"), home=home, pf=pf, pa=pa, opp=ka, result="W" if pf > pa else "L"))
+    if len(rows) < 2:
+        return None
+    from matchup import playsport_h2h
+    out = playsport_h2h(rows, [ka])
+    if out:
+        out["source"] = "新浪 CBA 賽程（上季＋這季）"
+    return out
+
+
+def attach_sina(games, log, errors, now=None):
+    """新浪的排名表：這季戰績、主客場、排名（玩運彩的歷史含季前熱身賽，不準）；上季戰績和排名；交手；季前賽標出來。
+    回傳排名頁要用的 dict(groups=[...])，抓不到就 None。"""
+    import sina_cba as S
+    from playsport import summarize_form
+    now = now or datetime.now(timezone.utc)
+    cur, opts = S.standings()
+    if not cur:
+        errors.append("cba 新浪排名表抓不到")
+        return None
+    prev_id = opts[1][0] if len(opts) > 1 else None
+    prev, _ = S.standings(prev_id) if prev_id else ([], [])
+    sched = S.schedule()
+    sched_prev = S.schedule(prev_id) if prev_id else []
+    regular = [x["start"] for x in sched if x["round"].startswith("第1")]
+    season_start = min(regular) if regular else None
+    by_cur = {key_of(r["team"]): r for r in cur}
+    by_prev = {key_of(r["team"]): r for r in prev}
+    played = any(r["w"] + r["l"] for r in cur)
+    n_rec = n_prev = n_pre = n_h2h = 0
+    for g in games:
+        keys = {}
+        for side in ("home", "away"):
+            t = g[side]
+            k = keys[side] = key_of(t.get("name"))
+            # 開季前的比賽是季前熱身賽：近況只算開季後的；還沒打正式比賽就標「季前賽」
+            if season_start and t.get("form"):
+                reg = [r for r in t["form"] if (r.get("date_iso") or "") >= season_start.astimezone(timezone.utc).isoformat(timespec="minutes")]
+                if len(reg) < len(t["form"]):
+                    n_pre += 1
+                    if reg:
+                        summarize_form(t, reg, note="玩運彩歷史戰績（季前熱身賽不算）")
+                    else:
+                        t["form_note"] = "季前賽"
+                        t["streak"] = None
+            r = by_cur.get(k)
+            if r and played:
+                t["record"] = f"{r['w']}-{r['l']}"
+                t["record_note"] = "新浪 CBA 排名表"
+                t["record_home"], t["record_away"] = r["home"], r["away"]
+                if r["w"] + r["l"] >= 3:
+                    t["rank"], t["rank_note"] = r["pos"], f"CBA 第 {r['pos']} 名"
+                n_rec += 1
+            p = by_prev.get(k)
+            if len(prev) >= 10:
+                pv = (dict(comp="cba", comp_zh="CBA", w=p["w"], l=p["l"], rank=p["pos"], of=len(prev), diff=round(p["pf"] - p["pa"], 1))
+                      if p else dict(comp="cba", comp_zh="CBA", absent=True))
+                g.setdefault("analysis", {}).setdefault("bg", {}).setdefault("prev", {})[side] = pv
+                n_prev += bool(p)
+        if keys.get("home") and keys.get("away") and not (g.get("analysis") or {}).get("h2h_long"):
+            h = _h2h(sched_prev + sched, keys["home"], keys["away"], now)
+            if h:
+                g.setdefault("analysis", {})["h2h_long"] = h
+                n_h2h += 1
+    log(f"[cba] 新浪：排名表 {len(cur)} 隊（上季 {len(prev)} 隊）、賽程 {len(sched)} 場（上季 {len(sched_prev)} 場），"
+        f"開季 {season_start.strftime('%m/%d') if season_start else '?'}；戰績 {n_rec} 隊次、上季 {n_prev} 隊次、"
+        f"季前熱身賽拿掉 {n_pre} 隊次、交手 {n_h2h} 場")
+    if not played:
+        return None
+    # 隊名用玩運彩的繁體，對不到就用新浪的簡稱
+    names = {}
+    for g in games:
+        for side in ("home", "away"):
+            k = key_of(g[side].get("name"))
+            if k:
+                names[k] = g[side].get("name_zh") or g[side].get("name")
+    rows = [dict(team_id=key_of(r["team"]) or r["team"], team=r["team"], name_zh=names.get(key_of(r["team"])) or r["team"].translate(T2S_SHORT), logo=None,
+                 w=r["w"], l=r["l"], streak=r["streak"], pos=r["pos"], rank=r["pos"], home=r["home"], away=r["away"],
+                 pf=r["pf"], pa=r["pa"], diff=round(r["pf"] - r["pa"], 1)) for r in cur]
+    return dict(groups=[dict(name="CBA", rows=rows)])
