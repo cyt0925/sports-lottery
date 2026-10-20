@@ -268,6 +268,23 @@ WIKI_ZH = {"广州男篮": ("广州龙狮篮球俱乐部", "广州龙狮", "廣�
 WIKI_UA = {"User-Agent": "sports-lottery-family-site/1.0 (https://github.com/cyt0925/sports-lottery)"}
 
 
+DIAG = {}
+
+
+def _tsdb_badge(names):
+    """TheSportsDB 的隊徽（免費版的球隊搜尋）：維基都沒有的隊最後試這個。"""
+    import requests
+    for nm in names:
+        try:
+            js = requests.get("https://www.thesportsdb.com/api/v1/json/3/searchteams.php", params=dict(t=nm), timeout=20).json()
+        except Exception:  # noqa: BLE001
+            continue
+        for t in js.get("teams") or []:
+            if (t.get("strSport") or "").lower() == "basketball" and (t.get("strBadge") or t.get("strTeamBadge")):
+                return t.get("strBadge") or t.get("strTeamBadge")
+    return None
+
+
 def _wiki_logo_file(titles, lang="en"):
     """條目沒有代表圖的時候：看條目裡用到的圖檔，挑檔名有 logo（或「標誌」「队徽」）的，回傳縮圖網址。"""
     import requests
@@ -276,6 +293,7 @@ def _wiki_logo_file(titles, lang="en"):
         q = requests.get(api, headers=WIKI_UA, timeout=20, params=dict(action="query", format="json", prop="images", imlimit=50,
                                                                          redirects=1, titles="|".join(titles))).json().get("query") or {}
         files = [i["title"] for p in (q.get("pages") or {}).values() for i in p.get("images") or []]
+        DIAG.setdefault("wiki_files", {})[f"{lang}:{titles[0]}"] = files[:15]
         pick = next((f for f in files if re.search(r"logo|標誌|标志|队徽|隊徽", f, re.I) and not re.search(r"commons|wiki|flag|icon", f, re.I)), None)
         if not pick:
             return None
@@ -371,7 +389,8 @@ def attach_logos(games, standing, out_dir, log, errors):
                 todo[sid] = WIKI_ZH[k]
             # 代表圖都沒有：看條目裡檔名有 logo 的圖（英文、中文維基都找）
             if not any(thumbs.get(t) for t in todo[sid]):
-                url = _wiki_logo_file(list(ts)) or (_wiki_logo_file(list(WIKI_ZH[k]), "zh") if k in WIKI_ZH else None)
+                url = (_wiki_logo_file(list(ts)) or (_wiki_logo_file(list(WIKI_ZH[k]), "zh") if k in WIKI_ZH else None)
+                       or _tsdb_badge(list(ts)))
                 if url:
                     thumbs[todo[sid][0]] = url
     import requests
@@ -403,6 +422,6 @@ def attach_logos(games, standing, out_dir, log, errors):
         for r in grp["rows"]:
             if r.get("sina_id") and path(r["sina_id"]):
                 r["logo"] = path(r["sina_id"])
-    log(f"[cba] 隊徽（維基百科）：{len(have)} 隊有（這次新抓 {new} 隊）" + (f"；抓不到：{'、'.join(fail)}" if fail else ""))
+    log(f"[cba] 隊徽（維基百科）：{len(have)} 隊有（這次新抓 {new} 隊）" + (f"；抓不到：{'、'.join(fail)}；條目裡的圖：{DIAG.get('wiki_files')}" if fail else ""))
     if fail and not have:
         errors.append("cba 隊徽一張都抓不到")
