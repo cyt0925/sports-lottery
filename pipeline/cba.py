@@ -35,6 +35,13 @@ TEAMS = [
 ]
 # 玩運彩隊名的錯字、看起來怪的（只改顯示）
 DISPLAY = {"浙江廣夏": "浙江廣廈"}
+# 每隊的完整中文隊名（即時比分、新浪只給簡稱，像「北京勇」「上海」）
+FULL = {
+    "北京首钢": "北京首鋼", "北控男篮": "北京紫禁勇士", "浙江广厦": "浙江廣廈", "浙江稠州": "浙江稠州", "南京同曦": "南京同曦",
+    "广东宏远": "廣東宏遠", "辽宁男篮": "遼寧本鋼", "上海男篮": "上海大鯊魚", "新疆男篮": "新疆廣匯", "山东男篮": "山東高速",
+    "山西男篮": "山西汾酒", "深圳男篮": "深圳馬可波羅", "广州男篮": "廣州龍獅", "青岛男篮": "青島國信", "江苏男篮": "江蘇肯帝亞",
+    "福建男篮": "福建潯興", "天津男篮": "天津先行者", "四川男篮": "四川錦城", "吉林男篮": "吉林農商", "宁波男篮": "寧波富邦",
+}
 # 新浪的簡體簡稱轉繁體（排名表上今天沒比賽的隊）
 T2S_SHORT = str.maketrans("广东辽宁苏岛厦锦农汇", "廣東遼寧蘇島廈錦農匯")
 
@@ -66,6 +73,9 @@ def enrich(games, log):
                 miss.add(t.get("name"))
                 continue
             t["cn_name"], t["cn_words"], t["city"] = hit["q"], hit["words"], hit["city"]
+            full = FULL.get(hit["q"])
+            if full and len(t.get("name_zh") or "") < len(full):
+                t["name_zh"] = t["short"] = full
             n += 1
     log(f"[cba] 對到新聞查詢名 {n} 隊次" + (f"；沒對到：{'、'.join(sorted(x for x in miss if x))}" if miss else ""))
 
@@ -175,7 +185,7 @@ def attach_sina(games, log, errors, now=None):
             nm = g[side].get("name_zh") or g[side].get("name")
             if k and nm and len(nm) > len(names.get(k) or ""):     # 即時比分的簡稱（「北京勇」）不用，用完整隊名
                 names[k] = nm
-    rows = [dict(team_id=key_of(r["team"]) or r["team"], team=r["team"], sina_id=r["sina_id"], name_zh=names.get(key_of(r["team"])) or r["team"].translate(T2S_SHORT), logo=None,
+    rows = [dict(team_id=key_of(r["team"]) or r["team"], team=r["team"], sina_id=r["sina_id"], name_zh=FULL.get(key_of(r["team"])) or names.get(key_of(r["team"])) or r["team"].translate(T2S_SHORT), logo=None,
                  w=r["w"], l=r["l"], streak=r["streak"], pos=r["pos"], rank=r["pos"], home=r["home"], away=r["away"],
                  pf=r["pf"], pa=r["pa"], diff=round(r["pf"] - r["pa"], 1)) for r in cur]
     return dict(groups=[dict(name="CBA", rows=rows)])
@@ -252,6 +262,8 @@ WIKI = {
     "福建男篮": "Fujian Sturgeons", "天津男篮": "Tianjin Pioneers", "四川男篮": "Sichuan Blue Whales", "吉林男篮": "Jilin Northeast Tigers",
     "宁波男篮": "Ningbo Rockets",
 }
+# 英文維基抓不到隊徽的，改用中文維基
+WIKI_ZH = {"广州男篮": ("广州龙狮篮球俱乐部", "广州龙狮", "廣州龍獅")}
 WIKI_UA = {"User-Agent": "sports-lottery-family-site/1.0 (https://github.com/cyt0925/sports-lottery)"}
 
 
@@ -278,12 +290,12 @@ def clean_logo(data):
         return data, None
 
 
-def _wiki_thumbs(titles):
+def _wiki_thumbs(titles, lang="en"):
     """維基百科條目的代表圖（多半是隊徽）縮圖網址：{條目名稱: 網址}。"""
     import requests
     out = {}
     try:
-        r = requests.get("https://en.wikipedia.org/w/api.php", headers=WIKI_UA, timeout=20, params=dict(
+        r = requests.get(f"https://{lang}.wikipedia.org/w/api.php", headers=WIKI_UA, timeout=20, params=dict(
             action="query", format="json", prop="pageimages", piprop="thumbnail", pithumbsize=160, pilicense="any",
             redirects=1, titles="|".join(titles)))
         q = r.json().get("query") or {}
@@ -306,7 +318,13 @@ def attach_logos(games, standing, out_dir, log, errors):
     import time
     folder = os.path.join(out_dir, "logos", "cba")
     os.makedirs(folder, exist_ok=True)
-    have = {os.path.splitext(f)[0]: f for f in os.listdir(folder)}
+    have = {}
+    for f in sorted(os.listdir(folder), key=lambda f: not f.endswith(".png")):      # png 排前面
+        stem = os.path.splitext(f)[0]
+        if stem in have:
+            os.remove(os.path.join(folder, f))       # 同一隊有舊的白底 jpg，留去背後的 png
+        else:
+            have[stem] = f
     new, fail = 0, []
     todo = {}
     for g in games:
@@ -321,6 +339,14 @@ def attach_logos(games, standing, out_dir, log, errors):
             if r.get("sina_id") and r["sina_id"] not in have and k in WIKI:
                 todo[r["sina_id"]] = WIKI[k] if isinstance(WIKI[k], tuple) else (WIKI[k],)
     thumbs = _wiki_thumbs(sorted({t for ts in todo.values() for t in ts})) if todo else {}
+    # 英文維基沒有圖的隊：換中文維基的條目
+    for sid, ts in list(todo.items()):
+        if not any(thumbs.get(t) for t in ts):
+            k = next((q for q, v in WIKI.items() if (v if isinstance(v, tuple) else (v,)) == ts), None)
+            if k in WIKI_ZH:
+                zh = _wiki_thumbs(list(WIKI_ZH[k]), "zh")
+                thumbs.update(zh)
+                todo[sid] = WIKI_ZH[k]
     import requests
     for sid, titles in sorted(todo.items()):
         title = next((t for t in titles if thumbs.get(t)), titles[0])
