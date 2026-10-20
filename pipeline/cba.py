@@ -77,6 +77,7 @@ def enrich(games, log):
             full = FULL.get(hit["q"])
             if full and len(t.get("name_zh") or "") < len(full):
                 t["name_zh"] = t["short"] = full
+            t["abbr"] = (full or t.get("name_zh") or "")[:2]       # 沒有隊徽時圓圈裡的字（「廣州」）
             n += 1
     log(f"[cba] 對到新聞查詢名 {n} 隊次" + (f"；沒對到：{'、'.join(sorted(x for x in miss if x))}" if miss else ""))
 
@@ -268,9 +269,6 @@ WIKI_ZH = {"广州男篮": ("广州龙狮篮球俱乐部", "广州龙狮", "廣�
 WIKI_UA = {"User-Agent": "sports-lottery-family-site/1.0 (https://github.com/cyt0925/sports-lottery)"}
 
 
-DIAG = {}
-
-
 def _tsdb_badge(names):
     """TheSportsDB 的隊徽（免費版的球隊搜尋）：維基都沒有的隊最後試這個。"""
     import requests
@@ -293,7 +291,6 @@ def _wiki_logo_file(titles, lang="en"):
         q = requests.get(api, headers=WIKI_UA, timeout=20, params=dict(action="query", format="json", prop="images", imlimit=50,
                                                                          redirects=1, titles="|".join(titles))).json().get("query") or {}
         files = [i["title"] for p in (q.get("pages") or {}).values() for i in p.get("images") or []]
-        DIAG.setdefault("wiki_files", {})[f"{lang}:{titles[0]}"] = files[:15]
         pick = next((f for f in files if re.search(r"logo|標誌|标志|队徽|隊徽", f, re.I) and not re.search(r"commons|wiki|flag|icon", f, re.I)), None)
         if not pick:
             return None
@@ -422,6 +419,6 @@ def attach_logos(games, standing, out_dir, log, errors):
         for r in grp["rows"]:
             if r.get("sina_id") and path(r["sina_id"]):
                 r["logo"] = path(r["sina_id"])
-    log(f"[cba] 隊徽（維基百科）：{len(have)} 隊有（這次新抓 {new} 隊）" + (f"；抓不到：{'、'.join(fail)}；條目裡的圖：{DIAG.get('wiki_files')}" if fail else ""))
+    log(f"[cba] 隊徽（維基百科）：{len(have)} 隊有（這次新抓 {new} 隊）" + (f"；抓不到：{'、'.join(fail)}（顯示隊名的字）" if fail else ""))
     if fail and not have:
         errors.append("cba 隊徽一張都抓不到")
