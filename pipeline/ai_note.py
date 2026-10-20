@@ -383,7 +383,8 @@ def _pick_model(key, log):
     return _MODEL[0]
 
 
-EN_NAME = re.compile(r"\b[A-Z][a-z'\-]+(?:[ ·][A-Z][a-zA-Z'\-]+)+")
+# 英文人名：前面不能是英文字母（中文字緊貼著英文名，像「遼寧的Sherell Cooper」，\b 會判斷錯）
+EN_NAME = re.compile(r"(?<![A-Za-z])[A-Z][a-z'\-]+(?:[ ·][A-Z][a-zA-Z'\-]+)+")
 
 
 def english_names(g, text):
