@@ -4,6 +4,7 @@
   玩運彩的隊名是繁體、常常帶贊助商（廣東宏遠、遼寧本鋼），贊助商每年換，所以用城市或隊名裡不會變的字來認隊。
   新聞用大陸媒體常用的叫法查（「广东男篮」），簡體中文；AI 讀完寫成繁體。
   城市座標給「客隊要跑多遠」用：新疆飛廣東 3000 多公里，比歐洲跨國還遠。"""
+import re
 from datetime import datetime, timezone
 
 # (認隊的字（玩運彩的繁體隊名、即時比分的簡稱）, 新聞查詢名（簡體）, 標題裡算講到這隊的字（簡體）, 主場城市, 緯度, 經度)
@@ -267,6 +268,27 @@ WIKI_ZH = {"广州男篮": ("广州龙狮篮球俱乐部", "广州龙狮", "廣�
 WIKI_UA = {"User-Agent": "sports-lottery-family-site/1.0 (https://github.com/cyt0925/sports-lottery)"}
 
 
+def _wiki_logo_file(titles, lang="en"):
+    """條目沒有代表圖的時候：看條目裡用到的圖檔，挑檔名有 logo（或「標誌」「队徽」）的，回傳縮圖網址。"""
+    import requests
+    api = f"https://{lang}.wikipedia.org/w/api.php"
+    try:
+        q = requests.get(api, headers=WIKI_UA, timeout=20, params=dict(action="query", format="json", prop="images", imlimit=50,
+                                                                         redirects=1, titles="|".join(titles))).json().get("query") or {}
+        files = [i["title"] for p in (q.get("pages") or {}).values() for i in p.get("images") or []]
+        pick = next((f for f in files if re.search(r"logo|標誌|标志|队徽|隊徽", f, re.I) and not re.search(r"commons|wiki|flag|icon", f, re.I)), None)
+        if not pick:
+            return None
+        q = requests.get(api, headers=WIKI_UA, timeout=20, params=dict(action="query", format="json", prop="imageinfo", iiprop="url",
+                                                                         iiurlwidth=160, titles=pick)).json().get("query") or {}
+        for p in (q.get("pages") or {}).values():
+            ii = (p.get("imageinfo") or [{}])[0]
+            return ii.get("thumburl") or ii.get("url")
+    except Exception:  # noqa: BLE001
+        return None
+    return None
+
+
 def clean_logo(data):
     """白底的隊徽（JPG 或白底 PNG）：把四個角連著的白色背景去掉，存成透明 PNG，深色畫面才不會是一塊白方塊。
     沒有 Pillow 或處理失敗就照原樣。回傳 (內容, 副檔名或 None)。"""
@@ -347,6 +369,11 @@ def attach_logos(games, standing, out_dir, log, errors):
                 zh = _wiki_thumbs(list(WIKI_ZH[k]), "zh")
                 thumbs.update(zh)
                 todo[sid] = WIKI_ZH[k]
+            # 代表圖都沒有：看條目裡檔名有 logo 的圖（英文、中文維基都找）
+            if not any(thumbs.get(t) for t in todo[sid]):
+                url = _wiki_logo_file(list(ts)) or (_wiki_logo_file(list(WIKI_ZH[k]), "zh") if k in WIKI_ZH else None)
+                if url:
+                    thumbs[todo[sid][0]] = url
     import requests
     for sid, titles in sorted(todo.items()):
         title = next((t for t in titles if thumbs.get(t)), titles[0])
