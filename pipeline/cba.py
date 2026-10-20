@@ -251,12 +251,23 @@ def attach_logos(games, standing, out_dir, log, errors):
     have = {os.path.splitext(f)[0]: f for f in os.listdir(folder)}
     ids = {g[s].get("sina_id") for g in games for s in ("home", "away") if g[s].get("sina_id")}
     ids |= {r.get("sina_id") for grp in (standing or {}).get("groups") or [] for r in grp["rows"] if r.get("sina_id")}
-    new, fail, sample = 0, [], None
+    new, fail, sample, sample_ok = 0, [], None, []
     for sid in sorted(ids):
         if sid in have:
             continue
-        url, imgs = S.logo_url(sid)
-        data, ext = S.download(url) if url else (None, None)
+        if len(fail) >= 2 and not new:
+            fail.append(sid)        # 前兩隊都猜不到網址：這次先不試了（不然每隊要試幾十個網址）
+            continue
+        cand, imgs = S.logo_url(sid)
+        if sample_ok:               # 已經知道哪一種網址對：先試那一種
+            cand.insert(0, sample_ok[0].replace(f"/{sample_ok[1]}.", f"/{sid}."))
+        data = ext = None
+        for url in cand:
+            data, ext = S.download(url)
+            if data:
+                if not sample_ok:
+                    sample_ok.extend([url, sid])
+                break
         if not data:
             fail.append(sid)
             sample = sample or imgs
@@ -274,6 +285,7 @@ def attach_logos(games, standing, out_dir, log, errors):
         for r in grp["rows"]:
             if r.get("sina_id") and path(r["sina_id"]):
                 r["logo"] = path(r["sina_id"])
-    log(f"[cba] 隊徽：{len(have)} 隊有（這次新抓 {new} 隊）" + (f"；抓不到 {len(fail)} 隊，球隊頁的圖片：{sample}" if fail else ""))
+    log(f"[cba] 隊徽：{len(have)} 隊有（這次新抓 {new} 隊{('，例：' + sample_ok[0]) if sample_ok else ''}）"
+        + (f"；抓不到 {len(fail)} 隊，球隊頁上不是球員照的圖：{sample}" if fail else ""))
     if fail and not new and not have:
         errors.append("cba 隊徽一張都抓不到")

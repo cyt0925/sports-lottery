@@ -21,6 +21,9 @@ from urllib.parse import quote
 import requests
 
 TW = timezone(timedelta(hours=8))
+# Gemini 的每日免費額度在美國太平洋時間半夜重算（台灣下午 3、4 點），用量要照這個時間算
+from zoneinfo import ZoneInfo  # noqa: E402
+PT = ZoneInfo("America/Los_Angeles")
 DAILY_CAP = 450        # 免費額度一天大約 1000 次，留很多餘裕（加了 CBA，一天多 10 幾場）
 RUN_CAP = 30
 RESERVE = 80           # 每天留 50 次給還沒寫過的比賽（重寫舊的不能用掉）
@@ -425,7 +428,18 @@ def _call_once(key, f, log):
         _LOGGED.add(model)
         log(f"[AI] 不行：{err}")
     if r.status_code == 429:
-        return dict(error=err, rate_limited=True)
+        # 看是哪一種額度用完：每分鐘的等下次就好；每天的要等太平洋時間半夜。順便記下額度是多少
+        per_day, limit = False, None
+        try:
+            for d in (r.json().get("error") or {}).get("details") or []:
+                for v in d.get("violations") or []:
+                    per_day = per_day or "PerDay" in (v.get("quotaId") or "")
+                    if v.get("quotaValue"):
+                        limit = int(v["quotaValue"])
+        except (ValueError, TypeError, AttributeError):
+            pass
+        log(f"[AI] 額度用完：{'每天' if per_day else '每分鐘'}的額度" + (f"（上限 {limit} 次）" if limit else "") + f"；{r.text[300:700]!r}")
+        return dict(error=err, rate_limited=True, per_day=per_day, limit=limit)
     if r.status_code in (400, 401, 403):
         return dict(error=err, denied=True)
     return dict(error=err, busy=r.status_code >= 500)
@@ -487,13 +501,17 @@ def run(games, path, now, main_chips, log, errors, deadline=None):
     except (OSError, ValueError):
         store = {}
     notes = store.setdefault("notes", {})
-    usage = store.setdefault("usage", {})
-    today = now.astimezone(TW).strftime("%Y-%m-%d")
+    usage = store.setdefault("usage_pt", {})
+    today = now.astimezone(PT).strftime("%Y-%m-%d")     # Google 的一天（太平洋時間）
     used_today = usage.get(today, 0)
     token = os.environ.get("GEMINI_API_KEY")
     n_new = n_cache = n_fix = 0
     fails = 0
     stop = None
+    # 學到的真正額度：碰過一次上限就記下來，之後每天留一點餘裕，不再撞牆
+    cap = min(DAILY_CAP, store["daily_limit"] - 10) if store.get("daily_limit") else DAILY_CAP
+    if store.get("blocked") == today:
+        stop = "Gemini 今天的免費額度用完了（台灣下午 3、4 點重算），先沿用寫好的分析"
     cands = []
     for g in games:
         if (g.get("chip") or g["sport"]) not in main_chips or g["status"]["state"] != "pre":
@@ -530,13 +548,13 @@ def run(games, path, now, main_chips, log, errors, deadline=None):
         if need and not stop:
             if not token:
                 stop = "還沒設定 GEMINI_API_KEY（到 Google AI Studio 免費申請，放進 GitHub Secrets）"
-            elif used_today >= DAILY_CAP:
+            elif used_today >= cap:
                 stop = f"今天已經寫了 {used_today} 次，到上限"
             elif n_new >= RUN_CAP:
                 stop = f"這次已經寫 {n_new} 場，下次再寫"
             elif deadline and time.time() > deadline:
                 stop = f"這次更新跑太久（寫了 {n_new} 場），剩下的下次再寫"
-        if need and not stop and old and old.get("text") and used_today >= DAILY_CAP - RESERVE:
+        if need and not stop and old and old.get("text") and used_today >= cap - RESERVE:
             need = False          # 額度快用完：留給還沒寫過的比賽，舊的先沿用
         if need and not stop:
             pv = previews(g, log)
@@ -548,7 +566,7 @@ def run(games, path, now, main_chips, log, errors, deadline=None):
                 used_today += 1
             # 提示裡交代了還是寫英文名（CBA 外援）：程式抓出來，叫它照中文名字重寫一次
             bad = english_names(g, res.get("text"))
-            if bad and used_today < DAILY_CAP:
+            if bad and used_today < cap:
                 time.sleep(GAP_S)
                 f2 = dict(f, 重寫="上一版寫了英文名（" + "、".join(bad) + "），不行。CBA 的外援一律寫資料裡的中文名字；資料裡沒有中文名字的，就寫「外援」，不要寫英文。")
                 res2 = _call(token, f2, log)
@@ -568,11 +586,16 @@ def run(games, path, now, main_chips, log, errors, deadline=None):
                 time.sleep(GAP_S)
             else:
                 fails += 1
-                if not res.get("busy"):          # Gemini 一時太忙不算錯，下一次更新會再寫
+                if not res.get("busy") and not res.get("rate_limited"):   # 太忙、額度用完不算錯：下一次更新會再寫
                     errors.append(f"AI 分析失敗 {gid}: {res.get('error')}")
                 log(f"[AI] 失敗：{(res.get('error') or '')[:160]}")
                 if res.get("rate_limited"):
                     stop = "Gemini 免費額度這分鐘或今天用完了"
+                    if res.get("per_day"):
+                        store["blocked"] = today
+                        stop = "Gemini 今天的免費額度用完了（台灣下午 3、4 點重算）"
+                    if res.get("limit"):
+                        store["daily_limit"] = res["limit"]
                 elif res.get("denied"):
                     stop = "Gemini 金鑰不對或沒有權限"
                 elif fails >= 2:
@@ -587,10 +610,11 @@ def run(games, path, now, main_chips, log, errors, deadline=None):
     usage[today] = used_today
     cutoff = (now - timedelta(days=KEEP_DAYS)).strftime("%Y-%m-%d")
     store["notes"] = {k: v for k, v in notes.items() if (v.get("day") or "9") >= cutoff}
-    store["usage"] = {k: v for k, v in usage.items() if k >= cutoff}
+    store["usage_pt"] = {k: v for k, v in usage.items() if k >= cutoff}
+    store.pop("usage", None)
     with open(path, "w", encoding="utf-8") as fh:
         json.dump(store, fh, ensure_ascii=False, separators=(",", ":"))
-    log(f"[AI] 這次寫了 {n_new} 場、沿用 {n_cache} 場；今天累計 {used_today} 次" + (f"；CBA 寫了英文名叫它重寫 {n_fix} 場" if n_fix else "")
+    log(f"[AI] 這次寫了 {n_new} 場、沿用 {n_cache} 場；今天（太平洋時間 {today}）累計 {used_today} 次、上限 {cap}" + (f"；CBA 寫了英文名叫它重寫 {n_fix} 場" if n_fix else "")
         + (f"；停下來的原因：{stop}" if stop else ""))
     return n_new, n_cache
 
