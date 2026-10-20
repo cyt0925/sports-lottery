@@ -241,12 +241,13 @@ def attach_players(games, log, errors):
     return n
 
 
-# 維基百科（英文）的條目名稱：隊徽從條目的代表圖抓（新浪的球隊頁沒有隊徽）。改名的隊維基會自動轉到新條目
+# 維基百科（英文）的條目名稱：隊徽從條目的代表圖抓（新浪的球隊頁沒有隊徽）。改名的隊維基會自動轉到新條目；
+# 不確定條目名稱的給幾個寫法，第一個有圖的就用
 WIKI = {
     "北京首钢": "Beijing Ducks", "北控男篮": "Beijing Royal Fighters", "浙江广厦": "Zhejiang Lions", "浙江稠州": "Zhejiang Golden Bulls",
     "南京同曦": "Nanjing Monkey Kings", "广东宏远": "Guangdong Southern Tigers", "辽宁男篮": "Liaoning Flying Leopards",
     "上海男篮": "Shanghai Sharks", "新疆男篮": "Xinjiang Flying Tigers", "山东男篮": "Shandong Heroes", "山西男篮": "Shanxi Loongs",
-    "深圳男篮": "Shenzhen Leopards", "广州男篮": "Guangzhou Loong Lions", "青岛男篮": "Qingdao Eagles", "江苏男篮": "Jiangsu Dragons",
+    "深圳男篮": "Shenzhen Leopards", "广州男篮": ("Guangzhou Loong Lions", "Guangzhou Long-Lions", "Guangzhou Loong-Lions", "Guangzhou Long Lions"), "青岛男篮": "Qingdao Eagles", "江苏男篮": "Jiangsu Dragons",
     "福建男篮": "Fujian Sturgeons", "天津男篮": "Tianjin Pioneers", "四川男篮": "Sichuan Blue Whales", "吉林男篮": "Jilin Northeast Tigers",
     "宁波男篮": "Ningbo Rockets",
 }
@@ -289,15 +290,16 @@ def attach_logos(games, standing, out_dir, log, errors):
             t = g[side]
             sid, k = t.get("sina_id"), key_of(t.get("name"))
             if sid and sid not in have and k in WIKI:
-                todo[sid] = WIKI[k]
+                todo[sid] = WIKI[k] if isinstance(WIKI[k], tuple) else (WIKI[k],)
     for grp in (standing or {}).get("groups") or []:
         for r in grp["rows"]:
             k = key_of(r.get("team"))
             if r.get("sina_id") and r["sina_id"] not in have and k in WIKI:
-                todo[r["sina_id"]] = WIKI[k]
-    thumbs = _wiki_thumbs(sorted(set(todo.values()))) if todo else {}
+                todo[r["sina_id"]] = WIKI[k] if isinstance(WIKI[k], tuple) else (WIKI[k],)
+    thumbs = _wiki_thumbs(sorted({t for ts in todo.values() for t in ts})) if todo else {}
     import requests
-    for sid, title in sorted(todo.items()):
+    for sid, titles in sorted(todo.items()):
+        title = next((t for t in titles if thumbs.get(t)), titles[0])
         url = thumbs.get(title)
         try:
             r = requests.get(url, headers=WIKI_UA, timeout=20) if url else None
