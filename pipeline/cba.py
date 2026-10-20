@@ -241,41 +241,78 @@ def attach_players(games, log, errors):
     return n
 
 
+# 維基百科（英文）的條目名稱：隊徽從條目的代表圖抓（新浪的球隊頁沒有隊徽）。改名的隊維基會自動轉到新條目
+WIKI = {
+    "北京首钢": "Beijing Ducks", "北控男篮": "Beijing Royal Fighters", "浙江广厦": "Zhejiang Lions", "浙江稠州": "Zhejiang Golden Bulls",
+    "南京同曦": "Nanjing Monkey Kings", "广东宏远": "Guangdong Southern Tigers", "辽宁男篮": "Liaoning Flying Leopards",
+    "上海男篮": "Shanghai Sharks", "新疆男篮": "Xinjiang Flying Tigers", "山东男篮": "Shandong Heroes", "山西男篮": "Shanxi Loongs",
+    "深圳男篮": "Shenzhen Leopards", "广州男篮": "Guangzhou Loong Lions", "青岛男篮": "Qingdao Eagles", "江苏男篮": "Jiangsu Dragons",
+    "福建男篮": "Fujian Sturgeons", "天津男篮": "Tianjin Pioneers", "四川男篮": "Sichuan Blue Whales", "吉林男篮": "Jilin Northeast Tigers",
+    "宁波男篮": "Ningbo Rockets",
+}
+WIKI_UA = {"User-Agent": "sports-lottery-family-site/1.0 (https://github.com/cyt0925/sports-lottery)"}
+
+
+def _wiki_thumbs(titles):
+    """維基百科條目的代表圖（多半是隊徽）縮圖網址：{條目名稱: 網址}。"""
+    import requests
+    out = {}
+    try:
+        r = requests.get("https://en.wikipedia.org/w/api.php", headers=WIKI_UA, timeout=20, params=dict(
+            action="query", format="json", prop="pageimages", piprop="thumbnail", pithumbsize=160, pilicense="any",
+            redirects=1, titles="|".join(titles)))
+        q = r.json().get("query") or {}
+    except Exception:  # noqa: BLE001
+        return out
+    back = {t: t for t in titles}
+    for m in (q.get("normalized") or []) + (q.get("redirects") or []):
+        back[m["to"]] = back.get(m["from"], m["from"])
+    for p in (q.get("pages") or {}).values():
+        th = (p.get("thumbnail") or {}).get("source")
+        if th:
+            out[back.get(p.get("title"), p.get("title"))] = th
+    return out
+
+
 def attach_logos(games, standing, out_dir, log, errors):
-    """隊徽：玩運彩沒有，從新浪的球隊頁抓下來存在網站自己的資料夾（data/logos/cba/新浪代碼.png），抓過就不重抓。
-    圖片放在自己網站上，不直接連新浪（新浪的圖會擋別的網站）。"""
+    """隊徽：玩運彩沒有、新浪的球隊頁也沒有，從維基百科條目的代表圖抓下來存在網站自己的資料夾
+    （data/logos/cba/新浪代碼.png），抓過就不重抓。"""
     import os
-    import sina_cba as S
+    import time
     folder = os.path.join(out_dir, "logos", "cba")
     os.makedirs(folder, exist_ok=True)
     have = {os.path.splitext(f)[0]: f for f in os.listdir(folder)}
-    ids = {g[s].get("sina_id") for g in games for s in ("home", "away") if g[s].get("sina_id")}
-    ids |= {r.get("sina_id") for grp in (standing or {}).get("groups") or [] for r in grp["rows"] if r.get("sina_id")}
-    new, fail, sample, sample_ok = 0, [], None, []
-    for sid in sorted(ids):
-        if sid in have:
+    new, fail = 0, []
+    todo = {}
+    for g in games:
+        for side in ("home", "away"):
+            t = g[side]
+            sid, k = t.get("sina_id"), key_of(t.get("name"))
+            if sid and sid not in have and k in WIKI:
+                todo[sid] = WIKI[k]
+    for grp in (standing or {}).get("groups") or []:
+        for r in grp["rows"]:
+            k = key_of(r.get("team"))
+            if r.get("sina_id") and r["sina_id"] not in have and k in WIKI:
+                todo[r["sina_id"]] = WIKI[k]
+    thumbs = _wiki_thumbs(sorted(set(todo.values()))) if todo else {}
+    import requests
+    for sid, title in sorted(todo.items()):
+        url = thumbs.get(title)
+        try:
+            r = requests.get(url, headers=WIKI_UA, timeout=20) if url else None
+        except Exception:  # noqa: BLE001
+            r = None
+        ct = ((r.headers.get("content-type") if r is not None else "") or "").lower()
+        if r is None or r.status_code != 200 or not ct.startswith("image/"):
+            fail.append(title)
             continue
-        if len(fail) >= 2 and not new:
-            fail.append(sid)        # 前兩隊都猜不到網址：這次先不試了（不然每隊要試幾十個網址）
-            continue
-        cand, imgs = S.logo_url(sid)
-        if sample_ok:               # 已經知道哪一種網址對：先試那一種
-            cand.insert(0, sample_ok[0].replace(f"/{sample_ok[1]}.", f"/{sid}."))
-        data = ext = None
-        for url in cand:
-            data, ext = S.download(url)
-            if data:
-                if not sample_ok:
-                    sample_ok.extend([url, sid])
-                break
-        if not data:
-            fail.append(sid)
-            sample = sample or imgs
-            continue
+        ext = {"image/png": ".png", "image/jpeg": ".jpg", "image/gif": ".gif", "image/webp": ".webp", "image/svg+xml": ".svg"}.get(ct.split(";")[0], ".png")
         with open(os.path.join(folder, sid + ext), "wb") as fh:
-            fh.write(data)
+            fh.write(r.content)
         have[sid] = sid + ext
         new += 1
+        time.sleep(0.3)
     path = lambda sid: f"data/logos/cba/{have[sid]}" if sid in have else None  # noqa: E731
     for g in games:
         for s in ("home", "away"):
@@ -285,7 +322,6 @@ def attach_logos(games, standing, out_dir, log, errors):
         for r in grp["rows"]:
             if r.get("sina_id") and path(r["sina_id"]):
                 r["logo"] = path(r["sina_id"])
-    log(f"[cba] 隊徽：{len(have)} 隊有（這次新抓 {new} 隊{('，例：' + sample_ok[0]) if sample_ok else ''}）"
-        + (f"；抓不到 {len(fail)} 隊，球隊頁上不是球員照的圖：{sample}" if fail else ""))
-    if fail and not new and not have:
+    log(f"[cba] 隊徽（維基百科）：{len(have)} 隊有（這次新抓 {new} 隊）" + (f"；抓不到：{'、'.join(fail)}" if fail else ""))
+    if fail and not have:
         errors.append("cba 隊徽一張都抓不到")

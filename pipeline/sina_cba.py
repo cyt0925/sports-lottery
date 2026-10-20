@@ -125,33 +125,6 @@ def team_page(team_id):
     return _PAGES[team_id]
 
 
-def logo_url(team_id):
-    """隊徽圖片的候選網址 -> (候選清單, 球隊頁上不是球員照的圖)。
-    球隊頁上的圖多半是球員照（www.sinaimg.cn/ty/cba/players/球員代碼.png），隊徽照同一種規則猜（teams/球隊代碼.png）。"""
-    imgs = re.findall(r'<img[^>]+src="([^"]+)"', team_page(team_id), re.I)
-    imgs = ["http:" + u if u.startswith("//") else u for u in imgs]
-    other = [u for u in imgs if "/players/" not in u and "header" not in u and "deco" not in u]
-    cand = [u for u in other if re.search(r"logo|team", u, re.I)]
-    for base in ("https://www.sinaimg.cn/ty/cba", "http://www.sinaimg.cn/ty/cba"):
-        for sub in ("teams", "team", "logo", "teamlogo", "logos"):
-            for ext in ("png", "gif", "jpg"):
-                cand.append(f"{base}/{sub}/{team_id}.{ext}")
-    return cand, other[:10]
-
-
-def download(url):
-    """下載圖片（新浪的圖會看 Referer）-> (內容, 副檔名)；不是圖片就 (None, None)。"""
-    try:
-        r = requests.get(url, headers=dict(UA, Referer=BASE + "/"), timeout=10)
-    except Exception:  # noqa: BLE001
-        return None, None
-    ct = (r.headers.get("content-type") or "").lower()
-    if r.status_code != 200 or not ct.startswith("image/") or len(r.content) < 300:
-        return None, None
-    ext = {"image/png": ".png", "image/jpeg": ".jpg", "image/jpg": ".jpg", "image/gif": ".gif", "image/webp": ".webp"}.get(ct.split(";")[0], ".png")
-    return r.content, ext
-
-
 def roster(team_id):
     """球隊頁的這季名單 -> [(球員 id, 名字（簡體）)]。"""
     text = team_page(team_id)
