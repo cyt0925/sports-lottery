@@ -174,7 +174,7 @@ def attach_sina(games, log, errors, now=None):
             k = key_of(g[side].get("name"))
             if k:
                 names[k] = g[side].get("name_zh") or g[side].get("name")
-    rows = [dict(team_id=key_of(r["team"]) or r["team"], team=r["team"], name_zh=names.get(key_of(r["team"])) or r["team"].translate(T2S_SHORT), logo=None,
+    rows = [dict(team_id=key_of(r["team"]) or r["team"], team=r["team"], sina_id=r["sina_id"], name_zh=names.get(key_of(r["team"])) or r["team"].translate(T2S_SHORT), logo=None,
                  w=r["w"], l=r["l"], streak=r["streak"], pos=r["pos"], rank=r["pos"], home=r["home"], away=r["away"],
                  pf=r["pf"], pa=r["pa"], diff=round(r["pf"] - r["pa"], 1)) for r in cur]
     return dict(groups=[dict(name="CBA", rows=rows)])
@@ -239,3 +239,41 @@ def attach_players(games, log, errors):
     log(f"[cba] 新浪球員數據：這季 {len(cur)} 人、上季 {len(prev)} 人；{len(rosters)} 隊有名單，{n} 隊次挑出主力"
         + (f"，例：{games[0]['home'].get('cba_players', [{}])[0]}" if games and games[0]["home"].get("cba_players") else ""))
     return n
+
+
+def attach_logos(games, standing, out_dir, log, errors):
+    """隊徽：玩運彩沒有，從新浪的球隊頁抓下來存在網站自己的資料夾（data/logos/cba/新浪代碼.png），抓過就不重抓。
+    圖片放在自己網站上，不直接連新浪（新浪的圖會擋別的網站）。"""
+    import os
+    import sina_cba as S
+    folder = os.path.join(out_dir, "logos", "cba")
+    os.makedirs(folder, exist_ok=True)
+    have = {os.path.splitext(f)[0]: f for f in os.listdir(folder)}
+    ids = {g[s].get("sina_id") for g in games for s in ("home", "away") if g[s].get("sina_id")}
+    ids |= {r.get("sina_id") for grp in (standing or {}).get("groups") or [] for r in grp["rows"] if r.get("sina_id")}
+    new, fail, sample = 0, [], None
+    for sid in sorted(ids):
+        if sid in have:
+            continue
+        url, imgs = S.logo_url(sid)
+        data, ext = S.download(url) if url else (None, None)
+        if not data:
+            fail.append(sid)
+            sample = sample or imgs
+            continue
+        with open(os.path.join(folder, sid + ext), "wb") as fh:
+            fh.write(data)
+        have[sid] = sid + ext
+        new += 1
+    path = lambda sid: f"data/logos/cba/{have[sid]}" if sid in have else None  # noqa: E731
+    for g in games:
+        for s in ("home", "away"):
+            if g[s].get("sina_id") and path(g[s]["sina_id"]):
+                g[s]["logo"] = path(g[s]["sina_id"])
+    for grp in (standing or {}).get("groups") or []:
+        for r in grp["rows"]:
+            if r.get("sina_id") and path(r["sina_id"]):
+                r["logo"] = path(r["sina_id"])
+    log(f"[cba] 隊徽：{len(have)} 隊有（這次新抓 {new} 隊）" + (f"；抓不到 {len(fail)} 隊，球隊頁的圖片：{sample}" if fail else ""))
+    if fail and not new and not have:
+        errors.append("cba 隊徽一張都抓不到")

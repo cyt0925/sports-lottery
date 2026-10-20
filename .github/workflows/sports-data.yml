@@ -68,6 +68,7 @@ jobs:
           cp data/espn_games.json /tmp/espn_games.json 2>/dev/null || true
           cp data/el_box.json /tmp/el_box.json 2>/dev/null || true
           cp data/offseason.json /tmp/offseason.json 2>/dev/null || true
+          [ -d data/logos ] && cp -r data/logos /tmp/logos
           BRANCH="${GITHUB_REF_NAME}"
           for i in 1 2 3 4; do
             git fetch -q origin "$BRANCH"
@@ -80,12 +81,14 @@ jobs:
             [ -f /tmp/espn_games.json ] && cp /tmp/espn_games.json data/espn_games.json
             [ -f /tmp/el_box.json ] && cp /tmp/el_box.json data/el_box.json
             [ -f /tmp/offseason.json ] && cp /tmp/offseason.json data/offseason.json
+            [ -d /tmp/logos ] && mkdir -p data/logos && cp -r /tmp/logos/. data/logos/
             git add data/today.json data/history.json data/results.json
             [ -f data/ai_notes.json ] && git add data/ai_notes.json
             [ -f data/tsdb.json ] && git add data/tsdb.json
             [ -f data/espn_games.json ] && git add data/espn_games.json
             [ -f data/el_box.json ] && git add data/el_box.json
             [ -f data/offseason.json ] && git add data/offseason.json
+            [ -d data/logos ] && git add data/logos
             if git diff --cached --quiet; then
               echo "資料沒有變化，不提交"
               exit 0

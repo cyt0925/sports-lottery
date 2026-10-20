@@ -380,6 +380,16 @@ def _pick_model(key, log):
     return _MODEL[0]
 
 
+EN_NAME = re.compile(r"\b[A-Z][a-z'\-]+(?:[ ·][A-Z][a-zA-Z'\-]+)+")
+
+
+def english_names(g, text):
+    """CBA 的分析裡寫出來的英文人名（兩個字以上、開頭大寫）。CBA 外援要照中文名字寫，爸爸才對得上球員看點。"""
+    if g.get("league") != "cba":
+        return []
+    return sorted(set(EN_NAME.findall(text or "")))
+
+
 def _call(key, f, log):
     """Gemini 偶爾回「現在太忙」（503）：等 15 秒再試一次。"""
     res = _call_once(key, f, log)
@@ -481,7 +491,7 @@ def run(games, path, now, main_chips, log, errors, deadline=None):
     today = now.astimezone(TW).strftime("%Y-%m-%d")
     used_today = usage.get(today, 0)
     token = os.environ.get("GEMINI_API_KEY")
-    n_new = n_cache = 0
+    n_new = n_cache = n_fix = 0
     fails = 0
     stop = None
     cands = []
@@ -515,7 +525,8 @@ def run(games, path, now, main_chips, log, errors, deadline=None):
         gap = MIN_GAP_SOON_H if to_start_h <= 6 else MIN_GAP_H
         need = (not old or old.get("ver") != PROMPT_VER or (old.get("hash") != h and (age_h is None or age_h >= gap))
                 or (age_h is not None and age_h >= MAX_AGE_H)
-                or (age_h is not None and to_start_h <= SOON_REFRESH[0] and age_h >= SOON_REFRESH[1]))
+                or (age_h is not None and to_start_h <= SOON_REFRESH[0] and age_h >= SOON_REFRESH[1])
+                or (old and not old.get("en_tried") and english_names(g, old.get("text"))))     # 以前寫了英文名的 CBA 分析：重寫一次
         if need and not stop:
             if not token:
                 stop = "還沒設定 GEMINI_API_KEY（到 Google AI Studio 免費申請，放進 GitHub Secrets）"
@@ -535,11 +546,22 @@ def run(games, path, now, main_chips, log, errors, deadline=None):
             res = _call(token, f, log)
             if not res.get("unreachable"):
                 used_today += 1
+            # 提示裡交代了還是寫英文名（CBA 外援）：程式抓出來，叫它照中文名字重寫一次
+            bad = english_names(g, res.get("text"))
+            if bad and used_today < DAILY_CAP:
+                time.sleep(GAP_S)
+                f2 = dict(f, 重寫="上一版寫了英文名（" + "、".join(bad) + "），不行。CBA 的外援一律寫資料裡的中文名字；資料裡沒有中文名字的，就寫「外援」，不要寫英文。")
+                res2 = _call(token, f2, log)
+                used_today += 0 if res2.get("unreachable") else 1
+                if res2.get("text") and len(english_names(g, res2["text"])) < len(bad):
+                    res = res2
+                n_fix += 1
+            en_tried = bool(bad)
             if res.get("text"):
                 fails = 0
                 lean, p, body = parse(res["text"], _name(g["home"]), _name(g["away"]))
                 notes[gid] = dict(hash=h, at=now.isoformat(timespec="minutes"), model=res["model"], text=body, lean=lean, p=p,
-                                  previews=pv, day=g.get("day_tw"), ver=PROMPT_VER)
+                                  previews=pv, day=g.get("day_tw"), ver=PROMPT_VER, en_tried=en_tried)
                 n_new += 1
                 if n_new == 1:
                     log(f"[AI] 第一篇（{res['model']}）：{res['text'][:160]!r}；額度：{res.get('headers')}")
@@ -568,7 +590,8 @@ def run(games, path, now, main_chips, log, errors, deadline=None):
     store["usage"] = {k: v for k, v in usage.items() if k >= cutoff}
     with open(path, "w", encoding="utf-8") as fh:
         json.dump(store, fh, ensure_ascii=False, separators=(",", ":"))
-    log(f"[AI] 這次寫了 {n_new} 場、沿用 {n_cache} 場；今天累計 {used_today} 次" + (f"；停下來的原因：{stop}" if stop else ""))
+    log(f"[AI] 這次寫了 {n_new} 場、沿用 {n_cache} 場；今天累計 {used_today} 次" + (f"；CBA 寫了英文名叫它重寫 {n_fix} 場" if n_fix else "")
+        + (f"；停下來的原因：{stop}" if stop else ""))
     return n_new, n_cache
 
 

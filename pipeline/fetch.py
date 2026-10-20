@@ -1793,6 +1793,7 @@ def process_playsport(lg, lo, hi, all_games, standings):
             import cba
             cba.enrich(keep, log)
             st = cba.attach_sina(keep, log, ERRORS)     # 這季真正的戰績（玩運彩的含季前熱身賽）、上季排名、交手
+            cba.attach_logos(keep, st, os.path.dirname(os.path.abspath(OUT_PATH[0])), log, ERRORS)
             name_fn = lambda t: (t["cn_name"], "cn") if t.get("cn_name") else None  # noqa: E731
         else:
             from bleague import BLeague

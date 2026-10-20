@@ -18,6 +18,7 @@ _DISAMBIG = {
     "千葉J": ["噴射", "捷特", "傑特", "Jets", "JETS"],
     "A東京": ["阿爾瓦克", "阿爾巴克", "Alvark", "ALVARK"],
     "東京SR": ["太陽", "搖滾", "澀谷", "渋谷", "Sun", "SUN"],
+    "神戸": ["西宮", "鸛", "Storks", "STORKS"],      # 西宮鸛鳥搬到神戶，玩運彩還用舊名字
 }
 ZH_NAMES = {  # 日文簡稱 -> 中文（給前端顯示用，玩運彩已有中文名時以玩運彩為主）
     "北海道": "北海道雷邦加", "仙台": "仙台89ers", "秋田": "秋田北部快樂", "茨城": "茨城機器人", "宇都宮": "宇都宮霹靂",
@@ -152,6 +153,10 @@ class BLeague:
                 if any(k in zh_name for k in _DISAMBIG.get(r["abbr"], [])):
                     return r
             return None
+        # 城市對不到（搬家、改名的隊，像澀谷搬到東京、西宮搬到神戶）：看隊名裡的特別字
+        for r in self.rows:
+            if any(k in zh_name for k in _DISAMBIG.get(r["abbr"], [])):
+                return r
         return None
 
     def enrich(self, games):

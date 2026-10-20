@@ -115,9 +115,40 @@ def players(league_id):
     return out
 
 
+_PAGES = {}
+
+
+def team_page(team_id):
+    """球隊頁（同一次更新只抓一次）。"""
+    if team_id not in _PAGES:
+        _PAGES[team_id] = fetch(f"{BASE}/cba/team/show/{team_id}/") or ""
+    return _PAGES[team_id]
+
+
+def logo_url(team_id):
+    """球隊頁上的隊徽圖片網址：網址裡有 logo 的圖，沒有就找有 team 的圖。回傳 (網址, 候選清單)。"""
+    imgs = re.findall(r'<img[^>]+src="([^"]+)"', team_page(team_id), re.I)
+    imgs = ["http:" + u if u.startswith("//") else u for u in imgs]
+    cand = [u for u in imgs if "logo" in u.lower()] or [u for u in imgs if "team" in u.lower()]
+    return (cand[0] if cand else None), imgs[:8]
+
+
+def download(url):
+    """下載圖片（新浪的圖會看 Referer）-> (內容, 副檔名)；不是圖片就 (None, None)。"""
+    try:
+        r = requests.get(url, headers=dict(UA, Referer=BASE + "/"), timeout=25)
+    except Exception:  # noqa: BLE001
+        return None, None
+    ct = (r.headers.get("content-type") or "").lower()
+    if r.status_code != 200 or not ct.startswith("image/") or len(r.content) < 300:
+        return None, None
+    ext = {"image/png": ".png", "image/jpeg": ".jpg", "image/jpg": ".jpg", "image/gif": ".gif", "image/webp": ".webp"}.get(ct.split(";")[0], ".png")
+    return r.content, ext
+
+
 def roster(team_id):
     """球隊頁的這季名單 -> [(球員 id, 名字（簡體）)]。"""
-    text = fetch(f"{BASE}/cba/team/show/{team_id}/")
+    text = team_page(team_id)
     out, seen = [], set()
     for pid, name in re.findall(r'href="[^"]*/player/show/(\d+)/"[^>]*>(.*?)</a>', text or "", re.S):
         name = _text(name)
