@@ -172,8 +172,9 @@ def attach_sina(games, log, errors, now=None):
     for g in games:
         for side in ("home", "away"):
             k = key_of(g[side].get("name"))
-            if k:
-                names[k] = g[side].get("name_zh") or g[side].get("name")
+            nm = g[side].get("name_zh") or g[side].get("name")
+            if k and nm and len(nm) > len(names.get(k) or ""):     # 即時比分的簡稱（「北京勇」）不用，用完整隊名
+                names[k] = nm
     rows = [dict(team_id=key_of(r["team"]) or r["team"], team=r["team"], sina_id=r["sina_id"], name_zh=names.get(key_of(r["team"])) or r["team"].translate(T2S_SHORT), logo=None,
                  w=r["w"], l=r["l"], streak=r["streak"], pos=r["pos"], rank=r["pos"], home=r["home"], away=r["away"],
                  pf=r["pf"], pa=r["pa"], diff=round(r["pf"] - r["pa"], 1)) for r in cur]
@@ -254,6 +255,29 @@ WIKI = {
 WIKI_UA = {"User-Agent": "sports-lottery-family-site/1.0 (https://github.com/cyt0925/sports-lottery)"}
 
 
+def clean_logo(data):
+    """白底的隊徽（JPG 或白底 PNG）：把四個角連著的白色背景去掉，存成透明 PNG，深色畫面才不會是一塊白方塊。
+    沒有 Pillow 或處理失敗就照原樣。回傳 (內容, 副檔名或 None)。"""
+    try:
+        import io
+        from PIL import Image, ImageDraw
+        im = Image.open(io.BytesIO(data)).convert("RGBA")
+        w, h = im.size
+        changed = False
+        for xy in ((0, 0), (w - 1, 0), (0, h - 1), (w - 1, h - 1)):
+            r, g, b, a = im.getpixel(xy)
+            if a > 200 and min(r, g, b) >= 235:
+                ImageDraw.floodfill(im, xy, (255, 255, 255, 0), thresh=40)
+                changed = True
+        if not changed:
+            return data, None
+        out = io.BytesIO()
+        im.save(out, "PNG", optimize=True)
+        return out.getvalue(), ".png"
+    except Exception:  # noqa: BLE001
+        return data, None
+
+
 def _wiki_thumbs(titles):
     """維基百科條目的代表圖（多半是隊徽）縮圖網址：{條目名稱: 網址}。"""
     import requests
@@ -310,8 +334,10 @@ def attach_logos(games, standing, out_dir, log, errors):
             fail.append(title)
             continue
         ext = {"image/png": ".png", "image/jpeg": ".jpg", "image/gif": ".gif", "image/webp": ".webp", "image/svg+xml": ".svg"}.get(ct.split(";")[0], ".png")
+        data, ext2 = clean_logo(r.content)
+        ext = ext2 or ext
         with open(os.path.join(folder, sid + ext), "wb") as fh:
-            fh.write(r.content)
+            fh.write(data)
         have[sid] = sid + ext
         new += 1
         time.sleep(0.3)
