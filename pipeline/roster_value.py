@@ -115,9 +115,10 @@ def attach(games, data, season_games, log):
         v_now = _top(now)
         v_prev = _top([_actual(s) for s in prev.values() if s.get("team") == tid])
         raw = SHRINK * k * (v_now - v_prev)
-        out[tid] = dict(raw=round(max(-CAP, min(CAP, raw)), 1), v_now=round(v_now, 1), v_prev=round(v_prev, 1),
+        out[tid] = dict(raw=raw, v_now=round(v_now, 1), v_prev=round(v_prev, 1),
                         gained=sorted(gained, key=lambda x: -x["v"])[:3], back=sorted(back, key=lambda x: -x["v"])[:2],
                         lost=sorted(lost, key=lambda x: -x["v"])[:3])
+    _center(out)
     n = 0
     for g in games:
         if g["league"] != "nba" or g["status"]["state"] == "post":
@@ -139,6 +140,18 @@ def attach(games, data, season_games, log):
     top = sorted(out.items(), key=lambda kv: -kv[1]["raw"])
     log(f"[nba] 陣容變化：貢獻 1 單位值 {k} 分（上季 {n_fit} 隊算的，相關 {r}）；用在 {n} 場；"
         f"變強最多 {[(zh(t), v['raw']) for t, v in top[:4]]}；變弱最多 {[(zh(t), v['raw']) for t, v in top[-3:]]}")
+
+
+def _center(out, group=None):
+    """跟聯盟平均比：整個聯盟不會每隊都變強（這季名單用每個人最好的一季、上季照真的出賽，會整體偏高），
+    扣掉同一組（同一個聯盟、歐冠或歐盃）的平均，再限制最多加減幾分。"""
+    by = {}
+    for key, v in out.items():
+        by.setdefault(group(key) if group else None, []).append(v["raw"])
+    mean = {g: sum(v) / len(v) for g, v in by.items() if v}
+    for key, v in out.items():
+        r = v["raw"] - mean.get(group(key) if group else None, 0.0)
+        v["raw"] = round(max(-CAP, min(CAP, r)), 1)
 
 
 def line(t, name):
@@ -218,7 +231,7 @@ def _team_change(now, prev_actual, k):
                     key=lambda x: -x["v"])[:3]
     back = sorted([dict(player=nm, v=round(v, 1), ppg=ppg) for v, nm, _f, ppg, _n, b in now if b and v >= 6], key=lambda x: -x["v"])[:2]
     lost = sorted([dict(player=nm, v=round(v, 1), ppg=ppg) for v, nm, ppg, stay in prev_actual if not stay and v >= 4], key=lambda x: -x["v"])[:3]
-    return dict(raw=round(max(-CAP, min(CAP, raw)), 1), v_now=round(v_now, 1), v_prev=round(v_prev, 1), gained=gained, back=back, lost=lost)
+    return dict(raw=raw, v_now=round(v_now, 1), v_prev=round(v_prev, 1), gained=gained, back=back, lost=lost)
 
 
 def _val(p, key="pir"):
@@ -268,6 +281,7 @@ def el_attach(games, el_state, log):
             now.append((v, p.get("name") or "", frm, (pv or p).get("ppg"), new, False))
         prev_actual = [(actual(p), p.get("name") or "", p.get("ppg"), p.get("id") in ids) for p in prev.values() if p["team"] == code]
         out[code] = _team_change(now, prev_actual, k)
+    _center(out, lambda c: comp_of.get(c))
     n = _apply(games, out, lambda t: t.get("el_code"), lambda g, s: ((g.get("analysis") or {}).get("elo") or {}).get("n_" + s), k,
                ("eurobasket", "eurodom"))
     top = sorted(out.items(), key=lambda kv: -kv[1]["raw"])
@@ -313,6 +327,7 @@ def cba_attach(games, cur, prev, rosters, prev_rows, log):
             now.append((v, cba._zh(nm), frm, (pv or c).get("ppg"), new, False))
         prev_actual = [(actual(p), cba._zh(p.get("name") or ""), p.get("ppg"), pid in ids) for pid, p in prev.items() if key_of(p.get("team")) == team_key]
         out[team_key] = _team_change(now, prev_actual, k)
+    _center(out)
 
     def gp_of(g, side):
         rec = str(g[side].get("record") or "")
