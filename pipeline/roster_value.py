@@ -13,6 +13,8 @@
   CBA：貢獻用新浪的效率值；新外援沒有上季的 CBA 數據，一樣先用這季打的幾場。
 """
 
+import re
+
 TOP = 10            # 一隊算前幾個人
 FADE_GAMES = 20     # 這季打幾場之後就不再加陣容變化
 SHRINK = 0.8        # 只信八成（新隊友要磨合、數字也有雜訊）
@@ -38,7 +40,9 @@ def _expected(pid, prev, prev2):
         use, back = p2, True
     if not use:
         return 0.0, None, False
-    return pra(use) * min(1.0, (use.get("gp") or 0) / 75), use, back
+    gps = [x.get("gp") or 0 for x in (pv, p2) if x]
+    gp = max(use.get("gp") or 0, sum(gps) / len(gps))       # 出賽比例看最近兩季的平均（受傷打不多的那季不要扣太多）
+    return pra(use) * min(1.0, gp / 75), use, back
 
 
 def _top(vals):
@@ -307,6 +311,9 @@ def cba_attach(games, cur, prev, rosters, prev_rows, log):
         vals.setdefault(key_of(p.get("team")), []).append(actual(p))
     margins_ = {key_of(r["team"]): r["pf"] - r["pa"] for r in prev_rows or [] if r.get("w", 0) + r.get("l", 0) >= 10}
     k, r, n_fit = fit_k({t: _top(v) for t, v in vals.items() if t}, margins_)
+    # 新外援的起點：CBA 的外援通常是隊上最強的一兩個人，用上季各隊第 2 強的人的貢獻（中位數）
+    seconds = sorted(sorted(v, reverse=True)[1] for v in vals.values() if len(v) >= 2)
+    foreign_prior = seconds[len(seconds) // 2] if seconds else REPLACE["cba"]
     out = {}
     for sid, ro in rosters.items():
         team_key = next((key_of(p.get("team")) for pid, _ in ro for p in [cur.get(pid) or {}] if p.get("team")), None)
@@ -318,9 +325,10 @@ def cba_attach(games, cur, prev, rosters, prev_rows, log):
             pv, c = prev.get(pid), cur.get(pid)
             if pv and (pv.get("gp") or 0) >= 8:
                 v, new = actual(pv), False
-            elif c:             # 新外援、新秀：這季打的幾場，往一般輪換球員拉
+            elif c:             # 新外援、新秀：這季打的幾場，新外援往一般外援的水準拉、新秀往一般輪換球員拉
                 gp = c.get("gp") or 0
-                v, new = AVAIL_NEW * (_val(c, "eff") * gp + REPLACE["cba"] * NEW_W) / (gp + NEW_W), True
+                prior = foreign_prior if re.search(r"[·・\-]", nm) else REPLACE["cba"]
+                v, new = AVAIL_NEW * (_val(c, "eff") * gp + prior * NEW_W) / (gp + NEW_W), True
             else:
                 continue        # 名單上但這季還沒上場、上季也沒數據
             frm = (cba.FULL.get(key_of(pv["team"])) or pv["team"]) if pv and key_of(pv.get("team")) != team_key else ("新外援或新秀" if not pv else None)
@@ -338,5 +346,5 @@ def cba_attach(games, cur, prev, rosters, prev_rows, log):
             return 0
     n = _apply(games, out, lambda t: key_of(t.get("name")), gp_of, k, ("cba",))
     top = sorted(out.items(), key=lambda kv: -kv[1]["raw"])
-    log(f"[cba] 陣容變化：效率值 1 單位值 {k} 分（上季 {n_fit} 隊算的，相關 {r}）；用在 {n} 場；"
+    log(f"[cba] 陣容變化：效率值 1 單位值 {k} 分（上季 {n_fit} 隊算的，相關 {r}），新外援起點 {foreign_prior:.1f}；用在 {n} 場；"
         f"變強最多 {[(cba.FULL.get(t, t), v['raw']) for t, v in top[:4]]}；變弱最多 {[(cba.FULL.get(t, t), v['raw']) for t, v in top[-3:]]}")
