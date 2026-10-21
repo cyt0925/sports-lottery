@@ -32,7 +32,7 @@ MIN_GAP_H = 2          # 事實有變，至少隔 2 小時才重寫
 MIN_GAP_SOON_H = 1     # 6 小時內就要開打：傷兵名單常常臨時更新，隔 1 小時就可以重寫
 MAX_AGE_H = 12         # 事實沒變，超過 12 小時也重寫一次（新聞會變）
 SOON_REFRESH = (4, 3)  # 4 小時內開打、分析已經寫了 3 小時以上：開打前再寫一次最新的
-PROMPT_VER = 13         # 寫法改了就加一：舊的分析不用等 2 小時，馬上重寫
+PROMPT_VER = 14         # 寫法改了就加一：舊的分析不用等 2 小時，馬上重寫
 GAP_S = 4.5            # 每分鐘最多 13 次左右，在免費額度（每分鐘 15 次）以內
 KEEP_DAYS = 45
 
@@ -40,7 +40,8 @@ SYSTEM = """你是一位什麼運動都看、很會分析的台灣老球迷，�
 
 下筆前先想清楚：
 - 兩隊今年各自是什麼狀態：爭冠、季後賽邊緣、年輕隊在崛起、重建或擺爛、主力傷癒回歸。上季戰績差不一定弱（例如主力整季受傷、球隊乾脆擺爛養新秀），上季好也可能主力走了，要講出原因。
-- 這季補了誰、少了誰，新人跟球隊合不合，少了誰會缺什麼（得分、禁區、防守、控球）。
+- 這季補了誰、少了誰，新人跟球隊合不合，少了誰會缺什麼（得分、禁區、防守、控球）。開季頭幾週，上季戰績、實力分、盤口都是舊的看法：
+  資料寫某隊陣容比上季強或弱很多（補了球星、主力傷癒回來、主力走了），要以今年的陣容為主來判斷，講出「為什麼今年不一樣」，不要被上季戰績綁住。
 - 球員的心態：季前賽輸贏不重要、主力打不多；開季頭幾場新陣容還在磨合；開幕戰、碰老東家、連輸想止敗、德比、全國轉播通常比較認真；背靠背、排名已定、季末沒希望的隊可能不會太拚。
 - 兩隊各有誰最值得看（「球員看點」：這季打得怎樣、手感、上場時間、新來的、傷癒回來），點名一兩個人講他這場的角色。
 - CBA 的比賽先看外援：誰是外援、有沒有換人、外援受傷或還沒到隊，常常直接決定勝負；國家隊主力回來、長途客場（新疆、東北飛南方）也要注意。
@@ -257,6 +258,20 @@ def facts(g, sport):
             mv[n] = "；".join(x for x in ((f"新來：{arr}" if arr else ""), (f"走了：{lft}" if lft else "")) if x)
         if t.get("offseason"):
             off[n] = [f"[{media_of(x)}{(' ' + str(x.get('published'))[:10]) if x.get('published') else ''}] {x['title'][:140]}" for x in t["offseason"][:10]]
+        rc = t.get("roster_change")
+        if rc and not m:
+            bits = []
+            if rc.get("gained"):
+                bits.append("新來：" + "、".join(x["player"] + (f"（上季在{x['frm']}場均 {x['ppg']:.0f} 分）" if x.get("frm") and x.get("ppg") else "")
+                                             for x in rc["gained"]))
+            if rc.get("back"):
+                bits.append("傷癒回來：" + "、".join(x["player"] + (f"（之前場均 {x['ppg']:.0f} 分）" if x.get("ppg") else "") for x in rc["back"]))
+            if rc.get("lost"):
+                bits.append("走了：" + "、".join(x["player"] + (f"（上季場均 {x['ppg']:.0f} 分）" if x.get("ppg") else "") for x in rc["lost"]))
+            raw = rc.get("raw") or 0
+            bits.append(f"網站用每個人的數據估：今年的陣容比上季{'強' if raw >= 0 else '弱'} {abs(raw):.0f} 分"
+                        + ("（上季戰績和實力分看不到這個）" if abs(raw) >= 3 else ""))
+            mv[n] = "；".join(bits)
     if mv:
         f["這季陣容（官方名單比對）"] = mv
     if off:
@@ -608,6 +623,14 @@ def run(games, path, now, main_chips, log, errors, deadline=None):
             g["ai"] = dict(text=to_trad(nt["text"]), lean=nt.get("lean"), p=nt.get("p"), at=nt.get("at"), model=nt.get("model"),
                            previews=nt.get("previews") or [])
         g.pop("_previews", None)
+    # 已經開打、打完的比賽：開打前寫好的分析繼續放著（不然開打後就換成網站自己拼的文字）
+    for g in games:
+        if g.get("ai") or g["status"]["state"] == "pre":
+            continue
+        nt = notes.get(g["id"])
+        if nt and nt.get("text"):
+            g["ai"] = dict(text=to_trad(nt["text"]), lean=nt.get("lean"), p=nt.get("p"), at=nt.get("at"), model=nt.get("model"),
+                           previews=nt.get("previews") or [], pregame=True)
     usage[today] = used_today
     cutoff = (now - timedelta(days=KEEP_DAYS)).strftime("%Y-%m-%d")
     store["notes"] = {k: v for k, v in notes.items() if (v.get("day") or "9") >= cutoff}

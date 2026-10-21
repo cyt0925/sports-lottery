@@ -134,11 +134,16 @@ def bg_lines(g, hn, an):
         lines = [_prev_one(p, nm) for p, nm in ((ph, hn), (pa, an)) if p]
         if lines:
             out.append("，".join(lines) + "。")
-    # 這季補了誰、少了誰（歐戰官方名單比對）
+    # 這季補了誰、少了誰（歐戰官方名單比對；NBA 算出陣容比上季強多少）
+    import roster_value
     for t, name in ((H, hn), (A, an)):
-        line = moves_line(t, name)
+        line = moves_line(t, name) or roster_value.line(t, name)
         if line:
             out.append(line)
+    rch, rca = (H.get("roster_change") or {}).get("raw") or 0, (A.get("roster_change") or {}).get("raw") or 0
+    if ph and pa and abs(rch - rca) >= 4:
+        up = hn if rch > rca else an
+        out.append(f"所以上季的戰績不能照搬：{up}今年的陣容跟上季不一樣了。")
     # 這季開季（跟上季比）
     rh, ra = _rec(H), _rec(A)
     if g.get("season_type") != 1 and rh == (0, 0) and ra == (0, 0) and g["status"]["state"] == "pre":
@@ -198,10 +203,15 @@ def sum_line(g, hn, an):
     fav = hn if est["p_home"] >= 0.5 else an
     p = max(est["p_home"], 1 - est["p_home"])
     bits = []
+    ep = ((est.get("rating") or {}).get("elo") or {})
+    early = bool(ep) and min(ep.get("n_home") or 0, ep.get("n_away") or 0) < 5      # 開季：實力分大多是上季帶過來的
     for f in fs[:4]:
         k, v, t = f.get("key"), f.get("pts") or 0, f.get("team")
         if k == "base":
-            bits.append(f"實力{t}強大概 {_r(v) or 1} 分" if t and v >= 0.5 else "實力兩隊差不多")
+            head = "照上季帶過來的實力，" if early else "實力"
+            bits.append(f"{head}{t}強大概 {_r(v) or 1} 分" if t and v >= 0.5 else f"{head}兩隊差不多")
+        elif k == "roster" and v >= 0.5:
+            bits.append(f"看今年的陣容（補了誰、少了誰），{t}再多 {_r(v) or 1} 分")
         elif k == "hca":
             bits.append(f"{t}在主場大概值 {_r(v) or 1} 分")
         elif v >= 0.5:
@@ -215,7 +225,7 @@ def sum_line(g, hn, an):
 
 
 # 計算裡每個因素用聊天的講法
-FACTOR_TALK = {"rest": "體力", "form": "最近狀況", "h2h": "交手", "hot": "主力手感", "motive": "戰意", "news": "場外消息", "derby": "德比",
+FACTOR_TALK = {"roster": "今年的陣容", "rest": "體力", "form": "最近狀況", "h2h": "交手", "hot": "主力手感", "motive": "戰意", "news": "場外消息", "derby": "德比",
                "notes": "傷兵", "injury": "傷兵", "inj": "傷兵"}
 
 

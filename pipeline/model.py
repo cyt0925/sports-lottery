@@ -98,10 +98,11 @@ DENSE_MIN = {"nba": 3}   # 一週打到幾場才算累（NBA 本來就打得密�
 FORM_W = 0.3        # 近況（扣掉對手強弱）佔多少；整季 10 場以上才混
 PREV_W = 0.7        # 上季實力打七折（換人、老化），開季從這裡出發，打越多場越看本季
 PREV_K = {"basketball": 10, "hockey": 12}   # 本季打幾場之後，本季跟上季各佔一半
-FACTORS = ("notes", "form", "h2h", "rest", "hot", "motive", "news", "derby")
+FACTORS = ("notes", "form", "h2h", "rest", "hot", "motive", "news", "derby", "roster")
 FACTOR_ZH = {"notes": "傷兵備註、上場時間、輪休習慣", "form": "近況（扣掉對手強弱）", "h2h": "交手剋星", "rest": "背靠背、賽程密度（體力）",
              "hot": "主力手感（火燙／冰冷）", "motive": "戰意（拚季後賽、已經沒希望、名次已定）",
-             "news": "場外消息（換教練、欠薪、禁賽）", "derby": "德比戰（強弱常常不準）"}
+             "news": "場外消息（換教練、欠薪、禁賽）", "derby": "德比戰（強弱常常不準）",
+             "roster": "陣容變化（今年補了誰、少了誰，開季頭幾週）"}
 HOT_PTS = 0.12      # 主力近 5 場比季平均多（少）1 分，球隊大概多（少）0.12 分
 HOT_CAP = 1.5
 # 戰意：球季打到七成以後才看。每組前幾名進季後賽（含附加賽）
@@ -256,6 +257,9 @@ def rate_game(g, lg, standings):
     # 場外消息：換教練、欠薪、禁賽（context.py 從新聞挖的）
     from context import signal_pts, DERBY_SHRINK
     comp["news"] = signal_pts(g["home"]) - signal_pts(g["away"]) if sport == "basketball" else 0.0
+    # 陣容變化：實力分是上季帶過來的，看不到休賽季補了誰、少了誰（roster_value.py，開季頭 20 場）
+    ro = a.get("roster") or {}
+    comp["roster"] = float(ro.get("home") or 0) - float(ro.get("away") or 0)
     # 德比：火氣大、強弱常常不準，把差距往中間拉一點
     comp["derby"] = -DERBY_SHRINK * sum(comp.values()) if a.get("derby") else 0.0
     raw = dict(comp)

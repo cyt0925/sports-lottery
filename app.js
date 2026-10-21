@@ -1014,7 +1014,7 @@
   function analysisBlock(g, t) {
     const s = g.suggestion || {}, est = s.est || {};
     const post = g.status.state === "post";
-    const ai = g.ai && g.ai.text && !post ? g.ai : null;
+    const ai = g.ai && g.ai.text ? g.ai : null;      // 開打後、打完也留著開打前寫的分析
     const ours = ourParas(t);
     let paras, lean, diff = "", foot;
     const oursFav = est.p_home != null ? (est.p_home >= 0.5 ? "home" : "away") : null;
@@ -1023,14 +1023,14 @@
       lean = ai.lean ? `${tname(g[ai.lean])}${ai.p ? "（" + cheng(ai.p) + "）" : ""}` : "兩隊差不多";
       if (ai.lean && oursFav && ai.lean !== oursFav) diff = `<div class="ai-diff">${icon("i-warn")}AI 的看法跟網站的計算不一樣，兩邊都看看再決定。</div>`;
       const when = ai.at ? String(ai.at).slice(5, 16).replace("T", " ") : "";
-      foot = `AI 只根據網站整理的資料寫，可能會錯${when ? " · " + esc(when) + " 寫的" : ""}`;
+      foot = `AI 只根據網站整理的資料寫，可能會錯${when ? " · " + esc(when) + (g.status.state !== "pre" ? " 開打前" : "") + " 寫的" : ""}`;
     } else {
       paras = post ? ours.filter((x) => !x.startsWith("要小心：")) : ours;
       if (oursFav && !post) {
         const p = Math.max(est.p_home, 1 - est.p_home);
         lean = p < 0.53 ? "兩隊差不多" : `${tname(g[oursFav])}（${cheng(p)}）`;
       }
-      foot = "看實力、近況、傷兵、新聞整理的，不看賭盤和賠率" + (est.weak ? " · 開季場數少，還不準" : "");
+      foot = "AI 還沒寫這場，先看網站自己整理的（看實力、陣容、近況、傷兵、新聞，不看賭盤和賠率）" + (est.weak ? " · 開季場數少，還不準" : "");
     }
     // 72 小時外的比賽：還沒抓傷兵、新聞，也還沒請 AI 寫，講清楚什麼時候會有完整分析
     let wait = "";
@@ -1041,7 +1041,7 @@
       wait = `<div class="ai-wait">${icon("i-clock")}<span>這場還早。傷兵、新聞和 AI 寫的完整分析，${soon}，現在先看基本資料。</span></div>`;
     }
     if (!paras.length && !wait) return "";
-    return `<div class="ai"><div class="ai-h"><span>AI 分析</span>${lean ? `<span class="ai-lean">看好 ${esc(lean)}</span>` : ""}</div>${wait}${paras.map(paraHtml).join("")}${diff}${post ? "" : calcRows(g)}${sourcesHtml(g)}<div class="ai-foot">${foot}</div></div>`;
+    return `<div class="ai"><div class="ai-h"><span>${ai ? "AI 分析" : "分析"}</span>${lean ? `<span class="ai-lean">看好 ${esc(lean)}</span>` : ""}</div>${wait}${paras.map(paraHtml).join("")}${diff}${post ? "" : calcRows(g)}${sourcesHtml(g)}<div class="ai-foot">${foot}</div></div>`;
   }
   // 資料來源：分析用到的新聞（原文標題），收起來，要查證才點開
   function sourcesHtml(g) {

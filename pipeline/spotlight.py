@@ -85,10 +85,10 @@ def _season_stats(get, season, log):
             if not pid:
                 continue
             team = str(ath.get("teamId") or (ath.get("team") or {}).get("id") or "")
-            out[pid] = dict(team=team, team_abbr=ath.get("teamShortName"), gp=vals.get("gamesPlayed"), mpg=vals.get("avgMinutes"),
+            out[pid] = dict(name=ath.get("displayName"), team=team, team_abbr=ath.get("teamShortName"), gp=vals.get("gamesPlayed"), mpg=vals.get("avgMinutes"),
                             ppg=vals.get("avgPoints"), rpg=vals.get("avgRebounds"), apg=vals.get("avgAssists"))
             if sample is None:
-                sample = dict(name=ath.get("displayName"), **out[pid])
+                sample = dict(out[pid])
         pg = js.get("pagination") or {}
         if page >= (pg.get("pages") or 1):
             break
@@ -97,11 +97,14 @@ def _season_stats(get, season, log):
     return out
 
 
+NBA_DATA = {}        # 名單和三季的平均，給 roster_value（陣容變化）用
+
+
 def nba_prepare(games, get, season_year, log, errors):
     """每隊 t["nba_players"]：這季名單上的人，配上這季（打 3 場以上）或上季的平均、上季在哪一隊。"""
     teams = {}
     for g in games:
-        if g["league"] == "nba" and g["status"]["state"] != "post" and not g.get("far"):
+        if g["league"] == "nba" and g["status"]["state"] != "post":
             for side in ("home", "away"):
                 if g[side].get("id"):
                     teams.setdefault(str(g[side]["id"]), []).append(g[side])
@@ -122,11 +125,14 @@ def nba_prepare(games, get, season_year, log, errors):
     from background import NBA_ID
     from names_zh import NBA as NBA_ZH
     n = 0
+    NBA_DATA.update(prev=prev, prev2=prev2, rosters={})
     for tid, ts in teams.items():
         js = get(f"{SITE}/basketball/nba/teams/{tid}/roster", quiet=True)
         roster = (js or {}).get("athletes") or []
         if roster and isinstance(roster[0], dict) and roster[0].get("items"):
             roster = [x for grp in roster for x in grp.get("items") or []]      # 有些回傳照位置分組
+        if roster:
+            NBA_DATA["rosters"][tid] = [(str(a.get("id") or ""), a.get("displayName") or a.get("fullName") or "") for a in roster if a.get("id")]
         players = []
         for a in roster:
             pid = str(a.get("id") or "")

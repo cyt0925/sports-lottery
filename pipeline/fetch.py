@@ -108,6 +108,7 @@ AI_STOP_S = 17 * 60    # 整次更新跑到 17 分鐘就不再叫 AI 寫新的�
 TSDB_LOADER = None     # 國內聯賽（main() 一開始就在背景抓）
 OUT_PATH = [""]        # data/today.json 的位置（其他快取檔放同一個資料夾）
 EL_STATE = {}          # 歐冠、歐盃官方資料（國內聯賽要用同一支球隊的歐戰賽程）
+NBA_STATE = {}         # NBA 兩季的比賽（陣容變化要用上季每隊的淨勝分）
 
 
 def log(msg):
@@ -1375,6 +1376,17 @@ def main():
         import traceback
         ERRORS.append(f"NBA 逐場實力分失敗: {e!r}")
         traceback.print_exc()
+    # NBA 名單＋三季的球員平均（球員看點），再算「今年陣容跟上季比強多少」（實力分只看上季戰績，看不到休賽季補強）
+    try:
+        import spotlight
+        import roster_value
+        from players import _season_year
+        spotlight.nba_prepare(all_games, get, _season_year(), log, ERRORS)
+        roster_value.attach(all_games, spotlight.NBA_DATA, NBA_STATE.get("games") or [], log)
+    except Exception as e:  # noqa: BLE001
+        import traceback
+        ERRORS.append(f"NBA 陣容變化失敗: {e!r}")
+        traceback.print_exc()
     try:
         euro_elo(all_games)
     except Exception as e:  # noqa: BLE001
@@ -1446,7 +1458,6 @@ def main():
     try:
         import spotlight
         from players import _season_year
-        spotlight.nba_prepare(all_games, get, _season_year(), log, ERRORS)
         n_sp = sum(spotlight.build(g, EL_STATE) for g in all_games if g["status"]["state"] != "post" and not g.get("far"))
         log(f"球員看點：{n_sp} 隊")
     except Exception as e:  # noqa: BLE001
@@ -2216,6 +2227,7 @@ def nba_elo(all_games, path):
     import background
     # 上季：例行賽戰績（每隊前 82 場，季中盃冠軍賽不算）、東西區排名、季後賽打到哪
     NP = background.nba_prev(games)
+    NBA_STATE["games"] = games
     n = 0
     for g in all_games:
         if g["league"] != "nba" or g["status"]["state"] == "post" or g.get("season_type") not in (2, 3, 5):
