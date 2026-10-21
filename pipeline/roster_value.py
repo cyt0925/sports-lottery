@@ -18,7 +18,8 @@ import re
 TOP = 10            # 一隊算前幾個人
 FADE_GAMES = 20     # 這季打幾場之後就不再加陣容變化
 SHRINK = 0.8        # 只信八成（新隊友要磨合、數字也有雜訊）
-CAP = 9.0           # 最多加減幾分
+CAP = 9.0           # 最多加減幾分（NBA；歐戰、CBA 的數據比較不完整，上限低一點）
+CAPS = {"el": 7.0, "cba": 6.0}
 K_DEFAULT = 0.25    # 學不到斜率的時候用的
 MIN_GP = 20         # 上季打不到 20 場的，看前一季
 
@@ -45,8 +46,12 @@ def _expected(pid, prev, prev2):
     return pra(use) * min(1.0, gp / 75), use, back
 
 
+# 越前面的人分量越重：籃球看球星，少了三個輪換球員不會比補進一個超級球星更嚴重
+RANK_W = (1.3, 1.2, 1.1, 1.0, 1.0, 0.9, 0.8, 0.7, 0.6, 0.5)
+
+
 def _top(vals):
-    return sum(sorted(vals, reverse=True)[:TOP])
+    return sum(w * v for w, v in zip(RANK_W, sorted(vals, reverse=True)[:TOP]))
 
 
 def team_values(stats):
@@ -146,7 +151,7 @@ def attach(games, data, season_games, log):
         f"變強最多 {[(zh(t), v['raw']) for t, v in top[:4]]}；變弱最多 {[(zh(t), v['raw']) for t, v in top[-3:]]}")
 
 
-def _center(out, group=None):
+def _center(out, group=None, cap=CAP):
     """跟聯盟平均比：整個聯盟不會每隊都變強（這季名單用每個人最好的一季、上季照真的出賽，會整體偏高），
     扣掉同一組（同一個聯盟、歐冠或歐盃）的平均，再限制最多加減幾分。"""
     by = {}
@@ -155,7 +160,7 @@ def _center(out, group=None):
     mean = {g: sum(v) / len(v) for g, v in by.items() if v}
     for key, v in out.items():
         r = v["raw"] - mean.get(group(key) if group else None, 0.0)
-        v["raw"] = round(max(-CAP, min(CAP, r)), 1)
+        v["raw"] = round(max(-cap, min(cap, r)), 1)
 
 
 def line(t, name):
@@ -285,7 +290,7 @@ def el_attach(games, el_state, log):
             now.append((v, p.get("name") or "", frm, (pv or p).get("ppg"), new, False))
         prev_actual = [(actual(p), p.get("name") or "", p.get("ppg"), p.get("id") in ids) for p in prev.values() if p["team"] == code]
         out[code] = _team_change(now, prev_actual, k)
-    _center(out, lambda c: comp_of.get(c))
+    _center(out, lambda c: comp_of.get(c), CAPS["el"])
     n = _apply(games, out, lambda t: t.get("el_code"), lambda g, s: ((g.get("analysis") or {}).get("elo") or {}).get("n_" + s), k,
                ("eurobasket", "eurodom"))
     top = sorted(out.items(), key=lambda kv: -kv[1]["raw"])
@@ -335,7 +340,7 @@ def cba_attach(games, cur, prev, rosters, prev_rows, log):
             now.append((v, cba._zh(nm), frm, (pv or c).get("ppg"), new, False))
         prev_actual = [(actual(p), cba._zh(p.get("name") or ""), p.get("ppg"), pid in ids) for pid, p in prev.items() if key_of(p.get("team")) == team_key]
         out[team_key] = _team_change(now, prev_actual, k)
-    _center(out)
+    _center(out, cap=CAPS["cba"])
 
     def gp_of(g, side):
         rec = str(g[side].get("record") or "")
