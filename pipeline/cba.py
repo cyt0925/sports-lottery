@@ -130,6 +130,7 @@ def attach_sina(games, log, errors, now=None):
     prev_id = opts[1][0] if len(opts) > 1 else None
     STATE.update(cur_id=opts[0][0] if opts else None, prev_id=prev_id)
     prev, _ = S.standings(prev_id) if prev_id else ([], [])
+    STATE["prev_rows"] = prev
     sched = S.schedule()
     sched_prev = S.schedule(prev_id) if prev_id else []
     regular = [x["start"] for x in sched if x["round"].startswith("第1")]
@@ -169,6 +170,8 @@ def attach_sina(games, log, errors, now=None):
                       if p else dict(comp="cba", comp_zh="CBA", absent=True))
                 g.setdefault("analysis", {}).setdefault("bg", {}).setdefault("prev", {})[side] = pv
                 n_prev += bool(p)
+                if p:     # 上季的實力（場均淨勝分）當開季的底子：這季才打幾場，不能只看這幾場
+                    g["analysis"].setdefault("prev_rating", {})[side] = round(p["pf"] - p["pa"], 1)
         if keys.get("home") and keys.get("away") and not (g.get("analysis") or {}).get("h2h_long"):
             h = _h2h(sched_prev + sched, keys["home"], keys["away"], now)
             if h:
@@ -180,14 +183,16 @@ def attach_sina(games, log, errors, now=None):
     if not played:
         return None
     # 隊名用玩運彩的繁體，對不到就用新浪的簡稱
-    names = {}
+    names, ids = {}, {}
     for g in games:
         for side in ("home", "away"):
             k = key_of(g[side].get("name"))
+            if k and g[side].get("id"):
+                ids[k] = g[side]["id"]
             nm = g[side].get("name_zh") or g[side].get("name")
             if k and nm and len(nm) > len(names.get(k) or ""):     # 即時比分的簡稱（「北京勇」）不用，用完整隊名
                 names[k] = nm
-    rows = [dict(team_id=key_of(r["team"]) or r["team"], team=r["team"], sina_id=r["sina_id"], name_zh=FULL.get(key_of(r["team"])) or names.get(key_of(r["team"])) or r["team"].translate(T2S_SHORT), logo=None,
+    rows = [dict(team_id=ids.get(key_of(r["team"])) or key_of(r["team"]) or r["team"], team=r["team"], sina_id=r["sina_id"], name_zh=FULL.get(key_of(r["team"])) or names.get(key_of(r["team"])) or r["team"].translate(T2S_SHORT), logo=None,
                  w=r["w"], l=r["l"], streak=r["streak"], pos=r["pos"], rank=r["pos"], home=r["home"], away=r["away"],
                  pf=r["pf"], pa=r["pa"], diff=round(r["pf"] - r["pa"], 1)) for r in cur]
     return dict(groups=[dict(name="CBA", rows=rows)])
@@ -249,6 +254,11 @@ def attach_players(games, log, errors):
             t["stars"] = [dict(p, season=p["ppg"]) for p in out[:4]]
             t["leaders"] = [dict(id=p["id"], player=p["player"], headshot=None, position=None, stat="PTS", value=str(p["ppg"])) for p in out[:3]]
             n += 1
+    try:
+        import roster_value
+        roster_value.cba_attach(games, cur, prev, rosters, STATE.get("prev_rows"), log)    # 今年陣容跟上季比
+    except Exception as e:  # noqa: BLE001
+        errors.append(f"cba 陣容變化失敗: {e!r}")
     log(f"[cba] 新浪球員數據：這季 {len(cur)} 人、上季 {len(prev)} 人；{len(rosters)} 隊有名單，{n} 隊次挑出主力"
         + (f"，例：{games[0]['home'].get('cba_players', [{}])[0]}" if games and games[0]["home"].get("cba_players") else ""))
     return n

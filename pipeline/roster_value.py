@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""今年陣容跟上季比，實力差多少（NBA）：老球迷講的「這隊今年補了誰、少了誰」換成分數。
+"""今年陣容跟上季比，實力差多少（NBA、歐冠歐盃、CBA）：老球迷講的「這隊今年補了誰、少了誰」換成分數。
 
   逐場實力分（elo.py）開季時是從上季戰績帶過來的，看不到休賽季的補強（七六人補了 LeBron、Jaylen Brown，
   上季才 45 勝也不代表今年弱）。所以另外算「陣容變化」：
@@ -8,6 +8,9 @@
   3. 這季的名單：每個人最近一個健康球季的數字（上季整季受傷的看前一季）。
   4. 貢獻 1 單位值幾分：拿上季 30 隊的「陣容貢獻」對「場均淨勝分」算斜率，網站自己從資料學。
   5. 開季越久越不用：實力分會跟著真的比賽結果走，這季打 20 場以後就不加了。
+
+  歐冠、歐盃：貢獻用官方的效率值（PIR）；從別的聯盟來的新人沒有上季的歐戰數據，先用他這季打的幾場（場數少的往一般輪換球員拉）。
+  CBA：貢獻用新浪的效率值；新外援沒有上季的 CBA 數據，一樣先用這季打的幾場。
 """
 
 TOP = 10            # 一隊算前幾個人
@@ -145,7 +148,8 @@ def line(t, name):
         return None
     bits = []
     if rc.get("gained"):
-        bits.append("今年補了 " + "、".join(f"{x['player']}" + (f"（上季在{x['frm']}場均 {x['ppg']:.0f} 分）" if x.get("frm") and x.get("ppg") else "")
+        bits.append("今年補了 " + "、".join(f"{x['player']}" + (("（新來的，這季場均 {:.0f} 分）" if x.get("new") else f"（上季在{x['frm']}場均 {{:.0f}} 分）").format(x["ppg"])
+                                                                if x.get("frm") and x.get("ppg") else "")
                                          for x in rc["gained"][:2]))
     if rc.get("back"):
         bits.append("、".join(x["player"] for x in rc["back"]) + " 傷癒回來")
@@ -154,3 +158,170 @@ def line(t, name):
     raw = rc.get("raw") or 0
     how = f"網站估計陣容比上季強 {raw:.0f} 分" if raw >= 1 else f"網站估計陣容比上季弱 {-raw:.0f} 分" if raw <= -1 else "陣容強弱跟上季差不多"
     return f"{name}" + "，".join(bits) + f"，{how}。"
+
+
+# ---------- 共用：每隊的陣容變化 → 每場加幾分 ----------
+REPLACE = {"el": 5.0, "cba": 8.0}      # 沒有上季數據的新人：先當成一般輪換球員（效率值），這季打越多場越看他自己
+NEW_W = 3                              # 新人這季的數字要打幾場才全信（往一般輪換球員拉幾場）
+AVAIL_NEW = 0.85                       # 新人整季大概打幾成的比賽（老球員是照上季真的出賽比例）
+
+
+def _fit_grouped(rows):
+    """rows：[(組別, 陣容貢獻, 場均淨勝分)]；每組（歐冠、歐盃各一組）先扣掉平均再一起算斜率。"""
+    by = {}
+    for grp, x, y in rows:
+        by.setdefault(grp, []).append((x, y))
+    xs = []
+    for lst in by.values():
+        if len(lst) < 6:
+            continue
+        mx, my = sum(x for x, _ in lst) / len(lst), sum(y for _, y in lst) / len(lst)
+        xs += [(x - mx, y - my) for x, y in lst]
+    if len(xs) < 12:
+        return K_DEFAULT, None, len(xs)
+    sxy, sxx, syy = sum(x * y for x, y in xs), sum(x * x for x, _ in xs), sum(y * y for _, y in xs)
+    if sxx <= 0 or syy <= 0:
+        return K_DEFAULT, None, len(xs)
+    r = sxy / (sxx * syy) ** 0.5
+    if r < 0.4:
+        return K_DEFAULT, round(r, 2), len(xs)
+    return round(max(0.05, min(1.5, sxy / sxx)), 3), round(r, 2), len(xs)
+
+
+def _apply(games, out, key_fn, gp_fn, k, leagues):
+    """每場 g.analysis.roster、每隊 t["roster_change"]；這季打越多場越不加。"""
+    n = 0
+    for g in games:
+        if g["league"] not in leagues or g["status"]["state"] == "post":
+            continue
+        adj = {}
+        for side in ("home", "away"):
+            t = g[side]
+            rc = out.get(key_fn(t))
+            if not rc:
+                continue
+            fade = max(0.0, 1 - (gp_fn(g, side) or 0) / FADE_GAMES)
+            t["roster_change"] = dict(rc, pts=round(rc["raw"] * fade, 1), fade=round(fade, 2))
+            adj[side] = t["roster_change"]["pts"]
+        if adj:
+            g.setdefault("analysis", {})["roster"] = dict(home=adj.get("home", 0.0), away=adj.get("away", 0.0), k=k)
+            n += 1
+    return n
+
+
+def _team_change(now, prev_actual, k):
+    """now：這季名單每個人 (預期貢獻, 名字, 上季球隊或 None, 上季場均, 新人沒數據, 傷癒)；prev_actual：上季這隊每個人 (真的貢獻, 名字, 場均, 還在不在)。"""
+    v_now = _top([x[0] for x in now])
+    v_prev = _top([x[0] for x in prev_actual])
+    raw = SHRINK * k * (v_now - v_prev)
+    gained = sorted([dict(player=nm, v=round(v, 1), frm=frm, ppg=ppg, new=new) for v, nm, frm, ppg, new, _b in now if frm and v >= 6],
+                    key=lambda x: -x["v"])[:3]
+    back = sorted([dict(player=nm, v=round(v, 1), ppg=ppg) for v, nm, _f, ppg, _n, b in now if b and v >= 6], key=lambda x: -x["v"])[:2]
+    lost = sorted([dict(player=nm, v=round(v, 1), ppg=ppg) for v, nm, ppg, stay in prev_actual if not stay and v >= 4], key=lambda x: -x["v"])[:3]
+    return dict(raw=round(max(-CAP, min(CAP, raw)), 1), v_now=round(v_now, 1), v_prev=round(v_prev, 1), gained=gained, back=back, lost=lost)
+
+
+def _val(p, key="pir"):
+    v = p.get(key)
+    return float(v) if v is not None else pra(p)
+
+
+# ---------- 歐冠、歐盃 ----------
+def el_attach(games, el_state, log):
+    """el_state：fetch 的 EL_STATE（rosters＝這季每隊名單和數據、prev_players＝上季每個球員、el＝官方資料）。"""
+    rosters, prev = el_state.get("rosters") or {}, el_state.get("prev_players") or {}
+    el = el_state.get("el")
+    if not rosters or not prev or not el:
+        return
+    # 上季每隊打幾場（出賽比例用）、場均淨勝分（算斜率用）
+    team_g, comp_of, tot, cnt = {}, {}, {}, {}
+    for x in el.prev_games():
+        if not x.get("rs"):
+            continue
+        d = x["hs"] - x["as_"]
+        for c, v in ((x["home"], d), (x["away"], -d)):
+            tot[c] = tot.get(c, 0) + v
+            cnt[c] = cnt.get(c, 0) + 1
+            comp_of[c] = x["comp"]
+    for p in prev.values():
+        team_g[p["team"]] = max(team_g.get(p["team"], 0), p.get("gp") or 0)
+    actual = lambda p: _val(p) * min(1.0, (p.get("gp") or 0) / max(1, team_g.get(p["team"], 0)))  # noqa: E731
+    vals = {}
+    for p in prev.values():
+        vals.setdefault(p["team"], []).append(actual(p))
+    k, r, n_fit = _fit_grouped([(comp_of[c], _top(v), tot[c] / cnt[c]) for c, v in vals.items() if c in cnt and cnt[c] >= 10])
+    zh = el.zh_name
+    out = {}
+    for code, lst in rosters.items():
+        if code not in vals:
+            continue            # 上季沒打歐戰的隊：沒有上季可以比
+        ids = {p.get("id") for p in lst}
+        now = []
+        for p in lst:
+            pv = prev.get(p.get("id"))
+            if pv and (pv.get("gp") or 0) >= 6:
+                v, new = actual(pv), False
+            else:               # 從別的聯盟來的：這季的數字，往一般輪換球員拉
+                gp = p.get("gp") or 0
+                v, new = AVAIL_NEW * (_val(p) * gp + REPLACE["el"] * NEW_W) / (gp + NEW_W), True
+            frm = (zh(pv["team"]) if pv else "別的聯盟") if (not pv or pv.get("team") != code) else None
+            now.append((v, p.get("name") or "", frm, (pv or p).get("ppg"), new, False))
+        prev_actual = [(actual(p), p.get("name") or "", p.get("ppg"), p.get("id") in ids) for p in prev.values() if p["team"] == code]
+        out[code] = _team_change(now, prev_actual, k)
+    n = _apply(games, out, lambda t: t.get("el_code"), lambda g, s: ((g.get("analysis") or {}).get("elo") or {}).get("n_" + s), k,
+               ("eurobasket", "eurodom"))
+    top = sorted(out.items(), key=lambda kv: -kv[1]["raw"])
+    log(f"[eurobasket] 陣容變化：效率值 1 單位值 {k} 分（上季 {n_fit} 隊算的，相關 {r}）；用在 {n} 場；"
+        f"變強最多 {[(zh(c), v['raw']) for c, v in top[:4]]}；變弱最多 {[(zh(c), v['raw']) for c, v in top[-3:]]}")
+
+
+# ---------- CBA ----------
+def cba_attach(games, cur, prev, rosters, prev_rows, log):
+    """cur、prev：新浪球員數據 {球員 id: dict(name, team 簡稱, gp, ppg, rpg, apg, eff)}；rosters：{新浪球隊代碼: [(球員 id, 名字)]}；
+    prev_rows：上季排名表（每隊場均得失分，算斜率用）。"""
+    import cba
+    from cba import key_of
+    if not prev or not rosters:
+        return
+    team_g = {}
+    for p in prev.values():
+        k_ = key_of(p.get("team"))
+        team_g[k_] = max(team_g.get(k_, 0), p.get("gp") or 0)
+    actual = lambda p: _val(p, "eff") * min(1.0, (p.get("gp") or 0) / max(1, team_g.get(key_of(p.get("team")), 0)))  # noqa: E731
+    vals = {}
+    for p in prev.values():
+        vals.setdefault(key_of(p.get("team")), []).append(actual(p))
+    margins_ = {key_of(r["team"]): r["pf"] - r["pa"] for r in prev_rows or [] if r.get("w", 0) + r.get("l", 0) >= 10}
+    k, r, n_fit = fit_k({t: _top(v) for t, v in vals.items() if t}, margins_)
+    out = {}
+    for sid, ro in rosters.items():
+        team_key = next((key_of(p.get("team")) for pid, _ in ro for p in [cur.get(pid) or {}] if p.get("team")), None)
+        if not team_key:
+            continue
+        ids = {pid for pid, _ in ro}
+        now = []
+        for pid, nm in ro:
+            pv, c = prev.get(pid), cur.get(pid)
+            if pv and (pv.get("gp") or 0) >= 8:
+                v, new = actual(pv), False
+            elif c:             # 新外援、新秀：這季打的幾場，往一般輪換球員拉
+                gp = c.get("gp") or 0
+                v, new = AVAIL_NEW * (_val(c, "eff") * gp + REPLACE["cba"] * NEW_W) / (gp + NEW_W), True
+            else:
+                continue        # 名單上但這季還沒上場、上季也沒數據
+            frm = (cba.FULL.get(key_of(pv["team"])) or pv["team"]) if pv and key_of(pv.get("team")) != team_key else ("新外援或新秀" if not pv else None)
+            now.append((v, cba._zh(nm), frm, (pv or c).get("ppg"), new, False))
+        prev_actual = [(actual(p), cba._zh(p.get("name") or ""), p.get("ppg"), pid in ids) for pid, p in prev.items() if key_of(p.get("team")) == team_key]
+        out[team_key] = _team_change(now, prev_actual, k)
+
+    def gp_of(g, side):
+        rec = str(g[side].get("record") or "")
+        try:
+            w, l_ = rec.split("-")
+            return int(w) + int(l_)
+        except ValueError:
+            return 0
+    n = _apply(games, out, lambda t: key_of(t.get("name")), gp_of, k, ("cba",))
+    top = sorted(out.items(), key=lambda kv: -kv[1]["raw"])
+    log(f"[cba] 陣容變化：效率值 1 單位值 {k} 分（上季 {n_fit} 隊算的，相關 {r}）；用在 {n} 場；"
+        f"變強最多 {[(cba.FULL.get(t, t), v['raw']) for t, v in top[:4]]}；變弱最多 {[(cba.FULL.get(t, t), v['raw']) for t, v in top[-3:]]}")

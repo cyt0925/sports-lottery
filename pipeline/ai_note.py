@@ -262,7 +262,8 @@ def facts(g, sport):
         if rc and not m:
             bits = []
             if rc.get("gained"):
-                bits.append("新來：" + "、".join(x["player"] + (f"（上季在{x['frm']}場均 {x['ppg']:.0f} 分）" if x.get("frm") and x.get("ppg") else "")
+                bits.append("新來：" + "、".join(x["player"] + ((f"（{x['frm']}，這季場均 {x['ppg']:.0f} 分）" if x.get("new") else f"（上季在{x['frm']}場均 {x['ppg']:.0f} 分）")
+                                                                if x.get("frm") and x.get("ppg") else "")
                                              for x in rc["gained"]))
             if rc.get("back"):
                 bits.append("傷癒回來：" + "、".join(x["player"] + (f"（之前場均 {x['ppg']:.0f} 分）" if x.get("ppg") else "") for x in rc["back"]))

@@ -1394,6 +1394,13 @@ def main():
         ERRORS.append(f"歐籃逐場實力分失敗: {e!r}")
         traceback.print_exc()
     try:
+        import roster_value
+        roster_value.el_attach(all_games, EL_STATE, log)        # 歐戰：今年陣容跟上季比（官方效率值）
+    except Exception as e:  # noqa: BLE001
+        import traceback
+        ERRORS.append(f"歐籃陣容變化失敗: {e!r}")
+        traceback.print_exc()
+    try:
         from model import rate_games
         rate_games(all_games, LEAGUES_BY_KEY, standings, log, ERRORS)
     except Exception as e:  # noqa: BLE001
