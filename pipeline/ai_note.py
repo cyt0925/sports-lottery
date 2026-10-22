@@ -312,6 +312,8 @@ def facts(g, sport):
         twd["不讓分"] = f"{an} {ml.get('away')}、{hn} {ml.get('home')}"
     if sp.get("line"):
         twd["讓分"] = sp["line"]
+        if s.get("ats_skill"):
+            twd["網站猜讓分準不準"] = s["ats_skill"]["text"]
     if tt.get("line") is not None:
         twd["大小"] = tt["line"]
     v = s.get("value")

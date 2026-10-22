@@ -143,7 +143,8 @@ def options(games, now, hidden=(), allow_totals=False):
         probs = s.get("probs") or {}
         pick = s["pick"]
         lean = (s.get("totals") or {}).get("lean")
-        sides = [pick, "ats_" + pick] if pick in ("home", "away") else []
+        ats_ok = (s.get("ats_skill") or {}).get("ok", True)       # 這個球種網站還猜不準讓分，就不串讓分
+        sides = [pick] + (["ats_" + pick] if ats_ok else []) if pick in ("home", "away") else []
         if allow_totals and lean in ("大", "小"):
             sides.append("over" if lean == "大" else "under")
         for side in sides:

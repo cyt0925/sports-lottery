@@ -237,7 +237,7 @@ def _migrate(hist, games):
         old, new = g.get("alt_id"), g["id"]
         if not old or old == new:
             continue
-        for key in ("entries", "model", "lines", "ai"):
+        for key in ("entries", "model", "lines", "ai", "ats"):
             d = hist.get(key)
             if isinstance(d, dict) and old in d and new not in d:
                 d[new] = d.pop(old)
@@ -289,6 +289,79 @@ def lessons(hist, games, now=None, days=30):
     return n
 
 
+# ---------- 讓分準不準（每個球種分開記） ----------
+# 讓分線本來就開在「大概會贏幾分」，兩邊接近五五波，台灣運彩要猜對 52.4% 以上才不虧。
+# 每一場都記網站算的分差跟開賽前最後的線，打完看「照網站算的押讓分」對不對；
+# 哪個球種還沒證明猜得準，就不主推讓分，卡片上寫「讓分難猜」。
+ATS_BREAK_EVEN = 0.524
+ATS_MIN_N = 10         # 少於這麼多場，還不知道準不準
+ATS_PRIOR = 20         # 場數少的往五成拉（當作多猜了 20 場、一半對一半錯），免得運氣好幾場就當真
+ATS_DAYS = 60
+
+
+def _ats_hit(m, line, margin):
+    """網站算主隊贏 m 分、主隊讓分線 line（負的是主隊讓），實際主隊贏 margin 分：照網站算的押讓分對不對。"""
+    edge = m + line
+    if abs(edge) < 0.05:
+        return None
+    v = margin + line
+    return "push" if v == 0 else ("win" if (v > 0) == (edge > 0) else "loss")
+
+
+def _track_ats(hist, g, now):
+    """開打前每次更新都記：網站算的分差、讓分線（打完的比分在 results 裡）。"""
+    if g["status"]["state"] != "pre":
+        return
+    s = g.get("suggestion") or {}
+    m = (s.get("est") or {}).get("margin")
+    line = _lines(g)["spread_home"]
+    if s.get("source") != "own" or m is None or line is None:
+        return
+    hist.setdefault("ats", {})[g["id"]] = dict(day=g["day_tw"], chip=g.get("chip") or g["sport"], m=m, line=line, pre=_preseason(g))
+
+
+def ats_text(b):
+    """-> (卡片上那句話, 短的原因)。"""
+    label, n, w = b["label"], b["n"], b["w"]
+    if b["ok"]:
+        return f"網站猜{label}的讓分，最近 {n} 場猜對 {w} 場（{b['rate']}%），可以參考。", ""
+    if n >= ATS_MIN_N:
+        why = f"網站猜{label}的讓分，最近 {n} 場只對 {w} 場（{b['rate']}%），還沒到 52.4%"
+    else:
+        why = f"網站猜{label}的讓分{f'才 {n} 場' if n else '還沒有紀錄'}，還不知道準不準"
+    return f"讓分難猜：{why}，看看就好。", why
+
+
+def ats_skill(hist, now=None, labels=None, days=ATS_DAYS):
+    """每個球種「照網站算的押讓分」最近猜對幾成 -> {球種: dict(n, w, l, rate, ok, label, text, why)}。
+    ok：場數夠、往五成拉過之後還有 52.4% 以上，才主推讓分。"""
+    now = now or datetime.now(TW)
+    cutoff = (now - timedelta(days=days)).strftime("%Y-%m-%d")
+    rows = {}
+    # 這個紀錄加上之前：網站有押的場次（押的時候記了分差和線）
+    for gid, e in (hist.get("entries") or {}).items():
+        r, w, ln = e.get("result") or {}, e.get("why") or {}, e.get("latest") or {}
+        if r.get("margin") is not None and w.get("margin") is not None and ln.get("spread_home") is not None:
+            rows[gid] = (e.get("chip"), e.get("day_tw"), e.get("pre"), _ats_hit(w["margin"], ln["spread_home"], r["margin"]))
+    done = hist.get("results") or {}
+    for gid, e in (hist.get("ats") or {}).items():
+        rr = done.get(gid)
+        if rr:
+            rows[gid] = (e["chip"], e["day"], e.get("pre"), _ats_hit(e["m"], e["line"], rr["hs"] - rr["as_"]))
+    out = {k: dict(w=0, l=0) for k in (labels or {})}
+    for chip, day, pre, hit in rows.values():
+        if pre or hit not in ("win", "loss") or (day or "") < cutoff:
+            continue
+        out.setdefault(chip, dict(w=0, l=0))["w" if hit == "win" else "l"] += 1
+    for chip, b in out.items():
+        n = b["n"] = b["w"] + b["l"]
+        b["rate"] = round(b["w"] / n * 100) if n else None
+        b["ok"] = n >= ATS_MIN_N and (b["w"] + ATS_PRIOR / 2) / (n + ATS_PRIOR) >= ATS_BREAK_EVEN
+        b["label"] = (labels or {}).get(chip, chip)
+        b["text"], b["why"] = ats_text(b)
+    return out
+
+
 def update(hist, games, now=None):
     now = now or datetime.now(TW)
     entries = hist.setdefault("entries", {})
@@ -298,6 +371,7 @@ def update(hist, games, now=None):
         try:
             _track_all(hist, g, now)
             _track_model(hist, g, now)
+            _track_ats(hist, g, now)
         except Exception:  # noqa: BLE001
             pass
         s = g.get("suggestion") or {}
@@ -349,7 +423,7 @@ def update(hist, games, now=None):
     for k in [k for k, v in entries.items() if v.get("day_tw", "") < cutoff]:
         entries.pop(k, None)
     cut_r = (now - timedelta(days=RESULT_DAYS)).strftime("%Y-%m-%d")
-    for key in ("results", "model"):
+    for key in ("results", "model", "ats"):
         d = hist.get(key) or {}
         for k in [k for k, v in d.items() if v.get("day", "") < cut_r]:
             d.pop(k, None)

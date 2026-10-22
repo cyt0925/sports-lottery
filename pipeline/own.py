@@ -19,6 +19,15 @@ LEAN_P = 0.56          # 大小分「看大／看小」的門檻
 LINE_TRUST = 0.5       # 我們算的分差、總分跟台灣的線差多少，只信一半（線是很多人一起算出來的，通常很準）
 LINE_P_CAP = 0.70      # 讓分、大小分本來就接近五五波，再有把握也不超過七成
 VALUE_GOOD, VALUE_BAD = 0.03, -0.12   # 押 100 長期拿回 103 以上算划算、88 以下算不划算
+ATS_SKILL = {}         # 每個球種網站猜讓分準不準（history.ats_skill，fetch.py 開工時放進來）；還沒證明準的球種不主推讓分
+
+
+def ats_skill(g):
+    """這場的球種網站猜讓分準不準；讀不到成績單就回 None（照舊推）。"""
+    if not ATS_SKILL:
+        return None
+    return ATS_SKILL.get(g.get("chip") or g.get("sport")) or dict(n=0, w=0, ok=False, text="讓分難猜：這個球種網站還沒有讓分紀錄，看看就好。",
+                                                                    why="這個球種網站還沒有讓分紀錄")
 
 
 def _phi(x):
@@ -96,7 +105,7 @@ def value(p, dec):
 ALT_P = {"不讓分": 0.62, "讓分": 0.55, "大小分": 0.56}
 
 
-def second_choice(g, res, probs, hn, an):
+def second_choice(g, res, probs, hn, an, ats_ok=True):
     play0, pick0 = res.get("play"), res.get("pick")
     if not pick0:
         return None
@@ -109,7 +118,7 @@ def second_choice(g, res, probs, hn, an):
         if p and dec and p >= ALT_P["不讓分"] and dec >= ML_MIN_DEC:
             cands.append(("不讓分", side, p, dec))
     lh = (tw.get("spread") or {}).get("line_home")
-    if play0 != "讓分" and lh is not None:
+    if play0 != "讓分" and lh is not None and ats_ok:
         for s_ in ("home", "away"):
             # 押另一隊只限「受讓」那邊（意思是：主推那隊會贏，但贏不了那麼多），押另一隊讓分就跟主推矛盾了
             if side in ("home", "away") and s_ != side and (lh if s_ == "home" else -lh) <= 0:
@@ -196,6 +205,15 @@ def build(g, lg):
     if est["src"] == "form":
         cautions.append("這個聯盟沒有完整數據，勝率是看近況粗估的")
 
+    # 讓分：這個球種網站還沒證明猜得準（猜對 52.4% 以上），就不主推讓分
+    sk = ats_skill(g)
+    ats_ok = sk is None or sk["ok"]
+    if sk and "ats_home" in probs:
+        res["ats_skill"] = sk
+
+    def _no_ats(best):
+        cautions.append(f"讓分難猜：照網站算，讓分押{hn if best == 'ats_home' else an}有機會；可是{sk['why']}，所以先不推讓分")
+
     pick, play, pconf = None, None, None
     ml_dec = tw_dec(g, fav)
     if conf != "低":
@@ -203,9 +221,11 @@ def build(g, lg):
             ats = [s for s in ("ats_home", "ats_away") if probs.get(s) is not None]
             best = max(ats, key=lambda s: probs[s]) if ats else None
             cautions.append(f"台灣運彩不讓分只賠 {ml_dec}，贏了也幾乎沒賺頭")
-            if best and probs[best] >= 0.55 and tw_dec(g, best):
+            if best and probs[best] >= 0.55 and tw_dec(g, best) and ats_ok:
                 pick, play, pconf = best[4:], "讓分", "中"
             else:
+                if best and probs[best] >= 0.55 and tw_dec(g, best):
+                    _no_ats(best)
                 pick, play, pconf = fav, "不讓分", "中" if conf == "高" else conf
         else:
             pick, play, pconf = fav, "不讓分", conf
@@ -213,7 +233,10 @@ def build(g, lg):
         ats = [s for s in ("ats_home", "ats_away") if probs.get(s) is not None]
         best = max(ats, key=lambda s: probs[s]) if ats else None
         if best and probs[best] >= ATS_MAIN_P:
-            pick, play, pconf = best[4:], "讓分", "中"
+            if ats_ok:
+                pick, play, pconf = best[4:], "讓分", "中"
+            else:
+                _no_ats(best)
     # 大小分：我們算的總分跟台灣的線差很多，而且輸贏那邊沒有很大把握，就改玩大小分
     tot_side = None
     if probs.get("over") is not None:
@@ -253,7 +276,7 @@ def build(g, lg):
         res["summary"] = f"押 {label}，玩不讓分，信心{pconf}"
     res["reasons"] = [f"{f['label']}：{f['team']}多 {f['pts']:g} 分" for f in res["factors"] if f.get("team")]
     if g["status"]["state"] == "pre":
-        res["alt"] = second_choice(g, res, probs, hn, an)
+        res["alt"] = second_choice(g, res, probs, hn, an, ats_ok)
     res["model"] = _model(est)
     return res
 

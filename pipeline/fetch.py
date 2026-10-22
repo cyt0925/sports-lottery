@@ -1302,11 +1302,21 @@ def main():
     try:
         import history as _h
         import model as _m
-        w = _m.load_weights(_h.load(os.path.join(os.path.dirname(os.path.abspath(args.out)), "history.json")))
+        _hist0 = _h.load(os.path.join(os.path.dirname(os.path.abspath(args.out)), "history.json"))
+        w = _m.load_weights(_hist0)
         if w:
             log("每個因素的分量（自己學的）：" + "、".join(f"{k}×{v:g}" for k, v in w.items()))
     except Exception as e:  # noqa: BLE001
+        _hist0 = None
         ERRORS.append(f"讀因素分量失敗: {e!r}")
+    # 每個球種網站猜讓分準不準（還沒證明猜對 52.4% 以上的球種，不主推讓分）
+    try:
+        import own as _own
+        if _hist0 is not None:
+            _own.ATS_SKILL = _h.ats_skill(_hist0, now_tw, labels={x["key"]: x["label"] for x in SPORTS if x["key"] in MAIN_CHIPS})
+            log("讓分準不準：" + "、".join(f"{b['label']} {b['w']}/{b['n']}{'（照常推）' if b['ok'] else '（先不推）'}" for b in _own.ATS_SKILL.values()))
+    except Exception as e:  # noqa: BLE001
+        ERRORS.append(f"讓分準不準失敗: {e!r}")
     global TSDB_LOADER
     if (not only or "eurodom" in only):
         try:
@@ -1549,6 +1559,10 @@ def main():
         history.save(hpath, hist)
         record = history.summarize(hist, now_tw)
         record["learn"] = hist.get("learn")
+        try:
+            record["ats_skill"] = history.ats_skill(hist, now_tw, labels={x["key"]: x["label"] for x in SPORTS if x["key"] in MAIN_CHIPS})
+        except Exception as e:  # noqa: BLE001
+            ERRORS.append(f"讓分準不準（成績單）失敗: {e!r}")
         record["model"] = history.model_summary(hist, now_tw)
         try:
             record["parlay"] = parlay.summary(hist, now_tw)

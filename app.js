@@ -391,6 +391,11 @@
     if (L % 1) return `押${fav}：要贏 ${Math.ceil(L)} 分以上才算對；押${dog}：輸 ${Math.floor(L)} 分以內、或贏球，都算對。`;
     return `押${fav}：要贏 ${L + 1} 分以上才算對（剛好贏 ${L} 分退錢）；押${dog}：輸 ${L - 1} 分以內、或贏球，都算對。`;
   }
+  // 網站猜這個球種的讓分準不準（還沒證明準的，寫「讓分難猜，看看就好」）
+  function atsSkillNote(g) {
+    const sk = (g.suggestion || {}).ats_skill;
+    return sk && sk.text ? `<div class="pick-note${sk.ok ? "" : " warn"}">${esc(sk.text)}</div>` : "";
+  }
   function pickButtons(g, compact) {
     const p = state.picks[g.id];
     const locked = gameStarted(g), post = g.status.state === "post";
@@ -416,7 +421,7 @@
       const grid = tab === "ats" ? btn("ats_away", `${A} ${fmtLine(-mk.spread)}`) + btn("ats_home", `${H} ${fmtLine(mk.spread)}`)
         : tab === "ou" ? btn("over", "大分 " + mk.total) + btn("under", "小分 " + mk.total) : btn("away", "押 " + A) + btn("home", "押 " + H);
       const intl = !locked && ((tab === "ats" && !mk.spreadTw) || (tab === "ou" && !mk.totalTw)) ? `<div class="pick-note warn">台灣運彩還沒開這一種，先用國際盤的線</div>` : "";
-      const hint = !locked && tab === "ats" ? `<div class="pick-note">${esc(atsHint(mk.spread, H, A))}</div>` : "";
+      const hint = !locked && tab === "ats" ? `<div class="pick-note">${esc(atsHint(mk.spread, H, A))}</div>${atsSkillNote(g)}` : "";
       const extra = p && mine !== tab ? `<div class="pick-note">你押 ${esc(sideLabel(p))}${p.result ? (p.result.r === "win" ? "，對了" : p.result.r === "loss" ? "，沒中" : "，平手") : ""}</div>` : "";
       return `<div class="pickrow compact" data-pickrow="${esc(g.id)}" data-compact="1">${tabs}<div class="pick-grid">${grid}</div>${intl}${hint}${extra}</div>`;
     }
@@ -426,7 +431,7 @@
     rows.push(`<div class="pick-label">誰會贏（不讓分）${mk.mlTw || mlIntl ? " " + tag(mk.mlTw) : ""}</div><div class="pick-grid">${btn("away", "我押 " + A)}${btn("home", "我押 " + H)}</div>`);
     const showP = (sides) => !locked || (p && sides.includes(p.side));
     if (mk.spread != null && showP(["ats_home", "ats_away"])) {
-      rows.push(`<div class="pick-label">讓分 ${tag(mk.spreadTw)}</div><div class="pick-grid">${btn("ats_away", `${A} ${fmtLine(-mk.spread)}`)}${btn("ats_home", `${H} ${fmtLine(mk.spread)}`)}</div>`);
+      rows.push(`<div class="pick-label">讓分 ${tag(mk.spreadTw)}</div><div class="pick-grid">${btn("ats_away", `${A} ${fmtLine(-mk.spread)}`)}${btn("ats_home", `${H} ${fmtLine(mk.spread)}`)}</div>${locked ? "" : atsSkillNote(g)}`);
     }
     if (mk.total != null && showP(["over", "under"])) {
       rows.push(`<div class="pick-label">大小分 ${tag(mk.totalTw)}</div><div class="pick-grid">${btn("over", "大分 " + mk.total)}${btn("under", "小分 " + mk.total)}</div>`);
@@ -803,8 +808,13 @@
     const rv = rec.reviews;
     const rvHtml = rv && rv.n ? `<div class="grp">押錯的 ${rv.n} 場，錯在哪</div><div class="explain">每場押錯都回頭看：差一點的算運氣；差很多的是實力看錯；因為某個因素才押這邊的，就記那個因素，網站之後會少信它一點。</div>
       <div class="stat-grid">${rv.kinds.map((k) => `<div class="stat"><div class="sl">${esc(k.label)}</div><b>${k.n} 場</b></div>`).join("")}</div>${rv.factors.length ? `<div class="explain">因為這些因素押錯：${rv.factors.map((f) => `${esc(f.label)} ${f.n} 場`).join("、")}</div>` : ""}` : "";
+    const sk = rec.ats_skill || {};
+    const skKeys = Object.keys(sk).filter((k) => !hid.has(k) && (state.sport === "all" || k === state.sport));
+    const skHtml = skKeys.length ? `<div class="grp">讓分：網站每個球種猜得準不準（近 60 天）</div>
+      <div class="explain">每一場都記：網站算的「贏幾分」跟台灣運彩的讓分線比，打完看猜對沒。讓分本來就接近五五波，要猜對 52.4% 以上才不虧。還沒做到的球種，網站就不主推讓分，卡片上會寫「讓分難猜」。</div>
+      <div class="stat-grid">${skKeys.map((k) => { const b = sk[k]; return `<div class="stat"><div class="sl">${esc(b.label)}</div><b>${b.n ? `${b.w} 對 ${b.l} 錯` : "還沒有"}</b><small>${b.n ? `猜對 ${b.rate}% · ` : ""}${b.ok ? "照常推讓分" : b.n >= 10 ? "沒到 52.4%，先不推讓分" : "場數太少，先不推讓分"}</small></div>`; }).join("")}</div>` : "";
     el.innerHTML = segTabs() + `<div class="explain">每次建議都先記下來，比賽打完對答案，不改分。</div>
-      <div class="stat-grid">${tiles.join("")}</div>${lgRows ? `<div class="grp">各聯盟</div><div class="stat-grid">${lgRows}</div>` : ""}${rvHtml}
+      <div class="stat-grid">${tiles.join("")}</div>${lgRows ? `<div class="grp">各聯盟</div><div class="stat-grid">${lgRows}</div>` : ""}${skHtml}${rvHtml}
       ${modelBlock(rec)}
       <div class="grp">最近對過答案的</div><div class="list">${list || `<div class="empty">這個球種還沒有結算的建議。</div>`}</div>`;
   }

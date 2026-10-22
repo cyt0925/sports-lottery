@@ -636,6 +636,8 @@ def build_story(g, sport):
     elif s.get("tw_value") == "划算":
         why.append(f"台灣運彩賠 {s.get('tw_dec')}，比平常好一點。")
     for c in s.get("cautions") or []:
+        if c.startswith("讓分難猜"):
+            care.append(c[5:] + "。")
         if "幾乎沒賺頭" in c:
             d_ = ((g.get("tw") or {}).get("ml") or {}).get(s.get("fav") or s.get("pick") or "")
             if s.get("play") == "讓分":
