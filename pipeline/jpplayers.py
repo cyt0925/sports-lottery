@@ -222,13 +222,19 @@ def parse_sv_roster(html):
 
 def sv_rosters(codes, log, errors):
     out = {}
+    miss = 0
     for code in codes:
-        if not code:
+        if not code or code in out:
+            continue
+        if miss >= 4:           # 連續 4 隊抓不到：網站在擋或掛了，這次先不抓
+            out[code] = []
             continue
         html = fetch(f"{SV}/team/{code}/player/", tries=1)
         if not html:
+            miss += 1
             errors.append(f"日排 選手頁 {code} 抓不到")
             continue
+        miss = 0
         try:
             out[code] = parse_sv_roster(html)
         except Exception as e:  # noqa: BLE001

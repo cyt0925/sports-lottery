@@ -8,7 +8,9 @@ import xml.etree.ElementTree as ET
 from email.utils import parsedate_to_datetime
 from urllib.parse import quote
 
-from taiwan_odds import fetch
+import requests
+
+from taiwan_odds import HEADERS
 
 GN = "https://news.google.com/rss/search"
 LANG = {
@@ -58,7 +60,28 @@ INJ_TERMS = {
     "cn": "(受伤 OR 伤病 OR 缺阵 OR 缺席 OR 复出 OR 伤停 OR 报销)",
 }
 _cache = {}
-STATS = {"calls": 0, "fail": 0}
+STATS = {"calls": 0, "fail": 0, "skip": 0}
+# Google 新聞查多了會變慢、會擋：一次最多等 10 秒；連續查不到 5 次就先停 90 秒；
+# 整次更新跑到 DEADLINE（fetch.py 設）就不再查，每個聯盟也有自己的時間（attach 的 budget_s），留時間給 AI 寫分析
+TIMEOUT = (5, 10)
+FAIL_RUN, COOL_S = 5, 90
+DEADLINE = None
+_RUN = {"fails": 0, "cool_until": 0.0, "budget_end": None}
+
+
+def _blocked():
+    now = time.time()
+    return bool((DEADLINE and now > DEADLINE) or (_RUN["budget_end"] and now > _RUN["budget_end"]) or now < _RUN["cool_until"])
+
+
+def _get(url):
+    try:
+        r = requests.get(url, headers=HEADERS, timeout=TIMEOUT)
+        if r.status_code == 200:
+            return r.text
+    except Exception:  # noqa: BLE001
+        pass
+    return None
 # 大陸的新聞網站常把舊文章換上新日期：例行賽期間（9 月到隔年 3 月）講季後賽、總決賽的是上季的舊聞
 CN_STALE = re.compile(r"季后赛|总决赛|半决赛|四强|总冠军赛|(?<![A-Za-z])G[1-7](?!\d)")
 
@@ -67,9 +90,15 @@ def _query(q, lang):
     key = (q, lang)
     if key in _cache:
         return _cache[key]
+    if _blocked():
+        STATS["skip"] += 1          # 時間到了、或 Google 正在擋：不查（也不記進快取，之後還能查）
+        return []
     url = f"{GN}?q={quote(q)}&{LANG.get(lang, LANG['en'])}"
     STATS["calls"] += 1
-    text = fetch(url, tries=1)
+    text = _get(url)
+    _RUN["fails"] = 0 if text else _RUN["fails"] + 1
+    if _RUN["fails"] >= FAIL_RUN:
+        _RUN["fails"], _RUN["cool_until"] = 0, time.time() + COOL_S
     items = []
     if text:
         try:
@@ -182,9 +211,21 @@ def local_news(spec, days=10):
     return inj, tn, keep
 
 
-def attach(games, name_fn, log, errors, label, hint=None, local_fn=None):
+def attach(games, name_fn, log, errors, label, hint=None, local_fn=None, budget_s=180):
     """name_fn(team) -> (查詢用隊名, 語言) 或 None。掛上 t["injury_news"]、t["injury_note"]、g["news"]。
-    local_fn(team) -> eurodom_names.local_query 的結果或 None：另外用當地語言查一次（國內的消息當地媒體最快）。"""
+    local_fn(team) -> eurodom_names.local_query 的結果或 None：另外用當地語言查一次（國內的消息當地媒體最快）。
+    budget_s：這個聯盟最多查幾秒（先開打的先查），時間到還沒查的隊寫「這次來不及查」。"""
+    _RUN["budget_end"] = time.time() + budget_s if budget_s else None
+    skip0, calls0, fail0 = STATS["skip"], STATS["calls"], STATS["fail"]
+    try:
+        _attach(games, name_fn, log, errors, label, hint, local_fn)
+    finally:
+        _RUN["budget_end"] = None
+    if STATS["skip"] > skip0:
+        log(f"[{label}] 新聞查到時間上限：這次查了 {STATS['calls'] - calls0} 次（失敗 {STATS['fail'] - fail0} 次），{STATS['skip'] - skip0} 次來不及查，下次更新再補")
+
+
+def _attach(games, name_fn, log, errors, label, hint, local_fn):
     n_team = n_news = n_sig = 0
     n_local, examples = {}, []
     done = {}
@@ -205,6 +246,7 @@ def attach(games, name_fn, log, errors, label, hint=None, local_fn=None):
                     t["signals"] = done[name][3]
             else:
                 sig = []
+                skip0 = STATS["skip"]
                 try:
                     inj = injury_news(name, lang, hint=hint)
                     tn = team_news(name, lang, hint=hint)
@@ -238,6 +280,8 @@ def attach(games, name_fn, log, errors, label, hint=None, local_fn=None):
                 if inj:
                     note = f"沒有官方傷兵名單，近 10 天新聞有提到傷兵相關消息（{len(inj)} 則，點進去看）"
                     n_team += 1
+                elif STATS["skip"] > skip0:
+                    note = "沒有官方傷兵名單；這次更新來不及查這隊的新聞，下次更新會補上，傷兵狀況請賽前再確認"
                 else:
                     note = "沒有官方傷兵名單；近 10 天新聞沒有提到這隊的傷兵消息，通常代表陣容完整，但賽前仍可能臨時缺陣"
                 t["injury_news"], t["injury_note"] = inj, note

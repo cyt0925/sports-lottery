@@ -104,7 +104,8 @@ SESSION.headers.update(HEADERS)
 ERRORS = []
 CALLS = {"n": 0}
 T_START = time.time()
-AI_STOP_S = 17 * 60    # 整次更新跑到 17 分鐘就不再叫 AI 寫新的（工作上限 30 分鐘，留時間存檔）
+AI_STOP_S = 23 * 60    # 整次更新跑到 23 分鐘就不再叫 AI 寫新的（工作上限 30 分鐘，AI 之後的存檔、成績單不到 1 分鐘）
+NEWS_STOP_S = 16 * 60  # 整次更新跑到 16 分鐘就不再查 Google 新聞（新聞慢的時候會把 AI 的時間吃光）
 TSDB_LOADER = None     # 國內聯賽（main() 一開始就在背景抓）
 OUT_PATH = [""]        # data/today.json 的位置（其他快取檔放同一個資料夾）
 EL_STATE = {}          # 歐冠、歐盃官方資料（國內聯賽要用同一支球隊的歐戰賽程）
@@ -1309,6 +1310,8 @@ def main():
     except Exception as e:  # noqa: BLE001
         _hist0 = None
         ERRORS.append(f"讀因素分量失敗: {e!r}")
+    import newsinj
+    newsinj.DEADLINE = T_START + NEWS_STOP_S
     # 每個球種網站猜讓分準不準（還沒證明猜對 52.4% 以上的球種，不主推讓分）
     try:
         import own as _own
@@ -1946,7 +1949,7 @@ def process_svleague(lg, lo, hi, all_games, standings):
     if keep:
         near = [g for g in keep if is_near(g)]
         try:
-            newsinj.attach(near, lambda t: (t["jp_name"] + " バレー", "ja") if t.get("jp_name") else None, log, ERRORS, lg["key"])
+            newsinj.attach(near, lambda t: (t["jp_name"] + " バレー", "ja") if t.get("jp_name") else None, log, ERRORS, lg["key"], budget_s=90)
         except Exception as e:  # noqa: BLE001
             ERRORS.append(f"{lg['key']} 新聞失敗: {e!r}")
         try:
@@ -2173,7 +2176,7 @@ def process_tsdb(lg, lo, hi, all_games, standings):
     if near:
         try:
             newsinj.attach(near, lambda t: (t["en_key"], "en") if t.get("en_key") else None, log, ERRORS, lg["key"], hint=" basketball",
-                           local_fn=_local_news_name)
+                           local_fn=_local_news_name, budget_s=200)    # 國內聯賽台灣運彩沒開，新聞最多查 200 秒
         except Exception as e:  # noqa: BLE001
             ERRORS.append(f"{lg['key']} 新聞失敗: {e!r}")
         if EL_STATE.get("moves"):

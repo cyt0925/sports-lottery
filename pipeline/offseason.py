@@ -9,6 +9,7 @@ from datetime import datetime, timezone
 
 UTC = timezone.utc
 MAX_CALLS = 40
+BUDGET_S = 90          # 每次最多查 90 秒（Google 新聞慢的時候，一次要等好幾秒），沒查完的下次繼續
 REFRESH_H = 72
 MONTHS = (9, 10, 11, 12)
 # 季前展望：老球迷講的「這隊今年是什麼狀態」（爭冠、重建、誰傷癒回來）
@@ -53,8 +54,10 @@ def attach(games, path, log, errors, now=None):
     now = now or datetime.now(UTC)
     if now.month not in MONTHS:
         return
+    import time
     import newsinj
     from newsread import relevant, team_words, NOISE
+    t_end = time.time() + BUDGET_S
     try:
         with open(path, encoding="utf-8") as f:
             store = json.load(f)
@@ -74,17 +77,17 @@ def attach(games, path, log, errors, now=None):
     for key in order:
         q, lang, hint, teams = todo[key]
         ent = store.get(key) or {}
-        if calls < MAX_CALLS and now.timestamp() - ent.get("at", 0) >= REFRESH_H * 3600:
+        if calls < MAX_CALLS and time.time() < t_end and now.timestamp() - ent.get("at", 0) >= REFRESH_H * 3600:
             calls += 1
-            fails = newsinj.STATS["fail"]
+            fails, skips = newsinj.STATS["fail"], newsinj.STATS["skip"]
             try:
                 words = PREVIEW_EN if lang == "en-preview" else WORDS.get(lang, WORDS["en"])
                 items = newsinj._query(f'"{q}"{hint} {words} when:{60 if lang == "en-preview" else 150}d', lang.split("-")[0])
             except Exception as e:  # noqa: BLE001
                 errors.append(f"休賽季新聞 {q} 失敗: {e!r}")
                 items = None
-            if newsinj.STATS["fail"] > fails:
-                items = None          # 沒查到（連不上）就不存，下次再查
+            if newsinj.STATS["fail"] > fails or newsinj.STATS["skip"] > skips:
+                items = None          # 沒查到（連不上、時間到）就不存，下次再查
             if items is not None:
                 ent = dict(at=int(now.timestamp()), items=[dict(title=x.get("title"), url=x.get("url"), published=x.get("published"),
                                                                  source=x.get("source"), lang=lang.split("-")[0]) for x in items[:30]])
